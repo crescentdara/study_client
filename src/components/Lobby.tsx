@@ -7,12 +7,12 @@ const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
   { id: "🦊", src: null,               label: "🦊" },
   { id: "🐼", src: null,               label: "🐼" },
   { id: "🐨", src: null,               label: "🐨" },
-  { id: "🦁", src: null,               label: "🦁" },
-  { id: "🐸", src: null,               label: "🐸" },
-  { id: "🐧", src: null,               label: "🐧" },
-  { id: "👽", src: null,               label: "👽" },
-  { id: "👻", src: null,               label: "👻" },
   { id: "💀", src: null,               label: "💀" },
+  { id: "ch1", src: "/src/assets/images/ch1.png", label: "😀" },
+  { id: "ch2", src: "/src/assets/images/ch2.png", label: "😁" },
+  { id: "ch3", src: "/src/assets/images/ch3.png", label: "👻" },
+  { id: "ch4", src: "/src/assets/images/ch4.png", label: "👽" },
+  { id: "pig", src: "/src/assets/images/dalbit.png", label: "🐷" },
   { id: "ggobuk", src: "/src/assets/images/ggobuk.png", label: "🐢" },
 ];
 interface LobbyProps {
@@ -123,7 +123,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   return (
     <div style={{ display: "flex", gap: "20px", maxWidth: "900px" }}>
       {/* ── Left: Explorer panel ──────────────────── */}
-      <div style={{ width: "200px", flexShrink: 0 }}>
+      <div style={{ width: "300px", flexShrink: 0 }}>
         <div
           style={{
             background: "rgba(0,0,0,0.05)",
@@ -144,7 +144,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             style={{
               padding: "0 12px 10px",
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: "6px",
             }}
           >
@@ -155,6 +155,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                   key={a.id}
                   onClick={() => onEmojiChange(a.id)}
                   style={{
+                    height: "50px",
                     position: "relative",
                     display: "flex",
                     alignItems: "center",
@@ -169,9 +170,9 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                   }}
                 >
                   {a.src ? (
-                    <img src={a.src} alt={a.label} style={{ width: "24px", height: "24px", objectFit: "contain" }} />
+                    <img src={a.src} alt={a.label} style={{ width: "40px", height: "40px", objectFit: "contain" }} />
                   ) : (
-                    <span style={{ fontSize: "18px", lineHeight: 1 }}>{a.label}</span>
+                    <span style={{ fontSize: "32px", lineHeight: 1 }}>{a.label}</span>
                   )}
                   {isSelected && (
                     <span style={{
