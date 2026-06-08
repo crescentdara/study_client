@@ -72,9 +72,9 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
         studyType,
         nickname: nickname.trim(),
         sessionId,
-        maxPlayers,
+        maxPlayers: studyType === "OMOK" ? 2 : maxPlayers,
         digits,
-        boardSize,
+        boardSize: studyType === "OMOK" ? 19 : boardSize,
       };
       const res = await fetch("/api/rooms", {
         method: "POST",
@@ -228,6 +228,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "2px 12px", fontSize: "12px", color: "#555" }}>📁 GAMES</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ⚾ BASEBALL</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 📝 BINGO</div>
+          <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ▦ OMOK</div>
         </div>
       </div>
 
@@ -279,7 +280,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                     <span className="pct">, </span>
                     <span className="var">type</span>
                     <span className="pct">: </span>
-                    <span className="typ">{room.studyType}</span>
+                    <span className="typ">{room.studyType === "OMOK" ? "OMOK" : room.studyType}</span>
                     <span className="pct">, </span>
                     <span className="var">opt</span>
                     <span className="pct">: </span>
@@ -365,14 +366,20 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">type</span>
                 <span className="pct"> = </span>
-                {(["BASEBALL", "BINGO"] as StudyType[]).map((t) => (
+                {(["BASEBALL", "BINGO", "OMOK"] as StudyType[]).map((t) => (
                   <button
                     key={t}
                     className={`btn-opt ${studyType === t ? "on" : ""}`}
-                    onClick={() => setStudyType(t)}
+                    onClick={() => {
+                      setStudyType(t);
+                      if (t === "OMOK") {
+                        setMaxPlayers(2);
+                        setBoardSize(19);
+                      }
+                    }}
                     style={{ fontSize: "11px" }}
                   >
-                    <span className="typ">{t}</span>
+                    <span className="typ">{t === "OMOK" ? "OMOK" : t}</span>
                   </button>
                 ))}
               </span>,
@@ -380,7 +387,16 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             )}
 
             {/* max players */}
-            {L(
+            {studyType === "OMOK" ? L(
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span className="kw">const </span>
+                <span className="var">players</span>
+                <span className="pct"> = </span>
+                <span className="num">2</span>
+                <span className="cmt"> // OMOK is 2-player only</span>
+              </span>,
+              1,
+            ) : L(
               <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                 <span className="kw">const </span>
                 <span className="var">maxPlayers</span>
@@ -439,6 +455,18 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                     </button>
                   ))}
                   <span className="cmt"> // win: {boardSize === 3 ? 2 : 3} lines</span>
+                </span>,
+                1,
+              )}
+
+            {studyType === "OMOK" &&
+              L(
+                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className="kw">const </span>
+                  <span className="var">boardSize</span>
+                  <span className="pct"> = </span>
+                  <span className="num">19</span>
+                  <span className="cmt"> // fixed 19x19, P1 3-3 forbidden</span>
                 </span>,
                 1,
               )}

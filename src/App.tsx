@@ -93,7 +93,7 @@ function App() {
   // 현재 열린 탭 레이블: 로비면 'lobby.ts', 방에 들어가면 '방이름.bs/.bg'
   // (VS Code 파일탭 스타일)
   const tabLabel = currentRoom
-    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : 'bg'}`
+    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : currentRoom.studyType === 'OMOK' ? 'omok' : 'bg'}`
     : 'lobby.ts';
 
   return (
@@ -178,7 +178,9 @@ function App() {
           <span style={{ opacity: 0.7 }}>
             {currentRoom.studyType === 'BASEBALL'
               ? `⚾ Baseball · ${currentRoom.digits}-digit`
-              : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
+              : currentRoom.studyType === 'OMOK'
+                ? `OMOK · ${currentRoom.boardSize}×${currentRoom.boardSize}`
+                : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
           </span>
         )}
         {/* 우측 정렬: 현재 인원 / 최대 인원 */}

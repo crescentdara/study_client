@@ -1,4 +1,4 @@
-export type StudyType   = 'BASEBALL' | 'BINGO';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -32,30 +32,30 @@ export interface StudyMoveRequest {
   moveType:
     | 'START_GAME'
     | 'RESTART'
-    | 'LEAVE'        // 방 나가기 (서버에 알림)
+    | 'LEAVE'
     | 'SET_SECRET'
     | 'GUESS'
     | 'SET_BOARD'
     | 'CALL_TOPIC'
+    | 'PLACE_STONE'
     | 'CHAT';
   data: string;
   sessionId: string;
   payload?: unknown;
-  emoji?: string;    // 채팅 시 발신자 이모지
+  emoji?: string;
 }
 
 export interface StudyStateResponse {
   roomId: string;
   studyType: StudyType;
   status: StudyStatus;
-  message: string;   // 'ROOM_CLOSED:' 로 시작하면 방 폐쇄 신호
+  message: string;
   currentTurn: number;
   winner: number;
-  gameData: BaseballGameData | BingoGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | null;
   playerNames: string[];
 }
 
-// ── Baseball ──────────────────────────────────────
 export interface GuessResult {
   guess: string;
   strikes: number;
@@ -73,7 +73,6 @@ export interface BaseballGameData {
   secrets?: string[];
 }
 
-// ── Bingo ─────────────────────────────────────────
 export interface BingoBoard {
   size: number;
   topics: string[][];
@@ -94,10 +93,21 @@ export interface BingoGameData {
   bingoCounts: number[];
 }
 
-// ── Chat ──────────────────────────────────────────
+export interface OmokGameData {
+  size: number;
+  numPlayers: number;
+  board: number[][];
+  currentTurn: number;
+  winner: number;
+  moveCount: number;
+  lastRow: number;
+  lastCol: number;
+  winPath: number[][];
+}
+
 export interface ChatMessage {
   nickname: string;
   text: string;
   timestamp: number;
-  emoji: string;     // 발신자가 선택한 이모지 (서버에서 포함해서 브로드캐스트)
+  emoji: string;
 }
