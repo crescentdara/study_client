@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { OmokGameData, StudyMoveRequest, StudyStateResponse } from '../../types';
 
 interface Props {
@@ -9,12 +10,21 @@ interface Props {
 }
 
 export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, boardSize }: Props) {
+  const [stoneOpacity, setStoneOpacity] = useState(42);
+  const [boardOpacity, setBoardOpacity] = useState(100);
+  const [lineOpacity, setLineOpacity] = useState(72);
   const data = studyState?.gameData as OmokGameData | null;
   const size = data?.size ?? boardSize;
   const board = data?.board ?? Array.from({ length: size }, () => Array(size).fill(0));
   const isMyTurn = studyState?.status === 'PLAYING' && data?.currentTurn === myPlayerIndex;
   const activeName = studyState?.playerNames?.[data?.currentTurn ?? 0] ?? 'player';
   const winCells = new Set((data?.winPath ?? []).map(([r, c]) => `${r}-${c}`));
+  const boardStyle = {
+    gridTemplateColumns: `16px repeat(${size}, minmax(12px, 1fr))`,
+    '--omok-board-opacity': `${boardOpacity / 100}`,
+    '--omok-line-opacity': `${lineOpacity / 100}`,
+    '--omok-stone-opacity': `${stoneOpacity / 100}`,
+  } as React.CSSProperties;
 
   const place = (row: number, col: number) => {
     if (!isMyTurn || board[row]?.[col] !== 0) return;
@@ -64,7 +74,7 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
             <span><span className="var">mode</span><span className="pct">: </span><span className="typ">OMOK</span></span>
             <span><span className="var">size</span><span className="pct">: </span><span className="num">{size}x{size}</span></span>
           </div>
-          <div className="omok-board" style={{ gridTemplateColumns: `16px repeat(${size}, minmax(12px, 1fr))` }}>
+          <div className="omok-board" style={boardStyle}>
             <div className="omok-axis" />
             {Array.from({ length: size }, (_, c) => (
               <div key={`h-${c}`} className="omok-axis">{String.fromCharCode(65 + c)}</div>
@@ -143,8 +153,37 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
                 : '// opponent turn'}
           </span>
         </CL>
+        <div className="omok-controls">
+          <Slider label="stoneAlpha" value={stoneOpacity} min={12} max={80} onChange={setStoneOpacity} />
+          <Slider label="boardAlpha" value={boardOpacity} min={55} max={100} onChange={setBoardOpacity} />
+          <Slider label="lineAlpha" value={lineOpacity} min={25} max={90} onChange={setLineOpacity} />
+        </div>
       </div>
     </div>
+  );
+}
+
+function Slider({
+  label, value, min, max, onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="omok-slider">
+      <span className="var">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <span className="num">{value}%</span>
+    </label>
   );
 }
 
