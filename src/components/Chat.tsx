@@ -30,8 +30,9 @@ interface ChatProps {
  *   → messages prop 업데이트 → 이 컴포넌트 리렌더링
  */
 export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
-  // 채팅 입력창 상태
   const [input, setInput] = useState('');
+  // 패널 접기/펼치기 상태 (true = 펼침)
+  const [open, setOpen] = useState(true);
 
   /**
    * 메시지 목록의 맨 아래를 참조하는 DOM 참조 (useRef)
@@ -89,8 +90,21 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
         letterSpacing: '1px',
         textTransform: 'uppercase',
         flexShrink: 0, // 헤더가 줄어들지 않게
+        justifyContent: 'space-between',
+        display: 'flex',
+        alignItems: 'center',
       }}>
         <span style={{ color: '#569cd6' }}>// </span>CHAT
+        {/* 접기/펼치기 버튼 */}
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            marginLeft: 'auto', background: 'transparent', border: 'none',
+            color: '#858585', cursor: 'pointer', fontSize: '12px', padding: '0 2px',
+          }}
+        >
+          {open ? '−' : '+'}
+        </button>
       </div>
 
       {/* ── 메시지 목록 (스크롤 가능) ── */}
@@ -100,7 +114,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
         minHeight: 0 → flex 컨테이너에서 자식이 최소 크기로 줄어들 수 있게 허용
           (이 속성 없이는 overflow가 작동하지 않을 수 있음)
       */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0', minHeight: 0 }}>
+      {open && <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0', minHeight: 0 }}>
 
         {/* 메시지가 없을 때 안내 문구 */}
         {messages.length === 0 && (
@@ -140,10 +154,10 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
 
         {/* 자동 스크롤 앵커: 이 div가 화면에 보이도록 스크롤됩니다 */}
         <div ref={bottomRef} />
-      </div>
+      </div>}
 
       {/* ── 입력창 ── */}
-      <div style={{
+      {open && <div style={{
         display: 'flex',
         gap: '4px',
         padding: '6px 8px',
@@ -169,7 +183,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
         >
           send
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

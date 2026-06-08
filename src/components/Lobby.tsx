@@ -254,11 +254,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             <>
               <span className="kw">const </span>
               <span className="var">rooms</span>
-              <span className="pct"> = [</span>
+              <span className="pct"> = </span>
             </>,
           )}
 
-          {rooms.length === 0 && L(<span className="cmt">{"  방을 만들어주세요."}</span>)}
+          {rooms.length === 0 && L(<span className="cmt">{"   create room;"}</span>)}
 
           {rooms.map((room) => {
             const isBaseball = room.studyType === "BASEBALL";
