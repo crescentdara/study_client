@@ -42,6 +42,7 @@ body {
   font-size: 13px;
   line-height: 1.5;
   min-height: 100vh;
+  font-family: 'noto sans', sans-serif;
 }
 
 #root { min-height: 100vh; display: flex; flex-direction: column; }

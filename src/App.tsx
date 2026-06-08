@@ -22,6 +22,8 @@ function App() {
   // 플레이어 닉네임: Lobby에서 입력, StudyRoom 상단에 표시
   const [nickname, setNickname] = useState('');
 
+  const [emoji, setEmoji] = useState("🐱");
+
   /**
    * 클라이언트 고유 세션 ID
    *
@@ -147,15 +149,18 @@ function App() {
           // 로비: 닉네임 설정 + 방 목록 + 방 만들기
           <Lobby
             nickname={nickname}
+            emoji={emoji}
+            onEmojiChange={(e) => setEmoji(e)}
             sessionId={sessionId}
-            onNicknameChange={setNickname}
-            onJoinRoom={handleJoinRoom}
+            onNicknameChange={(name) => setNickname(name)}  
+            onJoinRoom={handleJoinRoom}                
           />
         ) : (
           // 게임방: WebSocket 연결 + 게임 컴포넌트 + 채팅
           <StudyRoom
             room={currentRoom}
             nickname={nickname}
+            emoji={emoji}
             sessionId={sessionId}
             studyState={studyState}
             onStudyState={handleStudyState}
