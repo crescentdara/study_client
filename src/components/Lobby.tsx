@@ -13,7 +13,7 @@ const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
   { id: "👽", src: null,               label: "👽" },
   { id: "👻", src: null,               label: "👻" },
   { id: "💀", src: null,               label: "💀" },
-  { id: "ggobuk", src: "/avatars/ggobuk.png", label: "🐢" },
+  { id: "ggobuk", src: "/src/assets/images/ggobuk.png", label: "🐢" },
 ];
 interface LobbyProps {
   nickname: string;
