@@ -143,7 +143,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
                   m.emoji: 서버가 포함해서 브로드캐스트한 발신자 이모지
                   → 모든 클라이언트가 각자의 이모지를 볼 수 있음 */}
               <span style={{ color: isMe ? '#4ec9b0' : '#9cdcfe', marginRight: '6px' }}>
-                {m.emoji || ''}{m.nickname}
+                {m.emoji || (isMe ? myEmoji : '')}{m.nickname}
               </span>
 
               {/* 메시지 내용 */}

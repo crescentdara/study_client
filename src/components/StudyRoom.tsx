@@ -3,6 +3,7 @@ import { Room, StudyStateResponse, ChatMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
 import Bingo from './games/Bingo';
+import Omok from './games/Omok';
 import Chat from './Chat';
 
 interface StudyRoomProps {
@@ -33,6 +34,7 @@ export default function StudyRoom({
   const myPlayerIndex = room.playerNames.indexOf(nickname);
   const isHost        = myPlayerIndex === 0;
   const isBaseball    = room.studyType === 'BASEBALL';
+  const isOmok        = room.studyType === 'OMOK';
   const status        = studyState?.status ?? room.status;
   const playerNames   = studyState?.playerNames ?? room.playerNames;
 
@@ -91,7 +93,7 @@ export default function StudyRoom({
             <span className="kw">room </span>
             <span className="str">"{room.roomName}"</span>
             <span className="dim"> · </span>
-            <span className="typ">{room.studyType}</span>
+            <span className="typ">{isOmok ? 'OMOK' : room.studyType}</span>
             <span className="dim"> · </span>
             <span className="num">
               {isBaseball ? `${room.digits}-digit` : `${room.boardSize}×${room.boardSize}`}
@@ -192,6 +194,14 @@ export default function StudyRoom({
               myPlayerIndex={myPlayerIndex}
               sendMove={sendMove}
               digits={room.digits}
+            />
+          ) : isOmok ? (
+            <Omok
+              studyState={studyState}
+              sessionId={sessionId}
+              myPlayerIndex={myPlayerIndex}
+              sendMove={sendMove}
+              boardSize={room.boardSize}
             />
           ) : (
             <Bingo
