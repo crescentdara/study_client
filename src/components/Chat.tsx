@@ -127,7 +127,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
 
               {/* 닉네임: 내 것은 청록색 + ★, 상대방은 하늘색 */}
               <span style={{ color: isMe ? '#4ec9b0' : '#9cdcfe', marginRight: '6px' }}>
-                {isMe ? 'myEmoji' : ''}{m.nickname}
+                {isMe ? myEmoji : ''}{m.nickname}
               </span>
 
               {/* 메시지 내용 */}
