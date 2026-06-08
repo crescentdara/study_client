@@ -1,7 +1,20 @@
 import { useState, useEffect } from "react";
 import { Room, StudyType, CreateRoomRequest, JoinRoomRequest } from "../types";
 
-const PLAYER_EMOJIS = ["🐱", "🐶", "🦊", "🐼", "🐨", "🦁", "🐸", "🐧", "👽", "👻", "💀", "🐢"];
+const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
+  { id: "🐱", src: null,               label: "🐱" },
+  { id: "🐶", src: null,               label: "🐶" },
+  { id: "🦊", src: null,               label: "🦊" },
+  { id: "🐼", src: null,               label: "🐼" },
+  { id: "🐨", src: null,               label: "🐨" },
+  { id: "🦁", src: null,               label: "🦁" },
+  { id: "🐸", src: null,               label: "🐸" },
+  { id: "🐧", src: null,               label: "🐧" },
+  { id: "👽", src: null,               label: "👽" },
+  { id: "👻", src: null,               label: "👻" },
+  { id: "💀", src: null,               label: "💀" },
+  { id: "ggobuk", src: "/avatars/ggobuk.png", label: "🐢" },
+];
 interface LobbyProps {
   nickname: string;
   emoji: string;
@@ -135,63 +148,60 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
               gap: "6px",
             }}
           >
-            {PLAYER_EMOJIS.map((e) => {
-              const isSelected = emoji === e;
+            {PLAYER_AVATARS.map((a) => {
+              const isSelected = emoji === a.id;
               return (
                 <div
-                  key={e}
-                  onClick={() => onEmojiChange(e)}
+                  key={a.id}
+                  onClick={() => onEmojiChange(a.id)}
                   style={{
-                    position: "relative", // ← 래퍼에 relative
+                    position: "relative",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "18px",
-                    padding: "5px",
+                    padding: "3px",
                     background: isSelected ? "rgba(14,99,156,0.5)" : "transparent",
                     border: isSelected ? "1px solid #0e639c" : "1px solid #3e3e42",
                     borderRadius: "4px",
                     cursor: "pointer",
-                    lineHeight: 1,
                     transition: "all 0.15s",
-                    opacity: isSelected ? 1 : 0.5, // ← 미선택은 흐리게
+                    opacity: isSelected ? 1 : 0.5,
                   }}
-                  title={e}
                 >
-                  {e}
+                  {a.src ? (
+                    <img src={a.src} alt={a.label} style={{ width: "24px", height: "24px", objectFit: "contain" }} />
+                  ) : (
+                    <span style={{ fontSize: "18px", lineHeight: 1 }}>{a.label}</span>
+                  )}
                   {isSelected && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "-4px",
-                        right: "-4px",
-                        width: "10px",
-                        height: "10px",
-                        background: "#4ec9b0", // ← VS Code 민트색
-                        border: "1px solid #1e1e1e",
-                        borderRadius: "50%",
-                        display: "block",
-                      }}
-                    />
+                    <span style={{
+                      position: "absolute", top: "-4px", right: "-4px",
+                      width: "10px", height: "10px",
+                      background: "#4ec9b0", border: "1px solid #1e1e1e", borderRadius: "50%",
+                    }} />
                   )}
                 </div>
               );
             })}
           </div>
-
           {/* ── Nickname ── */}
           <div style={{ padding: "4px 12px 4px", fontSize: "11px", borderTop: "1px solid #3e3e42" }}>
             <span className="cmt">NICKNAME</span>
           </div>
           <div style={{ padding: "0 12px 10px", display: "flex", gap: "6px", alignItems: "center" }}>
-            {emoji && <span style={{ fontSize: "16px", lineHeight: 1 }}>{emoji}</span>}
+            {emoji && (() => {
+              const a = PLAYER_AVATARS.find(a => a.id === emoji);
+              return a?.src
+                ? <img src={a.src} alt={a.label} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                : <span style={{ fontSize: "16px", lineHeight: 1 }}>{a?.label}</span>;
+            })()}
             <input
               style={{
                 fontSize: "12px",
                 padding: "4px 6px",
                 flex: 1,
                 minWidth: 0,
-                border: nickname.trim() ? "1px solid #4ec9b0" : undefined, // ← 입력 시 민트 보더
+                border: nickname.trim() ? "1px solid #4ec9b0" : undefined,
                 outline: nickname.trim() ? "none" : undefined,
                 transition: "border-color 0.2s",
               }}
