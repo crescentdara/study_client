@@ -1,0 +1,242 @@
+/* ============================================================
+   VS Code Dark+ Theme — Study Platform
+   ============================================================ */
+
+:root {
+  --bg-editor:   #1e1e1e;
+  --bg-sidebar:  #252526;
+  --bg-tab-on:   #1e1e1e;
+  --bg-tab-off:  #2d2d2d;
+  --bg-input:    #3c3c3c;
+  --bg-hover:    #2a2d2e;
+  --bg-select:   #04395e;
+  --bg-btn:      #0e639c;
+  --bg-btn-hover:#1177bb;
+
+  --border:      #3e3e42;
+  --border-focus:#007fd4;
+
+  --text:        #d4d4d4;
+  --text-dim:    #858585;
+  --text-muted:  #4e4e4e;
+
+  /* Syntax highlight */
+  --syn-keyword: #569cd6;
+  --syn-keyword2:#c586c0;
+  --syn-string:  #ce9178;
+  --syn-number:  #b5cea8;
+  --syn-comment: #6a9955;
+  --syn-type:    #4ec9b0;
+  --syn-fn:      #dcdcaa;
+  --syn-var:     #9cdcfe;
+
+  --font: 'Consolas', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-editor);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Tab bar ───────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: var(--bg-tab-off);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-tab-off);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tab.active {
+  background: var(--bg-tab-on);
+  color: var(--text);
+  border-top: 1px solid var(--syn-keyword);
+  margin-top: -1px;
+}
+.tab-close {
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 2px;
+}
+.tab-close:hover { background: var(--bg-hover); color: var(--text); }
+
+/* ── Buttons ───────────────────────────────────── */
+button {
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  border-radius: 2px;
+  padding: 5px 12px;
+  transition: background 0.1s;
+}
+.btn-primary { background: var(--bg-btn); color: #fff; }
+.btn-primary:hover { background: var(--bg-btn-hover); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+
+.btn-danger {
+  background: transparent;
+  color: #f14c4c;
+  border: 1px solid #f14c4c55;
+}
+.btn-danger:hover { background: #3a1515; }
+
+/* Toggle option buttons */
+.btn-opt {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+}
+.btn-opt.on {
+  background: var(--bg-select);
+  color: var(--syn-var);
+  border-color: var(--syn-keyword);
+}
+.btn-opt:hover:not(.on) { background: var(--bg-hover); color: var(--text); }
+
+/* ── Inputs ────────────────────────────────────── */
+input, select {
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 5px 8px;
+  outline: none;
+  width: 100%;
+}
+input:focus, select:focus { border-color: var(--border-focus); }
+input::placeholder { color: var(--text-muted); }
+select option { background: var(--bg-sidebar); }
+
+/* ── Syntax color spans ────────────────────────── */
+.kw  { color: var(--syn-keyword); }
+.kw2 { color: var(--syn-keyword2); }
+.str { color: var(--syn-string); }
+.num { color: var(--syn-number); }
+.cmt { color: var(--syn-comment); }
+.typ { color: var(--syn-type); }
+.fn  { color: var(--syn-fn); }
+.var { color: var(--syn-var); }
+.dim { color: var(--text-dim); }
+.pct { color: var(--text); }        /* punctuation */
+
+/* ── Code line with gutter ─────────────────────── */
+.code-block {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  padding: 8px 0;
+  overflow-x: auto;
+}
+.c-line {
+  display: flex;
+  align-items: center;
+  padding: 1px 12px 1px 0;
+  min-height: 20px;
+  gap: 0;
+}
+.c-line:hover { background: #ffffff08; }
+.c-line.active-line { background: #ffffff0a; }
+.ln {
+  min-width: 36px;
+  text-align: right;
+  padding-right: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  user-select: none;
+  flex-shrink: 0;
+}
+.c-line-body { flex: 1; white-space: pre; }
+
+/* ── Message bar ───────────────────────────────── */
+.msg-bar {
+  padding: 6px 12px;
+  background: var(--bg-sidebar);
+  border-left: 3px solid var(--syn-keyword);
+  font-size: 12px;
+  color: var(--text);
+}
+.msg-bar.error { border-color: #f14c4c; color: #f14c4c; }
+
+/* ── Status bar ────────────────────────────────── */
+.status-bar {
+  background: #007acc;
+  color: #fff;
+  padding: 3px 12px;
+  font-size: 12px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* ── Room list row ─────────────────────────────── */
+.room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  font-size: 13px;
+}
+.room-row:hover { background: var(--bg-hover); }
+
+/* ── Section heading ───────────────────────────── */
+.section-head {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 8px 12px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Player card ───────────────────────────────── */
+.player-card {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 10px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.player-card.my-turn  { border-color: var(--syn-comment); }
+.player-card.winner   { border-color: var(--syn-fn); }
+.player-card.is-me    { border-left: 2px solid var(--syn-keyword); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-editor); }
+::-webkit-scrollbar-thumb { background: #424242; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
