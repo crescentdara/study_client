@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Room, StudyStateResponse, ChatMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
@@ -31,23 +31,49 @@ export default function StudyRoom({
   });
 
   const myPlayerIndex = room.playerNames.indexOf(nickname);
-  const isHost        = myPlayerIndex === 0; // 방장 여부 (playerIndex === 0)
+  const isHost        = myPlayerIndex === 0;
   const isBaseball    = room.studyType === 'BASEBALL';
+  const status        = studyState?.status ?? room.status;
+  const playerNames   = studyState?.playerNames ?? room.playerNames;
 
-  // 현재 상태 (studyState가 없으면 room.status 기반으로 판단)
-  const status = studyState?.status ?? room.status;
-  // 입장한 플레이어 목록 (studyState에 최신 정보가 있음)
-  const playerNames = studyState?.playerNames ?? room.playerNames;
+  /**
+   * 방이 폐쇄됐을 때 자동으로 로비로 이동
+   * 서버가 'ROOM_CLOSED:' 메시지를 보내면 방장이 나갔다는 신호입니다.
+   */
+  useEffect(() => {
+    if (studyState?.message?.startsWith('ROOM_CLOSED:')) {
+      // 잠시 메시지를 보여준 후 로비로 이동
+      const timer = setTimeout(onLeave, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [studyState?.message, onLeave]);
 
-  /** 게임 시작 요청 (방장 전용) */
+  /** 방 나가기: 서버에 LEAVE 알림 후 로비 전환 */
+  const handleLeave = useCallback(() => {
+    sendMove({ moveType: 'LEAVE', data: '', sessionId });
+    // 서버 메시지 전송 직후 바로 로비로 전환
+    // (WebSocket은 비동기라 deactivate 전에 publish가 완료됨)
+    onLeave();
+  }, [sendMove, sessionId, onLeave]);
+
+  /** 게임 시작 (방장 전용) */
   const handleStart = () => {
     sendMove({ moveType: 'START_GAME', data: '', sessionId });
   };
 
-  /** 재시작 요청 (방장 전용, FINISHED 상태에서만) */
+  /** 재시작 (방장 전용) */
   const handleRestart = () => {
     sendMove({ moveType: 'RESTART', data: '', sessionId });
   };
+
+  /**
+   * 채팅 전송 래퍼
+   * sendChat(text, sessionId)를 호출하면서 emoji를 자동으로 추가합니다.
+   * Chat 컴포넌트는 (text, sessionId)만 넘기므로, 여기서 emoji를 붙여줍니다.
+   */
+  const handleChatSend = useCallback((text: string, sid: string) => {
+    sendChat(text, sid, emoji);
+  }, [sendChat, emoji]);
 
   return (
     <div style={{ display: 'flex', gap: '12px', height: '100%' }}>
@@ -76,27 +102,31 @@ export default function StudyRoom({
             </span>
           </span>
           <div style={{ display: 'flex', gap: '6px' }}>
-            {/* 재시작 버튼: 방장 + FINISHED 상태일 때만 표시 */}
             {isHost && status === 'FINISHED' && (
-              <button
-                className="btn-primary"
-                style={{ fontSize: '11px' }}
-                onClick={handleRestart}
-              >
+              <button className="btn-primary" style={{ fontSize: '11px' }} onClick={handleRestart}>
                 ↺ restart()
               </button>
             )}
-            <button className="btn-danger" style={{ fontSize: '11px' }} onClick={onLeave}>
+            {/* onLeave 대신 handleLeave를 사용해 서버에 알림 */}
+            <button className="btn-danger" style={{ fontSize: '11px' }} onClick={handleLeave}>
               .leave()
             </button>
           </div>
         </div>
 
-        {/* 상태 메시지 (에러 포함) */}
-        {studyState?.message && (
+        {/* 상태 메시지 */}
+        {studyState?.message && !studyState.message.startsWith('ROOM_CLOSED:') && (
           <div className={`msg-bar ${studyState.message.startsWith('ERROR') ? 'error' : ''}`}>
             <span className="cmt">{'> '}</span>
             {studyState.message.replace('ERROR: ', '')}
+          </div>
+        )}
+
+        {/* 방 폐쇄 알림 */}
+        {studyState?.message?.startsWith('ROOM_CLOSED:') && (
+          <div className="msg-bar error">
+            <span className="cmt">{'> '}</span>
+            Host has left. Returning to lobby...
           </div>
         )}
 
@@ -130,7 +160,6 @@ export default function StudyRoom({
               <span className="ln">3</span>
               <span className="c-line-body" style={{ paddingLeft: 16 }}>
                 {isHost ? (
-                  // 방장: 2명 이상이면 시작 버튼 활성화
                   <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
                       className="btn-primary"
@@ -145,7 +174,6 @@ export default function StudyRoom({
                     )}
                   </span>
                 ) : (
-                  // 비방장: 방장이 시작하길 기다림
                   <span className="cmt">
                     {'// waiting for ' + playerNames[0] + ' to press start...'}
                   </span>
@@ -184,7 +212,7 @@ export default function StudyRoom({
           myNickname={nickname}
           myEmoji={emoji}
           sessionId={sessionId}
-          onSend={sendChat}
+          onSend={handleChatSend}
         />
       </div>
     </div>

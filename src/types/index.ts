@@ -30,23 +30,25 @@ export interface JoinRoomRequest {
 
 export interface StudyMoveRequest {
   moveType:
-    | 'START_GAME'   // 방장: 게임 시작
-    | 'RESTART'      // 방장: 재시작 (FINISHED → SETUP)
-    | 'SET_SECRET'   // 야구: 비밀 숫자 설정
-    | 'GUESS'        // 야구: 추측
-    | 'SET_BOARD'    // 빙고: 보드 주제 설정
-    | 'CALL_TOPIC'   // 빙고: 주제 호출
-    | 'CHAT';        // 채팅
+    | 'START_GAME'
+    | 'RESTART'
+    | 'LEAVE'        // 방 나가기 (서버에 알림)
+    | 'SET_SECRET'
+    | 'GUESS'
+    | 'SET_BOARD'
+    | 'CALL_TOPIC'
+    | 'CHAT';
   data: string;
   sessionId: string;
-  payload?: unknown; // SET_BOARD 시 string[][] 전달
+  payload?: unknown;
+  emoji?: string;    // 채팅 시 발신자 이모지
 }
 
 export interface StudyStateResponse {
   roomId: string;
   studyType: StudyType;
   status: StudyStatus;
-  message: string;
+  message: string;   // 'ROOM_CLOSED:' 로 시작하면 방 폐쇄 신호
   currentTurn: number;
   winner: number;
   gameData: BaseballGameData | BingoGameData | null;
@@ -97,4 +99,5 @@ export interface ChatMessage {
   nickname: string;
   text: string;
   timestamp: number;
+  emoji: string;     // 발신자가 선택한 이모지 (서버에서 포함해서 브로드캐스트)
 }
