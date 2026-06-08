@@ -212,7 +212,7 @@ export default function Bingo({ studyState, sessionId, myPlayerIndex, sendMove, 
           </div>
 
           {/* 상대방 보드들 */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(studyState.playerNames??[]).map((nm, i) => {
               if (i===myPlayerIndex || !data?.boards?.[i]) return null;
               return (
@@ -229,7 +229,7 @@ export default function Bingo({ studyState, sessionId, myPlayerIndex, sendMove, 
                 </div>
               );
             })}
-          </div>
+          </div> */}
         </div>
       )}
     </div>
