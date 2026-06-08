@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Room, StudyType, CreateRoomRequest, JoinRoomRequest } from "../types";
 
-const PLAYER_EMOJIS = ["🐱", "🐶", "🦊", "🐼", "🐨", "🦁", "🐸", "🐧", "🦄", "🤖", "👾", "🎮"];
+const PLAYER_EMOJIS = ["🐱", "🐶", "🦊", "🐼", "🐨", "🦁", "🐸", "🐧", "👽", "👻", "💀", "🐢"];
 interface LobbyProps {
   nickname: string;
   emoji: string;
