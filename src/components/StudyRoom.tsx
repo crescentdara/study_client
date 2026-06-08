@@ -8,6 +8,7 @@ import Chat from './Chat';
 interface StudyRoomProps {
   room: Room;
   nickname: string;
+  emoji: string;
   sessionId: string;
   studyState: StudyStateResponse | null;
   onStudyState: (state: StudyStateResponse) => void;
@@ -15,7 +16,7 @@ interface StudyRoomProps {
 }
 
 export default function StudyRoom({
-  room, nickname, sessionId, studyState, onStudyState, onLeave,
+  room, nickname, emoji, sessionId, studyState, onStudyState, onLeave,
 }: StudyRoomProps) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
@@ -181,6 +182,7 @@ export default function StudyRoom({
         <Chat
           messages={chatMessages}
           myNickname={nickname}
+          myEmoji={emoji}
           sessionId={sessionId}
           onSend={sendChat}
         />

@@ -7,6 +7,7 @@ import { ChatMessage } from '../types';
 interface ChatProps {
   messages: ChatMessage[];                            // 수신된 메시지 목록 (StudyRoom에서 관리)
   myNickname: string;                                 // 내 메시지를 강조 표시하기 위한 닉네임
+  myEmoji: string;                                    // 내 이모지 (닉네임 앞에 표시)
   sessionId: string;                                  // 전송 시 서버로 전달할 세션 ID
   onSend: (text: string, sessionId: string) => void;  // 전송 시 호출할 콜백 (useWebSocket의 sendChat)
 }
@@ -28,7 +29,7 @@ interface ChatProps {
  *   → StudyRoom.handleChat → setChatMessages
  *   → messages prop 업데이트 → 이 컴포넌트 리렌더링
  */
-export default function Chat({ messages, myNickname, sessionId, onSend }: ChatProps) {
+export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
   // 채팅 입력창 상태
   const [input, setInput] = useState('');
 
