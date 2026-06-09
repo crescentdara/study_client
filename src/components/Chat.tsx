@@ -42,6 +42,22 @@ const renderAvatar = (emojiId: string, size = 16) => {
   );
 };
 
+const [showOpacity, setShowOpacity] = useState(false);
+const [opacity, setOpacity] = useState(100);
+
+<div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    background: "#1e1e1e",
+    border: "1px solid #3e3e42",
+    height: "100%",
+    minHeight: "200px",
+    opacity: opacity / 100, // ← 추가
+    transition: "opacity 0.2s", // ← 추가 (부드럽게)
+  }}
+></div>;
+
 /**
  * 채팅 패널 컴포넌트
  *
@@ -276,34 +292,77 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
 
       {/* ── 입력창 ── */}
       {open && (
-        <div
-          style={{
-            display: "flex",
-            gap: "4px",
-            padding: "6px 8px",
-            borderTop: "1px solid #3e3e42",
-            flexShrink: 0, // 입력창 영역이 줄어들지 않게
-          }}
-        >
-          {/* '>' 프롬프트 기호 (VS Code 터미널 스타일) */}
-          <span style={{ color: "#6a9955", fontSize: "12px", lineHeight: "28px", flexShrink: 0 }}>{">"}</span>
+        <div style={{ flexShrink: 0 }}>
+          {/* 투명도 슬라이더 (토글) */}
+          {showOpacity && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "4px 10px",
+                borderTop: "1px solid #3e3e42",
+                background: "#252526",
+              }}
+            >
+              <span style={{ color: "#6a9955", fontSize: "10px", whiteSpace: "nowrap" }}>opacity</span>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                value={opacity}
+                onChange={(e) => setOpacity(Number(e.target.value))}
+                style={{ flex: 1, accentColor: "#4ec9b0", cursor: "pointer" }}
+              />
+              <span style={{ color: "#858585", fontSize: "10px", width: "28px", textAlign: "right" }}>{opacity}%</span>
+            </div>
+          )}
 
-          <input
-            style={{ flex: 1, fontSize: "12px", padding: "4px 6px" }}
-            placeholder="type a message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()} // Enter 키로도 전송
-            maxLength={200} // 메시지 최대 길이 제한
-          />
-
-          <button
-            className="btn-primary"
-            style={{ fontSize: "11px", padding: "4px 10px", flexShrink: 0 }}
-            onClick={handleSend}
+          {/* 입력창 */}
+          <div
+            style={{
+              display: "flex",
+              gap: "4px",
+              padding: "6px 8px",
+              borderTop: "1px solid #3e3e42",
+            }}
           >
-            send
-          </button>
+            {/* + 버튼 → 슬라이더 토글 */}
+            <button
+              onClick={() => setShowOpacity((o) => !o)}
+              style={{
+                background: showOpacity ? "rgba(78,201,176,0.2)" : "transparent",
+                border: showOpacity ? "1px solid #4ec9b0" : "1px solid transparent",
+                color: showOpacity ? "#4ec9b0" : "#6a9955",
+                cursor: "pointer",
+                fontSize: "16px",
+                lineHeight: "1",
+                padding: "0 4px",
+                borderRadius: "3px",
+                flexShrink: 0,
+                transition: "all 0.15s",
+              }}
+            >
+              +
+            </button>
+
+            <input
+              style={{ flex: 1, fontSize: "12px", padding: "4px 6px" }}
+              placeholder="type a message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              maxLength={200}
+            />
+
+            <button
+              className="btn-primary"
+              style={{ fontSize: "11px", padding: "4px 10px", flexShrink: 0 }}
+              onClick={handleSend}
+            >
+              send
+            </button>
+          </div>
         </div>
       )}
     </div>
