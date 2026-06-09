@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
 
 /**
  * Vite 설정 파일
@@ -12,28 +12,37 @@ import react from '@vitejs/plugin-react'
  * 백엔드 서버(localhost:9090)로 자동으로 전달합니다.
  * → CORS 없이 동일 출처처럼 동작하게 해주는 개발 편의 기능
  */
-export default defineConfig({
-  plugins: [react()],
-  // sockjs-client가 브라우저에 없는 Node.js의 global 변수를 참조하므로
-  // globalThis(브라우저 전역 객체)로 대체해줍니다.
-  define: {
-    global: 'globalThis',
-  },
-  server: {
-    port: 8000,
-    host: true,  // 0.0.0.0 바인딩 → 같은 네트워크의 다른 기기에서 IP로 접근 가능
-    proxy: {
-      // REST API 프록시
-      '/api': {
-        target: 'http://localhost:9090',
-        changeOrigin: true,
-      },
-      // WebSocket 프록시 (SockJS 포함)
-      '/ws': {
-        target: 'http://localhost:9090',
-        changeOrigin: true,
-        ws: true,  // WebSocket 프록시 활성화
-      },
-    },
-  },
-})
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '');
+    const backendUrl = env.VITE_BACKEND_URL;
+
+    if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is required. Set it in .env or your shell environment.');
+    }
+
+    return {
+        plugins: [react()],
+        // sockjs-client가 브라우저에 없는 Node.js의 global 변수를 참조하므로
+        // globalThis(브라우저 전역 객체)로 대체해줍니다.
+        define: {
+            global: 'globalThis',
+        },
+        server: {
+            port: 8000,
+            host: true, // 0.0.0.0 바인딩 → 같은 네트워크의 다른 기기에서 IP로 접근 가능
+            proxy: {
+                // REST API 프록시
+                '/api': {
+                    target: backendUrl,
+                    changeOrigin: true,
+                },
+                // WebSocket 프록시 (SockJS 포함)
+                '/ws': {
+                    target: backendUrl,
+                    changeOrigin: true,
+                    ws: true, // WebSocket 프록시 활성화
+                },
+            },
+        },
+    };
+});

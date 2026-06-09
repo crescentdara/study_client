@@ -42,6 +42,7 @@ body {
   font-size: 13px;
   line-height: 1.5;
   min-height: 100vh;
+  font-family: 'noto sans', sans-serif;
 }
 
 #root { min-height: 100vh; display: flex; flex-direction: column; }
@@ -155,6 +156,14 @@ select option { background: var(--bg-sidebar); }
   padding: 8px 0;
   overflow-x: auto;
 }
+
+.code-block-wrap {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  padding: 8px 0;
+  overflow-x: none;
+}
+
 .c-line {
   display: flex;
   align-items: center;
@@ -234,6 +243,397 @@ select option { background: var(--bg-sidebar); }
 .player-card.my-turn  { border-color: var(--syn-comment); }
 .player-card.winner   { border-color: var(--syn-fn); }
 .player-card.is-me    { border-left: 2px solid var(--syn-keyword); }
+
+.omok-sheet {
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 16px 12px;
+  background: #1b1f23;
+  border: 1px solid var(--border);
+}
+
+.omok-sheet-head {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 3px 8px;
+  background: #252526;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.omok-board {
+  display: grid;
+  gap: 0;
+  width: min(100%, 360px);
+  max-width: 360px;
+  background: rgba(27, 31, 35, var(--omok-board-opacity, 1));
+  padding: 5px 7px 7px 5px;
+}
+
+.omok-axis {
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(27, 31, 35, var(--omok-board-opacity, 1));
+  color: var(--text-muted);
+  font-size: 8px;
+  user-select: none;
+}
+
+.omok-cell {
+  aspect-ratio: 1;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(27, 31, 35, var(--omok-board-opacity, 1));
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  line-height: 1;
+  position: relative;
+}
+
+.omok-cell::before,
+.omok-cell::after {
+  content: "";
+  position: absolute;
+  background: rgba(58, 63, 68, var(--omok-line-opacity, 0.72));
+  pointer-events: none;
+}
+
+.omok-cell::before {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
+.omok-cell::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+
+.omok-cell.left-edge::before { left: 50%; }
+.omok-cell.right-edge::before { right: 50%; }
+.omok-cell.top-edge::after { top: 50%; }
+.omok-cell.bottom-edge::after { bottom: 50%; }
+
+.omok-cell:not(:disabled):hover {
+  background: rgba(32, 38, 43, var(--omok-board-opacity, 1));
+  outline: 1px solid #3a6ea5;
+  outline-offset: -1px;
+}
+
+.omok-cell.filled {
+  background: rgba(27, 31, 35, var(--omok-board-opacity, 1));
+}
+
+.omok-cell.filled span {
+  width: min(46%, 8px);
+  height: min(46%, 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+  opacity: var(--omok-stone-opacity, 0.42);
+}
+
+.omok-cell.p1 span {
+  background: #2f6f9f;
+  color: #cde7ff;
+  border: 1px solid #6aa9d855;
+  box-shadow: 0 0 0 1px #0f243366;
+}
+
+.omok-cell.p2 span {
+  background: #9a6432;
+  color: #ffe2bd;
+  border: 1px solid #d99a5f55;
+  box-shadow: 0 0 0 1px #2f211766;
+}
+
+.omok-cell.last {
+  box-shadow: inset 0 0 0 1px #9cdcfe44;
+}
+
+.omok-cell.win span {
+  background: #7f6a21;
+  color: #fff;
+  border-color: var(--syn-fn);
+  opacity: 0.62;
+}
+
+.omok-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 6px;
+  border-top: 1px solid #2a2a2a;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.omok-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.omok-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.omok-dot.p1 { background: #2f6f9f; }
+.omok-dot.p2 { background: #9a6432; }
+.omok-dot.last {
+  border: 1px solid #9cdcfe;
+  background: transparent;
+}
+
+.omok-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.omok-slider {
+  display: grid;
+  grid-template-columns: 78px minmax(90px, 1fr) 38px;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.omok-slider input[type="range"] {
+  width: 100%;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  accent-color: #3a6ea5;
+}
+
+.tetris-workspace {
+  display: block;
+  align-items: start;
+  outline: none;
+}
+
+.tetris-main,
+.tetris-side {
+  min-width: 0;
+}
+
+.tetris-shell {
+  width: fit-content;
+  margin: 8px 0 12px;
+  border: 1px solid var(--border);
+  background: #1b1f23;
+}
+
+.tetris-board-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 34px;
+  padding: 0 16px 10px;
+  overflow-x: auto;
+}
+
+.tetris-player-stack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.tetris-player-stack.mine {
+  gap: 8px;
+}
+
+.tetris-side {
+  width: 250px;
+  flex: 0 0 250px;
+}
+
+.tetris-side-legacy {
+  display: none;
+}
+
+.tetris-shell.mine {
+  border-color: rgba(78, 201, 176, 0.48);
+}
+
+.tetris-shell.peer {
+  opacity: 0.82;
+}
+
+.tetris-head {
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 3px 8px;
+  background: #252526;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tetris-board {
+  display: grid;
+  grid-template-columns: repeat(10, 18px);
+  grid-template-rows: repeat(20, 18px);
+  gap: 1px;
+  padding: 8px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    #1b1f23;
+  background-size: 19px 19px;
+}
+
+.tetris-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(62, 62, 66, 0.55);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tetris-cell.filled {
+  opacity: var(--tetris-cell-alpha, 0.58);
+  border-color: rgba(156, 220, 254, 0.18);
+}
+
+.tetris-board-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 8px 6px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.t-I { background: #2f6f9f; }
+.t-O { background: #7f6a21; }
+.t-T { background: #6f5a9f; }
+.t-S { background: #3d7651; }
+.t-Z { background: #8a4d4d; }
+.t-J { background: #365f8c; }
+.t-L { background: #8a643a; }
+
+.tetris-preview-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.tetris-preview {
+  border: 1px solid var(--border);
+  padding: 6px 6px 10px;
+  background: #ffffff04;
+  font-size: 10px;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tetris-mini {
+  display: grid;
+  grid-template-columns: repeat(4, 16px);
+  grid-template-rows: repeat(4, 16px);
+  gap: 2px;
+  margin: auto 0;
+  position: relative;
+}
+
+.tetris-mini span {
+  border: 1px solid rgba(62, 62, 66, 0.4);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tetris-mini span.filled {
+  opacity: 0.55;
+}
+
+.tetris-mini span.filled.t-I { background: #2f6f9f; }
+.tetris-mini span.filled.t-O { background: #7f6a21; }
+.tetris-mini span.filled.t-T { background: #6f5a9f; }
+.tetris-mini span.filled.t-S { background: #3d7651; }
+.tetris-mini span.filled.t-Z { background: #8a4d4d; }
+.tetris-mini span.filled.t-J { background: #365f8c; }
+.tetris-mini span.filled.t-L { background: #8a643a; }
+
+.tetris-mini.empty b {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+.tetris-range {
+  width: 92px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  accent-color: #3a6ea5;
+}
+
+.tetris-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 8px;
+}
+
+.tetris-actions button {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.tetris-note {
+  padding: 0 10px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 760px) {
+  .tetris-workspace {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }

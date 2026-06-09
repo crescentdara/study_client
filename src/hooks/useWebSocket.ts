@@ -22,30 +22,24 @@ export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptio
     const client = new Client({
       webSocketFactory: () => new SockJS('/ws'),
       reconnectDelay: 5000,
-
       onConnect: () => {
         console.log('[WS] Connected, subscribing to room:', roomId);
         setConnected(true);
 
-        // 게임 상태 구독
         client.subscribe(`/topic/study/${roomId}`, (m: IMessage) => {
           onStudyStateRef.current(JSON.parse(m.body));
         });
-
-        // 채팅 구독 — 이 채널로 서버가 chat 메시지를 브로드캐스트
         client.subscribe(`/topic/chat/${roomId}`, (m: IMessage) => {
           console.log('[WS] Chat received:', m.body);
           onChatRef.current(JSON.parse(m.body));
         });
 
-        // 방 입장 알림
         const sessionId = sessionStorage.getItem('sessionId') ?? '';
         client.publish({
           destination: `/app/study/${roomId}/enter`,
           body: JSON.stringify({ sessionId, moveType: 'ENTER', data: '' }),
         });
       },
-
       onStompError:  (f) => { console.error('[WS] STOMP error:', f.headers['message']); setConnected(false); },
       onDisconnect:  ()  => { console.log('[WS] Disconnected'); setConnected(false); },
     });
@@ -55,6 +49,7 @@ export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptio
     return () => { client.deactivate(); };
   }, [roomId]);
 
+  /** 게임 액션 전송 */
   const sendMove = useCallback((req: StudyMoveRequest) => {
     const c = clientRef.current;
     if (!c?.connected) { console.warn('[WS] sendMove: not connected'); return; }
@@ -63,16 +58,14 @@ export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptio
 
   /**
    * 채팅 전송
-   * — `connected` 상태(React state)가 true여야 전송
-   * — 서버: @MessageMapping("/study/{roomId}/chat") → /topic/chat/{roomId} 브로드캐스트
+   * @param text      메시지 내용
+   * @param sessionId 발신자 세션 ID
+   * @param emoji     발신자가 선택한 이모지 (서버가 ChatMessage에 포함해 브로드캐스트)
    */
-  const sendChat = useCallback((text: string, sessionId: string) => {
+  const sendChat = useCallback((text: string, sessionId: string, emoji = '') => {
     const c = clientRef.current;
-    if (!c?.connected) {
-      console.warn('[WS] sendChat: not connected yet');
-      return;
-    }
-    const body = JSON.stringify({ moveType: 'CHAT', data: text.trim(), sessionId });
+    if (!c?.connected) { console.warn('[WS] sendChat: not connected'); return; }
+    const body = JSON.stringify({ moveType: 'CHAT', data: text.trim(), sessionId, emoji });
     console.log('[WS] sendChat →', body);
     c.publish({ destination: `/app/study/${roomId}/chat`, body });
   }, [roomId]);

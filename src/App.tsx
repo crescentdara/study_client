@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Room, StudyStateResponse } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
@@ -20,7 +20,9 @@ import StudyRoom from './components/StudyRoom';
  */
 function App() {
   // 플레이어 닉네임: Lobby에서 입력, StudyRoom 상단에 표시
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNicknameState] = useState(() => localStorage.getItem('study.nickname') ?? '');
+
+  const [emoji, setEmojiState] = useState(() => localStorage.getItem('study.emoji') ?? "🐱");
 
   /**
    * 클라이언트 고유 세션 ID
@@ -37,6 +39,13 @@ function App() {
 
   // 현재 입장한 방 (null = 로비 상태)
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+
+  /**
+   * StudyRoom 내부의 handleLeave 함수를 외부(App)에서 호출할 수 있도록 저장하는 ref
+   * 탭의 ✕ 버튼 → leaveRef.current() → StudyRoom.handleLeave()
+   *   → 서버에 LEAVE 전송 + 로비 전환
+   */
+  const leaveRef = useRef<(() => void) | null>(null);
 
   // 서버에서 WebSocket으로 받는 최신 게임 상태
   const [studyState, setStudyState] = useState<StudyStateResponse | null>(null);
@@ -88,10 +97,20 @@ function App() {
     setStudyState(s);
   }, []);
 
+  const handleNicknameChange = useCallback((name: string) => {
+    setNicknameState(name);
+    localStorage.setItem('study.nickname', name);
+  }, []);
+
+  const handleEmojiChange = useCallback((nextEmoji: string) => {
+    setEmojiState(nextEmoji);
+    localStorage.setItem('study.emoji', nextEmoji);
+  }, []);
+
   // 현재 열린 탭 레이블: 로비면 'lobby.ts', 방에 들어가면 '방이름.bs/.bg'
   // (VS Code 파일탭 스타일)
   const tabLabel = currentRoom
-    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : 'bg'}`
+    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : currentRoom.studyType === 'OMOK' ? 'omok' : currentRoom.studyType === 'TETRIS' ? 'tetris' : currentRoom.studyType === 'OLDMAID' ? 'cards' : 'bg'}`
     : 'lobby.ts';
 
   return (
@@ -131,7 +150,8 @@ function App() {
           <span>{tabLabel}</span>
           {/* 게임방에 있을 때만 닫기(×) 버튼 표시 → 클릭 시 방 나가기 */}
           {currentRoom && (
-            <span className="tab-close" onClick={handleLeaveRoom}>✕</span>
+            // leaveRef.current가 있으면 LEAVE 전송 후 로비 이동, 없으면 바로 이동
+            <span className="tab-close" onClick={() => leaveRef.current ? leaveRef.current() : handleLeaveRoom()}>✕</span>
           )}
         </div>
         {/* 비활성 탭 힌트: 게임 중이면 lobby.ts가 배경에 있음을 암시 */}
@@ -147,19 +167,23 @@ function App() {
           // 로비: 닉네임 설정 + 방 목록 + 방 만들기
           <Lobby
             nickname={nickname}
+            emoji={emoji}
+            onEmojiChange={handleEmojiChange}
             sessionId={sessionId}
-            onNicknameChange={setNickname}
-            onJoinRoom={handleJoinRoom}
+            onNicknameChange={handleNicknameChange}
+            onJoinRoom={handleJoinRoom}                
           />
         ) : (
           // 게임방: WebSocket 연결 + 게임 컴포넌트 + 채팅
           <StudyRoom
             room={currentRoom}
             nickname={nickname}
+            emoji={emoji}
             sessionId={sessionId}
             studyState={studyState}
             onStudyState={handleStudyState}
             onLeave={handleLeaveRoom}
+            leaveRef={leaveRef}
           />
         )}
       </div>
@@ -173,13 +197,19 @@ function App() {
           <span style={{ opacity: 0.7 }}>
             {currentRoom.studyType === 'BASEBALL'
               ? `⚾ Baseball · ${currentRoom.digits}-digit`
-              : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
+              : currentRoom.studyType === 'OMOK'
+                ? `OMOK · ${currentRoom.boardSize}×${currentRoom.boardSize}`
+                : currentRoom.studyType === 'TETRIS'
+                  ? 'TETRIS · 20×10'
+                  : currentRoom.studyType === 'OLDMAID'
+                    ? '🃏 Old Maid'
+                    : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
           </span>
         )}
         {/* 우측 정렬: 현재 인원 / 최대 인원 */}
         <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
           {currentRoom
-            ? `${currentRoom.playerCount}/${currentRoom.maxPlayers} players`
+            ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' ? 3 : currentRoom.maxPlayers} players`
             : 'Lobby'}
         </span>
       </div>
