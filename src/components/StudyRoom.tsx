@@ -4,6 +4,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
 import Bingo from './games/Bingo';
 import Omok from './games/Omok';
+import Tetris from './games/Tetris';
 import Chat from './Chat';
 
 interface StudyRoomProps {
@@ -35,6 +36,7 @@ export default function StudyRoom({
   const isHost        = myPlayerIndex === 0;
   const isBaseball    = room.studyType === 'BASEBALL';
   const isOmok        = room.studyType === 'OMOK';
+  const isTetris      = room.studyType === 'TETRIS';
   const status        = studyState?.status ?? room.status;
   const playerNames   = studyState?.playerNames ?? room.playerNames;
 
@@ -96,7 +98,7 @@ export default function StudyRoom({
             <span className="typ">{isOmok ? 'OMOK' : room.studyType}</span>
             <span className="dim"> · </span>
             <span className="num">
-              {isBaseball ? `${room.digits}-digit` : `${room.boardSize}×${room.boardSize}`}
+              {isBaseball ? `${room.digits}-digit` : isTetris ? '20×10' : `${room.boardSize}×${room.boardSize}`}
             </span>
             <span className="dim"> · </span>
             <span style={{ color: connected ? '#6a9955' : '#f14c4c' }}>
@@ -167,11 +169,11 @@ export default function StudyRoom({
                       className="btn-primary"
                       style={{ fontSize: '12px' }}
                       onClick={handleStart}
-                      disabled={playerNames.length < 2}
+                      disabled={!isTetris && playerNames.length < 2}
                     >
                       ▶ startGame()
                     </button>
-                    {playerNames.length < 2 && (
+                    {!isTetris && playerNames.length < 2 && (
                       <span className="cmt">// need at least 2 players</span>
                     )}
                   </span>
@@ -202,6 +204,13 @@ export default function StudyRoom({
               myPlayerIndex={myPlayerIndex}
               sendMove={sendMove}
               boardSize={room.boardSize}
+            />
+          ) : isTetris ? (
+            <Tetris
+              studyState={studyState}
+              sessionId={sessionId}
+              myPlayerIndex={myPlayerIndex}
+              sendMove={sendMove}
             />
           ) : (
             <Bingo

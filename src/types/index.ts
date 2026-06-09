@@ -1,4 +1,4 @@
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -38,6 +38,7 @@ export interface StudyMoveRequest {
     | 'SET_BOARD'
     | 'CALL_TOPIC'
     | 'PLACE_STONE'
+    | 'TETRIS_SYNC'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -52,7 +53,7 @@ export interface StudyStateResponse {
   message: string;
   currentTurn: number;
   winner: number;
-  gameData: BaseballGameData | BingoGameData | OmokGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | TetrisGameData | null;
   playerNames: string[];
 }
 
@@ -103,6 +104,12 @@ export interface OmokGameData {
   lastRow: number;
   lastCol: number;
   winPath: number[][];
+}
+
+export interface TetrisGameData {
+  mode: string;
+  rows: number;
+  cols: number;
 }
 
 export interface ChatMessage {

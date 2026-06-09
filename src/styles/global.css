@@ -428,6 +428,135 @@ select option { background: var(--bg-sidebar); }
   accent-color: #3a6ea5;
 }
 
+.tetris-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 12px;
+  align-items: start;
+  outline: none;
+}
+
+.tetris-main,
+.tetris-side {
+  min-width: 0;
+}
+
+.tetris-shell {
+  width: fit-content;
+  margin: 8px 16px 12px;
+  border: 1px solid var(--border);
+  background: #1b1f23;
+}
+
+.tetris-head {
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 3px 8px;
+  background: #252526;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tetris-board {
+  display: grid;
+  grid-template-columns: repeat(10, 18px);
+  grid-template-rows: repeat(20, 18px);
+  gap: 1px;
+  padding: 8px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    #1b1f23;
+  background-size: 19px 19px;
+}
+
+.tetris-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(62, 62, 66, 0.55);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tetris-cell.filled {
+  opacity: var(--tetris-cell-alpha, 0.58);
+  border-color: rgba(156, 220, 254, 0.18);
+}
+
+.t-I { background: #2f6f9f; }
+.t-O { background: #7f6a21; }
+.t-T { background: #6f5a9f; }
+.t-S { background: #3d7651; }
+.t-Z { background: #8a4d4d; }
+.t-J { background: #365f8c; }
+.t-L { background: #8a643a; }
+
+.tetris-preview-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.tetris-preview {
+  border: 1px solid var(--border);
+  padding: 6px;
+  background: #ffffff04;
+  font-size: 10px;
+}
+
+.tetris-mini {
+  display: grid;
+  grid-template-columns: repeat(4, 12px);
+  grid-template-rows: repeat(4, 12px);
+  gap: 1px;
+  margin-top: 5px;
+}
+
+.tetris-mini span {
+  border: 1px solid rgba(62, 62, 66, 0.4);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tetris-mini span.filled {
+  opacity: 0.55;
+}
+
+.tetris-range {
+  width: 92px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  accent-color: #3a6ea5;
+}
+
+.tetris-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 8px;
+}
+
+.tetris-actions button {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.tetris-note {
+  padding: 0 10px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 760px) {
+  .tetris-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-editor); }
