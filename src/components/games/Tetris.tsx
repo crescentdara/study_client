@@ -295,13 +295,14 @@ function Preview({ title, piece }: { title: string; piece: Piece | null }) {
   return (
     <div className="tetris-preview">
       <div className="dim">{title}</div>
-      <div className="tetris-mini">
+      <div className={`tetris-mini ${piece ? '' : 'empty'}`}>
         {Array.from({ length: 16 }, (_, i) => {
           const r = Math.floor(i / 4);
           const c = i % 4;
           const filled = piece?.shape[r]?.[c] ?? 0;
           return <span key={i} className={filled ? `filled t-${piece?.type}` : ''} />;
         })}
+        {!piece && <b>empty</b>}
       </div>
     </div>
   );
