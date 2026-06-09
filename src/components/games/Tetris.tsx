@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { StudyMoveRequest, StudyStateResponse, TetrisGameData } from '../../types';
 
 const ROWS = 20;
@@ -240,17 +240,23 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
   useEffect(() => stopHorizontalHold, [stopHorizontalHold]);
 
-  const startHorizontalHold = (direction: -1 | 1) => {
+  const startHorizontalHold = useCallback((direction: -1 | 1) => {
     if (horizontalHoldRef.current !== null || horizontalDelayRef.current !== null) return;
     moveRef.current(0, direction);
     horizontalDelayRef.current = window.setTimeout(() => {
       horizontalDelayRef.current = null;
       horizontalHoldRef.current = window.setInterval(() => moveRef.current(0, direction), 46);
     }, 120);
-  };
+  }, []);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
+  const onKeyDown = useCallback((event: KeyboardEvent) => {
+    const target = event.target as HTMLElement | null;
+    const isTyping = target instanceof HTMLInputElement
+      || target instanceof HTMLTextAreaElement
+      || Boolean(target?.isContentEditable);
+    const keys = isTyping
+      ? ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp']
+      : ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
     if (!keys.includes(event.key)) return;
     event.preventDefault();
     if (event.key === 'ArrowLeft') startHorizontalHold(-1);
@@ -261,18 +267,29 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (event.key.toLowerCase() === 'c') hold();
     if (event.key.toLowerCase() === 'p') setRunning((prev) => !prev);
     if (event.key.toLowerCase() === 'r') reset();
-  };
+  }, [hardDrop, hold, move, reset, rotate, startHorizontalHold]);
 
-  const onKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
-  };
+  }, [stopHorizontalHold]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', stopHorizontalHold);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', stopHorizontalHold);
+    };
+  }, [onKeyDown, onKeyUp, stopHorizontalHold]);
 
   const boardStyle = {
     '--tetris-cell-alpha': `${cellAlpha / 100}`,
   } as CSSProperties;
 
   return (
-    <div className="tetris-workspace" tabIndex={0} onKeyDown={onKeyDown} onKeyUp={onKeyUp}>
+    <div className="tetris-workspace" tabIndex={0}>
       <div className="code-block tetris-main">
         <CL ln={1}>
           <span className="cmt">{'// TETRIS queue monitor'}</span>
