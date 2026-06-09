@@ -156,6 +156,14 @@ select option { background: var(--bg-sidebar); }
   padding: 8px 0;
   overflow-x: auto;
 }
+
+.code-block-wrap {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  padding: 8px 0;
+  overflow-x: none;
+}
+
 .c-line {
   display: flex;
   align-items: center;
