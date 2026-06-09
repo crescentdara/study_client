@@ -48,6 +48,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
   const [gameOver, setGameOver] = useState(false);
   const [visibility, setVisibility] = useState(58);
   const [localRestartToken, setLocalRestartToken] = useState(0);
+  const previousStatusRef = useRef(studyState?.status);
   const keysRef = useRef({ left: false, right: false });
   const frameRef = useRef<number | null>(null);
   const lastFrameRef = useRef<number | null>(null);
@@ -84,7 +85,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
     ...boardViews.filter((view) => !view.isMe).slice(1),
   ];
 
-  const reset = useCallback(() => {
+  const resetLocalState = useCallback(() => {
     setX(WIDTH / 2);
     setIncidents([createIncident(1, 30)]);
     setScore(0);
@@ -99,6 +100,15 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
     lastFrameRef.current = null;
     setLocalRestartToken((prev) => prev + 1);
   }, []);
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    const nextStatus = studyState?.status;
+    if (nextStatus === 'PLAYING' && previousStatus === 'FINISHED') {
+      resetLocalState();
+    }
+    previousStatusRef.current = nextStatus;
+  }, [resetLocalState, studyState?.status]);
 
   useEffect(() => {
     if (!running || gameOver || (studyState?.status !== 'PLAYING' && studyState?.status !== 'FINISHED')) return undefined;
@@ -230,7 +240,6 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
                   visibility={visibility}
                   onVisibility={setVisibility}
                   onRunning={() => setRunning((prev) => !prev)}
-                  onReset={reset}
                 />
               )}
             </div>
@@ -289,7 +298,7 @@ function IncidentBoard({
 }
 
 function IncidentMetrics({
-  score, survivedMs, running, gameOver, visibility, onVisibility, onRunning, onReset,
+  score, survivedMs, running, gameOver, visibility, onVisibility, onRunning,
 }: {
   score: number;
   survivedMs: number;
@@ -298,7 +307,6 @@ function IncidentMetrics({
   visibility: number;
   onVisibility: (value: number) => void;
   onRunning: () => void;
-  onReset: () => void;
 }) {
   return (
     <div className="code-block incident-side">
@@ -322,7 +330,6 @@ function IncidentMetrics({
         <button className="btn-secondary" onClick={onRunning} disabled={gameOver}>
           {running ? 'pause()' : 'resume()'}
         </button>
-        <button className="btn-primary" onClick={onReset}>restart()</button>
       </div>
       <div className="incident-note">
         <span className="cmt">{'// arrows: move left/right'}</span>

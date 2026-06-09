@@ -59,7 +59,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
     // Explorer sections
     const [userExpanded, setUserExpanded] = useState(true);
     const [roomsExpanded, setRoomsExpanded] = useState(true);
-    const [ytExpanded, setYtExpanded] = useState(true);
+    const [ytExpanded] = useState(true);
 
     // Active sidebar panel
     const [activePanel, setActivePanel] = useState<'explorer' | 'profile'>('explorer');
