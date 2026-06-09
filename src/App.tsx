@@ -155,9 +155,10 @@ function App() {
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
           <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0 }}>
             <li style={{ color: '#888', fontSize: '12px' }}>←</li>
+            <div style={{marginLeft: "10px" }}></div>
             <li style={{ color: '#888', fontSize: '12px' }}>→</li>
           </ul>
-          <div style={{ background: '#555', color: '#888', fontSize: '12px', padding: '3px 8px', width: '500px', borderRadius: '6px' }}>⚡ study-platform</div>
+          <div style={{ background: '#3f3f3f', color: '#888', fontSize: '12px', padding: '3px 8px', width: '500px', borderRadius: '6px' }}>study-platform</div>
         </div>
 
         <ul style={{ display: 'flex', gap: '30px', listStyle: 'none', margin: 0, padding: 0, fontSize: '14px', color: '#888' }}>
