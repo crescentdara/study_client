@@ -72,7 +72,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
         studyType,
         nickname: nickname.trim(),
         sessionId,
-        maxPlayers: studyType === "TETRIS" ? 1 : studyType === "OMOK" ? 2 : maxPlayers,
+        maxPlayers: studyType === "TETRIS" ? 3 : studyType === "OMOK" ? 2 : maxPlayers,
         digits,
         boardSize: studyType === "TETRIS" ? 20 : studyType === "OMOK" ? 19 : studyType === "OLDMAID" ? 0 : boardSize,
       };
@@ -379,7 +379,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                         setMaxPlayers(2);
                         setBoardSize(19);
                       } else if (t === "TETRIS") {
-                        setMaxPlayers(1);
+                        setMaxPlayers(3);
                         setBoardSize(20);
                       } else if (t === "OLDMAID") {
                         setMaxPlayers(4); // 기본 4명
@@ -417,8 +417,8 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">players</span>
                 <span className="pct"> = </span>
-                <span className="num">1</span>
-                <span className="cmt"> // local queue monitor</span>
+                <span className="num">3</span>
+                <span className="cmt"> // lightweight multiplayer max</span>
               </span>,
               1,
             ) : studyType === "OMOK" ? L(
@@ -512,7 +512,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                   <span className="var">queue</span>
                   <span className="pct"> = </span>
                   <span className="num">20x10</span>
-                  <span className="cmt"> // solo TETRIS workspace</span>
+                  <span className="cmt"> // 3-player TETRIS workspace</span>
                 </span>,
                 1,
               )}

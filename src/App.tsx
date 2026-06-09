@@ -199,7 +199,7 @@ function App() {
         {/* 우측 정렬: 현재 인원 / 최대 인원 */}
         <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
           {currentRoom
-            ? `${currentRoom.playerCount}/${currentRoom.maxPlayers} players`
+            ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' ? 3 : currentRoom.maxPlayers} players`
             : 'Lobby'}
         </span>
       </div>

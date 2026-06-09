@@ -138,6 +138,18 @@ export interface TetrisGameData {
   mode: string;
   rows: number;
   cols: number;
+  numPlayers: number;
+  playerStates: Record<string, TetrisPlayerState>;
+}
+
+export interface TetrisPlayerState {
+  board: string[][];
+  score: number;
+  lines: number;
+  cycle: number;
+  running: boolean;
+  gameOver: boolean;
+  updatedAt: number;
 }
 
 export interface ChatMessage {
