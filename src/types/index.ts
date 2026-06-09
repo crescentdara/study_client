@@ -1,4 +1,4 @@
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -39,6 +39,10 @@ export interface StudyMoveRequest {
     | 'CALL_TOPIC'
     | 'PLACE_STONE'
     | 'TETRIS_SYNC'
+    | 'DEAL_CARD'
+    | 'DRAW_CARD'
+    | 'DISCARD_PAIR'
+    | 'SHUFFLE_HAND'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -53,7 +57,7 @@ export interface StudyStateResponse {
   message: string;
   currentTurn: number;
   winner: number;
-  gameData: BaseballGameData | BingoGameData | OmokGameData | TetrisGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | null;
   playerNames: string[];
 }
 
@@ -104,6 +108,30 @@ export interface OmokGameData {
   lastRow: number;
   lastCol: number;
   winPath: number[][];
+}
+
+/** 도둑잡기 카드: [rank, suit]  rank=0 → 조커  suit=-1 → 조커 */
+export type OldMaidCard = [number, number];
+
+export interface OldMaidGameData {
+  numPlayers: number;
+  /** true: 배분 단계 (덱에서 뽑는 중) / false: 플레이 단계 */
+  dealing: boolean;
+  /** 중앙 덱 남은 카드 수 */
+  deckSize: number;
+  /** 각 플레이어 손패 (카드 배열) */
+  hands: OldMaidCard[][];
+  /** 손패 카드 수 */
+  handSizes: number[];
+  /** safe[i]=true → 카드 다 냈음 (안전) */
+  safe: boolean[];
+  currentTurn: number;
+  /** -1: 게임 중 / >=0: 패자 인덱스 */
+  loser: number;
+  /** 다음에 뽑힐 플레이어 인덱스 */
+  nextActivePlayer: number;
+  /** 마지막으로 셔플한 플레이어 인덱스 (-1: 없음) */
+  lastShuffle: number;
 }
 
 export interface TetrisGameData {

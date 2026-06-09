@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Room, StudyStateResponse, ChatMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
 import Bingo from './games/Bingo';
 import Omok from './games/Omok';
+import OldMaid from './games/OldMaid';
 import Tetris from './games/Tetris';
 import Chat from './Chat';
 
@@ -15,10 +16,12 @@ interface StudyRoomProps {
   studyState: StudyStateResponse | null;
   onStudyState: (state: StudyStateResponse) => void;
   onLeave: () => void;
+  /** App의 탭 ✕ 버튼과 연결: 마운트 시 handleLeave를 여기에 등록 */
+  leaveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export default function StudyRoom({
-  room, nickname, emoji, sessionId, studyState, onStudyState, onLeave,
+  room, nickname, emoji, sessionId, studyState, onStudyState, onLeave, leaveRef,
 }: StudyRoomProps) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
@@ -37,6 +40,7 @@ export default function StudyRoom({
   const isBaseball    = room.studyType === 'BASEBALL';
   const isOmok        = room.studyType === 'OMOK';
   const isTetris      = room.studyType === 'TETRIS';
+  const isOldMaid     = room.studyType === 'OLDMAID';
   const status        = studyState?.status ?? room.status;
   const playerNames   = studyState?.playerNames ?? room.playerNames;
 
@@ -59,6 +63,16 @@ export default function StudyRoom({
     // (WebSocket은 비동기라 deactivate 전에 publish가 완료됨)
     onLeave();
   }, [sendMove, sessionId, onLeave]);
+
+  /**
+   * 탭 ✕ 버튼과 연결
+   * leaveRef.current에 handleLeave를 등록해두면
+   * App.tsx의 탭 닫기 버튼에서 이 함수를 호출할 수 있습니다.
+   */
+  useEffect(() => {
+    if (leaveRef) leaveRef.current = handleLeave;
+    return () => { if (leaveRef) leaveRef.current = null; }; // 언마운트 시 정리
+  }, [leaveRef, handleLeave]);
 
   /** 게임 시작 (방장 전용) */
   const handleStart = () => {
@@ -98,7 +112,7 @@ export default function StudyRoom({
             <span className="typ">{isOmok ? 'OMOK' : room.studyType}</span>
             <span className="dim"> · </span>
             <span className="num">
-              {isBaseball ? `${room.digits}-digit` : isTetris ? '20×10' : `${room.boardSize}×${room.boardSize}`}
+              {isBaseball ? `${room.digits}-digit` : isTetris ? '20×10' : isOldMaid ? '🃏 Old Maid' : `${room.boardSize}×${room.boardSize}`}
             </span>
             <span className="dim"> · </span>
             <span style={{ color: connected ? '#6a9955' : '#f14c4c' }}>
@@ -169,11 +183,11 @@ export default function StudyRoom({
                       className="btn-primary"
                       style={{ fontSize: '12px' }}
                       onClick={handleStart}
-                      disabled={!isTetris && playerNames.length < 2}
+                      disabled={!isTetris && !isOldMaid && playerNames.length < 2}
                     >
                       ▶ startGame()
                     </button>
-                    {!isTetris && playerNames.length < 2 && (
+                    {!isTetris && !isOldMaid && playerNames.length < 2 && (
                       <span className="cmt">// need at least 2 players</span>
                     )}
                   </span>
@@ -204,6 +218,13 @@ export default function StudyRoom({
               myPlayerIndex={myPlayerIndex}
               sendMove={sendMove}
               boardSize={room.boardSize}
+            />
+          ) : isOldMaid ? (
+            <OldMaid
+              studyState={studyState}
+              sessionId={sessionId}
+              myPlayerIndex={myPlayerIndex}
+              sendMove={sendMove}
             />
           ) : isTetris ? (
             <Tetris
