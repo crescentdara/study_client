@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -40,6 +40,7 @@ export interface StudyMoveRequest {
     | 'CALL_TOPIC'
     | 'PLACE_STONE'
     | 'TETRIS_SYNC'
+    | 'INCIDENT_SYNC'
     | 'DEAL_CARD'
     | 'DRAW_CARD'
     | 'DISCARD_PAIR'
@@ -60,7 +61,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | null;
 
   playerNames: string[];
 }
@@ -153,6 +154,24 @@ export interface TetrisPlayerState {
   cycle: number;
   running: boolean;
   gameOver: boolean;
+  updatedAt: number;
+}
+
+export interface IncidentAvoidGameData {
+  mode: string;
+  width: number;
+  height: number;
+  numPlayers: number;
+  playerStates: Record<string, IncidentAvoidPlayerState>;
+}
+
+export interface IncidentAvoidPlayerState {
+  x: number;
+  score: number;
+  survivedMs: number;
+  running: boolean;
+  gameOver: boolean;
+  incidents: number[][];
   updatedAt: number;
 }
 

@@ -262,8 +262,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (event.key === 'ArrowLeft') startHorizontalHold(-1);
     if (event.key === 'ArrowRight') startHorizontalHold(1);
     if (event.key === 'ArrowDown') move(1, 0);
-    if (event.key === 'ArrowUp') rotate();
-    if (event.key === ' ') hardDrop();
+    if (event.key === 'ArrowUp') hardDrop();
+    if (event.key === ' ') rotate();
     if (event.key.toLowerCase() === 'c') hold();
     if (event.key.toLowerCase() === 'p') setRunning((prev) => !prev);
     if (event.key.toLowerCase() === 'r') reset();
@@ -364,7 +364,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <button className="btn-primary" onClick={reset}>restart()</button>
         </div>
         <div className="tetris-note">
-          <span className="cmt">{'// arrows: move/rotate · space: commit · c: pin · p: pause'}</span>
+          <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause'}</span>
         </div>
       </div>
     </div>
@@ -416,7 +416,7 @@ function MetricsPanel({
         <button className="btn-primary" onClick={onReset}>restart()</button>
       </div>
       <div className="tetris-note">
-        <span className="cmt">{'// arrows: move/rotate · space: commit · c: pin · p: pause'}</span>
+        <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause'}</span>
       </div>
     </div>
   );
