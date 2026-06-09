@@ -6,6 +6,7 @@ import Bingo from './games/Bingo';
 import Omok from './games/Omok';
 import OldMaid from './games/OldMaid';
 import Tetris from './games/Tetris';
+import IncidentAvoid from './games/IncidentAvoid';
 import Chat from './Chat';
 
 interface StudyRoomProps {
@@ -48,7 +49,8 @@ export default function StudyRoom({
     const isBaseball = room.studyType === 'BASEBALL';
     const isOmok = room.studyType === 'OMOK';
     const isTetris = room.studyType === 'TETRIS';
-    const maxPlayers = isTetris ? 3 : room.maxPlayers;
+    const isIncidentAvoid = room.studyType === 'INCIDENT_AVOID';
+    const maxPlayers = isTetris || isIncidentAvoid ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
 
@@ -134,6 +136,8 @@ export default function StudyRoom({
                                 ? `${room.digits}-digit`
                                 : isTetris
                                   ? '20×10'
+                                  : isIncidentAvoid
+                                    ? '360×520'
                                   : isOldMaid
                                     ? '🃏 Old Maid'
                                     : `${room.boardSize}×${room.boardSize}`}
@@ -210,11 +214,11 @@ export default function StudyRoom({
                                             className="btn-primary"
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
-                                            disabled={!isTetris && !isOldMaid && playerNames.length < 2}
+                                            disabled={!isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2}
                                         >
                                             ▶ startGame()
                                         </button>
-                                        {!isTetris && !isOldMaid && playerNames.length < 2 && (
+                                        {!isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2 && (
                                             <span className="cmt">// need at least 2 players</span>
                                         )}
                                     </span>
@@ -255,6 +259,13 @@ export default function StudyRoom({
                         />
                     ) : isTetris ? (
                         <Tetris
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isIncidentAvoid ? (
+                        <IncidentAvoid
                             studyState={studyState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
