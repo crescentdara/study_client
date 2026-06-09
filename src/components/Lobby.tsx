@@ -35,6 +35,35 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   const [digits, setDigits] = useState(3);
   const [boardSize, setBoardSize] = useState(5);
   const [creating, setCreating] = useState(false);
+  const [profileEditing, setProfileEditing] = useState(() => !nickname.trim());
+  const [draftNickname, setDraftNickname] = useState(nickname);
+  const [draftEmoji, setDraftEmoji] = useState(emoji);
+
+  useEffect(() => {
+    if (!profileEditing) {
+      setDraftNickname(nickname);
+      setDraftEmoji(emoji);
+    }
+  }, [emoji, nickname, profileEditing]);
+
+  const saveProfile = () => {
+    const nextName = draftNickname.trim();
+    if (!nextName) {
+      setError("Nickname is required.");
+      return;
+    }
+    onNicknameChange(nextName);
+    onEmojiChange(draftEmoji);
+    setProfileEditing(false);
+    setError("");
+  };
+
+  const cancelProfileEdit = () => {
+    setDraftNickname(nickname);
+    setDraftEmoji(emoji);
+    setProfileEditing(!nickname.trim());
+    setError("");
+  };
 
   const fetchRooms = async () => {
     setLoading(true);
@@ -57,6 +86,10 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   }, []);
 
   const handleCreate = async () => {
+    if (profileEditing) {
+      setError("Save your profile first.");
+      return;
+    }
     if (!nickname.trim()) {
       setError("Enter a nickname first.");
       return;
@@ -91,6 +124,10 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   };
 
   const handleJoin = async (roomId: string) => {
+    if (profileEditing) {
+      setError("Save your profile first.");
+      return;
+    }
     if (!nickname.trim()) {
       setError("Enter a nickname first.");
       return;
@@ -149,11 +186,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             }}
           >
             {PLAYER_AVATARS.map((a) => {
-              const isSelected = emoji === a.id;
+              const isSelected = draftEmoji === a.id;
               return (
                 <div
                   key={a.id}
-                  onClick={() => onEmojiChange(a.id)}
+                  onClick={() => profileEditing && setDraftEmoji(a.id)}
                   style={{
                     height: "50px",
                     position: "relative",
@@ -164,7 +201,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                     background: isSelected ? "rgba(14,99,156,0.5)" : "transparent",
                     border: isSelected ? "1px solid #0e639c" : "1px solid #3e3e42",
                     borderRadius: "4px",
-                    cursor: "pointer",
+                    cursor: profileEditing ? "pointer" : "default",
                     transition: "all 0.15s",
                     opacity: isSelected ? 1 : 0.5,
                   }}
@@ -190,8 +227,8 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             <span className="cmt">NICKNAME</span>
           </div>
           <div style={{ padding: "0 12px 10px", display: "flex", gap: "6px", alignItems: "center" }}>
-            {emoji && (() => {
-              const a = PLAYER_AVATARS.find(a => a.id === emoji);
+            {draftEmoji && (() => {
+              const a = PLAYER_AVATARS.find(a => a.id === draftEmoji);
               return a?.src
                 ? <img src={a.src} alt={a.label} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
                 : <span style={{ fontSize: "16px", lineHeight: 1 }}>{a?.label}</span>;
@@ -207,10 +244,27 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 transition: "border-color 0.2s",
               }}
               placeholder="nickname"
-              value={nickname}
-              onChange={(e) => onNicknameChange(e.target.value)}
+              value={draftNickname}
+              onChange={(e) => setDraftNickname(e.target.value)}
+              disabled={!profileEditing}
               maxLength={12}
             />
+          </div>
+          <div style={{ padding: "0 12px 10px", display: "flex", gap: "6px" }}>
+            {profileEditing ? (
+              <>
+                <button className="btn-primary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={saveProfile}>
+                  save()
+                </button>
+                <button className="btn-secondary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={cancelProfileEdit}>
+                  cancel()
+                </button>
+              </>
+            ) : (
+              <button className="btn-secondary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={() => setProfileEditing(true)}>
+                editProfile()
+              </button>
+            )}
           </div>
           {/* {nickname && (
             <div style={{ padding: "0 12px 10px", fontSize: "11px" }}>

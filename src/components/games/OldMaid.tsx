@@ -36,8 +36,8 @@ const ANIM_CSS = `
 }`;
 
 // ─── 카드 칩 컴포넌트 ─────────────────────────────────────────────────────────
-function CardChip({ card, index, selected, pairHint, onClick, disabled }: {
-  card: OldMaidCard; index: number;
+function CardChip({ card, selected, pairHint, onClick, disabled }: {
+  card: OldMaidCard;
   selected?: boolean; pairHint?: boolean;
   onClick?: () => void; disabled?: boolean;
 }) {
@@ -230,7 +230,7 @@ export default function OldMaid({ studyState, sessionId, myPlayerIndex, sendMove
               const wouldPair = selected.length === 1 && isPair(myHand[selected[0]], card) && !isSel;
               return (
                 <CardChip
-                  key={idx} card={card} index={idx}
+                  key={idx} card={card}
                   selected={isSel} pairHint={wouldPair}
                   onClick={() => !isDealing && toggleSelect(idx)}
                   disabled={isDealing || isFinished}

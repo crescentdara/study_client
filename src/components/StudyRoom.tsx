@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Room, StudyStateResponse, ChatMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
@@ -42,7 +42,8 @@ export default function StudyRoom({
         onChat: handleChat,
     });
 
-    const myPlayerIndex = room.playerNames.indexOf(nickname);
+    const playerNames = studyState?.playerNames ?? room.playerNames;
+    const myPlayerIndex = playerNames.indexOf(nickname);
     const isHost = myPlayerIndex === 0;
     const isBaseball = room.studyType === 'BASEBALL';
     const isOmok = room.studyType === 'OMOK';
@@ -50,7 +51,6 @@ export default function StudyRoom({
     const maxPlayers = isTetris ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
-    const playerNames = studyState?.playerNames ?? room.playerNames;
 
     /**
      * 방이 폐쇄됐을 때 자동으로 로비로 이동
