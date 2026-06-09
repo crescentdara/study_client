@@ -1,16 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChatMessage } from '../types';
+import { useState, useEffect, useRef } from "react";
+import { ChatMessage } from "../types";
 
 /**
  * Chat Props 타입 정의
  */
 interface ChatProps {
-  messages: ChatMessage[];                            // 수신된 메시지 목록 (StudyRoom에서 관리)
-  myNickname: string;                                 // 내 메시지를 강조 표시하기 위한 닉네임
-  myEmoji: string;                                    // 내 이모지 (닉네임 앞에 표시)
-  sessionId: string;                                  // 전송 시 서버로 전달할 세션 ID
-  onSend: (text: string, sessionId: string) => void;  // 전송 시 호출할 콜백 (useWebSocket의 sendChat)
+  messages: ChatMessage[]; // 수신된 메시지 목록 (StudyRoom에서 관리)
+  myNickname: string; // 내 메시지를 강조 표시하기 위한 닉네임
+  myEmoji: string; // 내 이모지 (닉네임 앞에 표시)
+  sessionId: string; // 전송 시 서버로 전달할 세션 ID
+  onSend: (text: string, sessionId: string) => void; // 전송 시 호출할 콜백 (useWebSocket의 sendChat)
 }
+
+const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
+  { id: "🐱", src: null, label: "🐱" },
+  { id: "🐶", src: null, label: "🐶" },
+  { id: "🦊", src: null, label: "🦊" },
+  { id: "🐼", src: null, label: "🐼" },
+  { id: "🐨", src: null, label: "🐨" },
+  { id: "💀", src: null, label: "💀" },
+  { id: "ch1", src: "/src/assets/images/ch1.png", label: "😀" },
+  { id: "ch2", src: "/src/assets/images/ch2.png", label: "😁" },
+  { id: "ch3", src: "/src/assets/images/ch3.png", label: "👻" },
+  { id: "ch4", src: "/src/assets/images/ch4.png", label: "👽" },
+  { id: "pig", src: "/src/assets/images/dalbit.png", label: "🐷" },
+  { id: "ggobuk", src: "/src/assets/images/ggobuk.png", label: "🐢" },
+];
+
+// 헬퍼 함수 추가
+const renderAvatar = (emojiId: string, size = 16) => {
+  const a = PLAYER_AVATARS.find((a) => a.id === emojiId);
+  if (!a) return <span>{emojiId}</span>;
+  return a.src ? (
+    <img
+      src={a.src}
+      alt={a.label}
+      style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle" }}
+    />
+  ) : (
+    <span style={{ fontSize: size }}>{a.label}</span>
+  );
+};
 
 /**
  * 채팅 패널 컴포넌트
@@ -30,7 +60,7 @@ interface ChatProps {
  *   → messages prop 업데이트 → 이 컴포넌트 리렌더링
  */
 export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   // 패널 접기/펼치기 상태 (true = 펼침)
   const [open, setOpen] = useState(true);
 
@@ -55,7 +85,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
    * ?. (옵셔널 체이닝): bottomRef.current가 null이면 에러 없이 무시합니다.
    */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   /**
@@ -67,43 +97,51 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
   const handleSend = () => {
     if (!input.trim()) return; // 빈 메시지 전송 방지
     onSend(input.trim(), sessionId);
-    setInput(''); // 전송 후 입력창 초기화
+    setInput(""); // 전송 후 입력창 초기화
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      background: '#1e1e1e',
-      border: '1px solid #3e3e42',
-      height: '100%',      // 부모(StudyRoom 우측 패널)의 높이를 꽉 채움
-      minHeight: '200px',  // 최소 높이 보장
-    }}>
-
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        background: "#1e1e1e",
+        border: "1px solid #3e3e42",
+        height: "100%", // 부모(StudyRoom 우측 패널)의 높이를 꽉 채움
+        minHeight: "200px", // 최소 높이 보장
+      }}
+    >
       {/* ── 패널 헤더 (VS Code 출력 패널 스타일) ── */}
-      <div style={{
-        padding: '4px 10px',
-        background: '#252526',
-        borderBottom: '1px solid #3e3e42',
-        fontSize: '11px',
-        color: '#858585',
-        letterSpacing: '1px',
-        textTransform: 'uppercase',
-        flexShrink: 0, // 헤더가 줄어들지 않게
-        justifyContent: 'space-between',
-        display: 'flex',
-        alignItems: 'center',
-      }}>
-        <span style={{ color: '#569cd6' }}>// </span>CHAT
+      <div
+        style={{
+          padding: "4px 10px",
+          background: "#252526",
+          borderBottom: "1px solid #3e3e42",
+          fontSize: "11px",
+          color: "#858585",
+          letterSpacing: "1px",
+          textTransform: "uppercase",
+          flexShrink: 0, // 헤더가 줄어들지 않게
+          justifyContent: "space-between",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <span style={{ color: "#569cd6" }}>// </span>CHAT
         {/* 접기/펼치기 버튼 */}
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           style={{
-            marginLeft: 'auto', background: 'transparent', border: 'none',
-            color: '#858585', cursor: 'pointer', fontSize: '12px', padding: '0 2px',
+            marginLeft: "auto",
+            background: "transparent",
+            border: "none",
+            color: "#858585",
+            cursor: "pointer",
+            fontSize: "12px",
+            padding: "0 2px",
           }}
         >
-          {open ? '−' : '+'}
+          {open ? "−" : "+"}
         </button>
       </div>
 
@@ -114,76 +152,92 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
         minHeight: 0 → flex 컨테이너에서 자식이 최소 크기로 줄어들 수 있게 허용
           (이 속성 없이는 overflow가 작동하지 않을 수 있음)
       */}
-      {open && <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0', minHeight: 0 }}>
+      {open && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "6px 0", minHeight: 0 }}>
+          {/* 메시지가 없을 때 안내 문구 */}
+          {messages.length === 0 && (
+            <div style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
+              <span style={{ color: "#6a9955" }}>{"// no messages yet"}</span>
+            </div>
+          )}
 
-        {/* 메시지가 없을 때 안내 문구 */}
-        {messages.length === 0 && (
-          <div style={{ padding: '8px 12px', fontSize: '11px', color: '#4e4e4e' }}>
-            <span style={{ color: '#6a9955' }}>{'// no messages yet'}</span>
-          </div>
-        )}
+          {/* 메시지 목록 렌더링 */}
+          {messages.map((m, i) => {
+            // 내가 보낸 메시지인지 확인 (닉네임으로 판별)
+            const isMe = m.nickname === myNickname;
 
-        {/* 메시지 목록 렌더링 */}
-        {messages.map((m, i) => {
-          // 내가 보낸 메시지인지 확인 (닉네임으로 판별)
-          const isMe = m.nickname === myNickname;
+            // timestamp(밀리초) → "HH:MM" 형식 시각으로 변환
+            // toLocaleTimeString: 로컬 시간대에 맞게 자동 변환
+            const time = new Date(m.timestamp).toLocaleTimeString("en-US", {
+              hour12: false,
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
-          // timestamp(밀리초) → "HH:MM" 형식 시각으로 변환
-          // toLocaleTimeString: 로컬 시간대에 맞게 자동 변환
-          const time = new Date(m.timestamp).toLocaleTimeString('en-US', {
-            hour12: false, hour: '2-digit', minute: '2-digit'
-          });
+            return (
+              <div key={i} style={{ padding: "2px 10px", fontSize: "12px", lineHeight: "1.6" }}>
+                {/* 시각 표시 (어두운 색으로 보조적으로 표시) */}
+                <span style={{ color: "#4e4e4e", marginRight: "6px", fontSize: "10px" }}>{time}</span>
 
-          return (
-            <div key={i} style={{ padding: '2px 10px', fontSize: '12px', lineHeight: '1.6' }}>
-              {/* 시각 표시 (어두운 색으로 보조적으로 표시) */}
-              <span style={{ color: '#4e4e4e', marginRight: '6px', fontSize: '10px' }}>{time}</span>
-
-              {/* 닉네임: 내 것은 청록색, 상대방은 하늘색
+                {/* 닉네임: 내 것은 청록색, 상대방은 하늘색
                   m.emoji: 서버가 포함해서 브로드캐스트한 발신자 이모지
                   → 모든 클라이언트가 각자의 이모지를 볼 수 있음 */}
-              <span style={{ color: isMe ? '#4ec9b0' : '#9cdcfe', marginRight: '6px' }}>
-                {m.emoji || (isMe ? myEmoji : '')}{m.nickname}
-              </span>
+                <span
+                  style={{
+                    color: isMe ? "#4ec9b0" : "#9cdcfe",
+                    marginRight: "6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px",
+                  }}
+                >
+                  {renderAvatar(m.emoji || (isMe ? myEmoji : ""))}
+                  {m.nickname}
+                </span>
 
-              {/* 메시지 내용 */}
-              <span style={{ color: '#d4d4d4' }}>{m.text}</span>
-            </div>
-          );
-        })}
+                {/* 메시지 내용 */}
+                <span style={{ color: "#d4d4d4" }}>{m.text}</span>
+              </div>
+            );
+          })}
 
-        {/* 자동 스크롤 앵커: 이 div가 화면에 보이도록 스크롤됩니다 */}
-        <div ref={bottomRef} />
-      </div>}
+          {/* 자동 스크롤 앵커: 이 div가 화면에 보이도록 스크롤됩니다 */}
+          <div ref={bottomRef} />
+        </div>
+      )}
 
       {/* ── 입력창 ── */}
-      {open && <div style={{
-        display: 'flex',
-        gap: '4px',
-        padding: '6px 8px',
-        borderTop: '1px solid #3e3e42',
-        flexShrink: 0, // 입력창 영역이 줄어들지 않게
-      }}>
-        {/* '>' 프롬프트 기호 (VS Code 터미널 스타일) */}
-        <span style={{ color: '#6a9955', fontSize: '12px', lineHeight: '28px', flexShrink: 0 }}>{'>'}</span>
-
-        <input
-          style={{ flex: 1, fontSize: '12px', padding: '4px 6px' }}
-          placeholder="type a message..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSend()} // Enter 키로도 전송
-          maxLength={200} // 메시지 최대 길이 제한
-        />
-
-        <button
-          className="btn-primary"
-          style={{ fontSize: '11px', padding: '4px 10px', flexShrink: 0 }}
-          onClick={handleSend}
+      {open && (
+        <div
+          style={{
+            display: "flex",
+            gap: "4px",
+            padding: "6px 8px",
+            borderTop: "1px solid #3e3e42",
+            flexShrink: 0, // 입력창 영역이 줄어들지 않게
+          }}
         >
-          send
-        </button>
-      </div>}
+          {/* '>' 프롬프트 기호 (VS Code 터미널 스타일) */}
+          <span style={{ color: "#6a9955", fontSize: "12px", lineHeight: "28px", flexShrink: 0 }}>{">"}</span>
+
+          <input
+            style={{ flex: 1, fontSize: "12px", padding: "4px 6px" }}
+            placeholder="type a message..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()} // Enter 키로도 전송
+            maxLength={200} // 메시지 최대 길이 제한
+          />
+
+          <button
+            className="btn-primary"
+            style={{ fontSize: "11px", padding: "4px 10px", flexShrink: 0 }}
+            onClick={handleSend}
+          >
+            send
+          </button>
+        </div>
+      )}
     </div>
   );
 }
