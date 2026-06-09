@@ -122,7 +122,7 @@ function App() {
   // 현재 열린 탭 레이블: 로비면 'lobby.ts', 방에 들어가면 '방이름.bs/.bg'
   // (VS Code 파일탭 스타일)
   const tabLabel = currentRoom
-    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : currentRoom.studyType === 'OMOK' ? 'omok' : currentRoom.studyType === 'TETRIS' ? 'tetris' : currentRoom.studyType === 'INCIDENT_AVOID' ? 'incident' : currentRoom.studyType === 'OLDMAID' ? 'cards' : 'bg'}`
+    ? `${currentRoom.roomName}.${currentRoom.studyType === 'BASEBALL' ? 'bs' : currentRoom.studyType === 'OMOK' ? 'omok' : currentRoom.studyType === 'TETRIS' ? 'tetris' : currentRoom.studyType === 'OLDMAID' ? 'cards' : 'bg'}`
     : 'lobby.ts';
 
   return (
@@ -239,8 +239,6 @@ function App() {
                 ? `OMOK · ${currentRoom.boardSize}×${currentRoom.boardSize}`
                 : currentRoom.studyType === 'TETRIS'
                   ? 'TETRIS · 20×10'
-                  : currentRoom.studyType === 'INCIDENT_AVOID'
-                    ? 'INCIDENT_AVOID · 360×520'
                   : currentRoom.studyType === 'OLDMAID'
                     ? '🃏 Old Maid'
                     : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
@@ -249,7 +247,7 @@ function App() {
         {/* 우측 정렬: 현재 인원 / 최대 인원 */}
         <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
           {currentRoom
-            ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' ? 3 : currentRoom.maxPlayers} players`
+            ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' ? 3 : currentRoom.maxPlayers} players`
             : 'Lobby'}
         </span>
       </div>
