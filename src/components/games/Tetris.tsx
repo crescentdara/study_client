@@ -88,10 +88,27 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
   const moveRef = useRef<(dr: number, dc: number) => boolean>(() => false);
+  const syncPayloadRef = useRef<object>({});
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
   const projectedBoard = useMemo(() => mergePiece(board, piece), [board, piece]);
+  const playerNames = studyState?.playerNames ?? [];
+  const boardViews = playerNames.map((name, index) => {
+    const state = data?.playerStates?.[String(index)];
+    return {
+      name,
+      index,
+      state,
+      board: index === myPlayerIndex ? projectedBoard : state?.board ?? emptyBoard(),
+      isMe: index === myPlayerIndex,
+    };
+  });
+  const centeredBoardViews = [
+    ...boardViews.filter((view) => !view.isMe).slice(0, 1),
+    ...boardViews.filter((view) => view.isMe),
+    ...boardViews.filter((view) => !view.isMe).slice(1),
+  ];
 
   const reset = useCallback(() => {
     setBoard(emptyBoard());
@@ -126,7 +143,6 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (collides(result.board, spawned)) {
       setRunning(false);
       setGameOver(true);
-      sendMove({ moveType: 'TETRIS_SYNC', data: 'queue_overflow', sessionId });
     }
   }, [board, nextPiece, piece, sendMove, sessionId]);
 
@@ -183,6 +199,38 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     return () => window.clearTimeout(timer);
   }, [gameOver, move, running, speed]);
 
+  useEffect(() => {
+    syncPayloadRef.current = {
+      board: projectedBoard,
+      score,
+      lines,
+      cycle,
+      running,
+      gameOver,
+    };
+  }, [cycle, gameOver, lines, projectedBoard, running, score]);
+
+  useEffect(() => {
+    if (studyState?.status !== 'PLAYING' || myPlayerIndex < 0) return undefined;
+    const sync = () => {
+      sendMove({
+        moveType: 'TETRIS_SYNC',
+        data: gameOver ? 'queue_overflow' : 'sync',
+        sessionId,
+        payload: syncPayloadRef.current,
+      });
+    };
+    sync();
+    const timer = window.setInterval(sync, 300);
+    return () => window.clearInterval(timer);
+  }, [gameOver, myPlayerIndex, sendMove, sessionId, studyState?.status]);
+
+  useEffect(() => {
+    if (studyState?.status === 'FINISHED') {
+      setRunning(false);
+    }
+  }, [studyState?.status]);
+
   const stopHorizontalHold = useCallback(() => {
     if (horizontalHoldRef.current !== null) window.clearInterval(horizontalHoldRef.current);
     if (horizontalDelayRef.current !== null) window.clearTimeout(horizontalDelayRef.current);
@@ -236,25 +284,40 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <span className="pct">(</span><span className="num">{data?.rows ?? ROWS}x{data?.cols ?? COLS}</span><span className="pct">)</span>
         </CL>
 
-        <div className="tetris-shell">
-          <div className="tetris-head">
-            <span><span className="var">status</span><span className="pct">: </span><span className={gameOver ? 'str' : running ? 'typ' : 'dim'}>{gameOver ? 'overflow' : running ? 'running' : 'paused'}</span></span>
-            <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
-            <span><span className="var">resolved</span><span className="pct">: </span><span className="num">{lines}</span></span>
-          </div>
-          <div className="tetris-board" style={boardStyle}>
-            {projectedBoard.map((row, r) => row.map((cell, c) => (
-              <div
-                key={`${r}-${c}`}
-                className={`tetris-cell ${cell ? `filled t-${cell}` : ''}`}
-                title={`slot ${r + 1}.${c + 1}`}
-              />
-            )))}
-          </div>
+        <div className="tetris-board-row">
+          {centeredBoardViews.map(({ name, index, state, board: viewBoard, isMe }) => (
+            <div key={index} className={`tetris-player-stack ${isMe ? 'mine' : ''}`}>
+              <BoardShell
+              name={name}
+              board={viewBoard}
+              score={isMe ? score : state?.score ?? 0}
+              lines={isMe ? lines : state?.lines ?? 0}
+              cycle={isMe ? cycle : state?.cycle ?? 1}
+              status={isMe ? (gameOver ? 'overflow' : running ? 'running' : 'paused') : state?.gameOver ? 'overflow' : state ? 'running' : 'waiting'}
+              winner={studyState?.winner === index}
+              isMe={isMe}
+              style={isMe ? boardStyle : undefined}
+            />
+              {isMe && (
+                <MetricsPanel
+                  name={studyState?.playerNames?.[myPlayerIndex] ?? 'me'}
+                  score={score}
+                  piece={piece}
+                  nextPiece={nextPiece}
+                  holdPiece={holdPiece}
+                  running={running}
+                  cellAlpha={cellAlpha}
+                  onCellAlpha={setCellAlpha}
+                  onRunning={() => setRunning((prev) => !prev)}
+                  onReset={reset}
+                />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="code-block tetris-side">
+      <div className="code-block tetris-side tetris-side-legacy">
         <CL ln={1}><span className="cmt">{'// queue metrics'}</span></CL>
         <Metric ln={2} name="operator" value={studyState?.playerNames?.[myPlayerIndex] ?? 'me'} string />
         <Metric ln={3} name="score" value={score} />
@@ -291,17 +354,106 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   );
 }
 
+function MetricsPanel({
+  name, score, piece, nextPiece, holdPiece, running, cellAlpha, onCellAlpha, onRunning, onReset,
+}: {
+  name: string;
+  score: number;
+  piece: Piece;
+  nextPiece: Piece;
+  holdPiece: Piece | null;
+  running: boolean;
+  cellAlpha: number;
+  onCellAlpha: (value: number) => void;
+  onRunning: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="code-block tetris-side">
+      <CL ln={1}><span className="cmt">{'// queue metrics'}</span></CL>
+      <Metric ln={2} name="operator" value={name} string />
+      <Metric ln={3} name="score" value={score} />
+      <Metric ln={4} name="batch" value={piece.type} string />
+      <Metric ln={5} name="nextBatch" value={nextPiece.type} string />
+      <Metric ln={6} name="pinnedTask" value={holdPiece?.type ?? 'null'} string />
+      <CL ln={7}>
+        <span className="var">visibility</span><span className="pct">: </span>
+        <input
+          className="tetris-range"
+          type="range"
+          min={22}
+          max={82}
+          value={cellAlpha}
+          onChange={(event) => onCellAlpha(Number(event.target.value))}
+        />
+        <span className="num"> {cellAlpha}%</span>
+      </CL>
+      <div className="tetris-preview-row">
+        <Preview title="next" piece={nextPiece} />
+        <Preview title="hold" piece={holdPiece} />
+      </div>
+      <div className="tetris-actions">
+        <button className="btn-secondary" onClick={onRunning}>
+          {running ? 'pause()' : 'resume()'}
+        </button>
+        <button className="btn-primary" onClick={onReset}>restart()</button>
+      </div>
+      <div className="tetris-note">
+        <span className="cmt">{'// arrows: move/rotate · space: commit · c: pin · p: pause'}</span>
+      </div>
+    </div>
+  );
+}
+
+function BoardShell({
+  name, board, score, lines, cycle, status, winner, isMe, style,
+}: {
+  name: string;
+  board: Board;
+  score: number;
+  lines: number;
+  cycle: number;
+  status: string;
+  winner: boolean;
+  isMe: boolean;
+  style?: CSSProperties;
+}) {
+  return (
+    <div className={`tetris-shell ${isMe ? 'mine' : 'peer'}`}>
+      <div className="tetris-head">
+        <span><span className={isMe ? 'var' : 'str'}>{isMe ? 'me' : `"${name}"`}</span></span>
+        <span><span className="var">status</span><span className="pct">: </span><span className={winner ? 'typ' : status === 'overflow' ? 'str' : status === 'running' ? 'typ' : 'dim'}>{winner ? 'winner' : status}</span></span>
+        <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
+      </div>
+      <div className="tetris-board" style={style}>
+        {board.map((row, r) => row.map((cell, c) => (
+          <div
+            key={`${r}-${c}`}
+            className={`tetris-cell ${cell ? `filled t-${cell}` : ''}`}
+            title={`${name} slot ${r + 1}.${c + 1}`}
+          />
+        )))}
+      </div>
+      <div className="tetris-board-metrics">
+        <span><span className="var">score</span><span className="pct">: </span><span className="num">{score}</span></span>
+        <span><span className="var">lines</span><span className="pct">: </span><span className="num">{lines}</span></span>
+      </div>
+    </div>
+  );
+}
+
 function Preview({ title, piece }: { title: string; piece: Piece | null }) {
   return (
     <div className="tetris-preview">
       <div className="dim">{title}</div>
-      <div className="tetris-mini">
+      <div className={`tetris-mini ${piece ? '' : 'empty'}`}>
         {Array.from({ length: 16 }, (_, i) => {
           const r = Math.floor(i / 4);
           const c = i % 4;
           const filled = piece?.shape[r]?.[c] ?? 0;
           return <span key={i} className={filled ? `filled t-${piece?.type}` : ''} />;
         })}
+        {!piece && <b>empty</b>}
       </div>
     </div>
   );
