@@ -190,7 +190,7 @@ function App() {
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
         {/* 메인 콘텐츠 */}
-        <div style={{ flex: 1, overflow: 'auto', padding: currentRoom === null ? '0' : '20px 24px', minWidth: 0 }}>
+        <div style={{ flex: 1, overflow: 'none', padding: currentRoom === null ? '0' : '20px 24px', minWidth: 0 }}>
           {currentRoom === null ? (
             <Lobby
               nickname={nickname}

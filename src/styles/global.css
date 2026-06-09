@@ -795,5 +795,5 @@ select option { background: var(--bg-sidebar); }
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-editor); }
-::-webkit-scrollbar-thumb { background: #424242; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-thumb { background: #252525; }
+::-webkit-scrollbar-thumb:hover { background: #333333; }
