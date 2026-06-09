@@ -7,7 +7,6 @@ import Omok from './games/Omok';
 import OldMaid from './games/OldMaid';
 import Tetris from './games/Tetris';
 import IncidentAvoid from './games/IncidentAvoid';
-import Chat from './Chat';
 
 interface StudyRoomProps {
     room: Room;
@@ -24,7 +23,7 @@ interface StudyRoomProps {
 export default function StudyRoom({
     room,
     nickname,
-    emoji,
+    emoji: _emoji,
     sessionId,
     studyState,
     onStudyState,
