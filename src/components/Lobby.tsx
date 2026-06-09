@@ -72,9 +72,9 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
         studyType,
         nickname: nickname.trim(),
         sessionId,
-        maxPlayers: studyType === "OMOK" ? 2 : maxPlayers,
+        maxPlayers: studyType === "TETRIS" ? 1 : studyType === "OMOK" ? 2 : maxPlayers,
         digits,
-        boardSize: studyType === "OMOK" ? 19 : boardSize,
+        boardSize: studyType === "TETRIS" ? 20 : studyType === "OMOK" ? 19 : boardSize,
       };
       const res = await fetch("/api/rooms", {
         method: "POST",
@@ -230,6 +230,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ⚾ BASEBALL</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 📝 BINGO</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ▦ OMOK</div>
+          <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ TETRIS</div>
         </div>
       </div>
 
@@ -264,7 +265,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
 
           {rooms.map((room) => {
             const isBaseball = room.studyType === "BASEBALL";
-            const opt = isBaseball ? `${room.digits}digit` : `${room.boardSize}x${room.boardSize}`;
+            const opt = isBaseball ? `${room.digits}digit` : room.studyType === "TETRIS" ? "20x10" : `${room.boardSize}x${room.boardSize}`;
             return (
               <div className="c-line" key={room.roomId} style={{ alignItems: "flex-start" }}>
                 <span className="ln">{ln++}</span>
@@ -367,7 +368,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">type</span>
                 <span className="pct"> = </span>
-                {(["BASEBALL", "BINGO", "OMOK"] as StudyType[]).map((t) => (
+                {(["BASEBALL", "BINGO", "OMOK", "TETRIS"] as StudyType[]).map((t) => (
                   <button
                     key={t}
                     className={`btn-opt ${studyType === t ? "on" : ""}`}
@@ -376,6 +377,9 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                       if (t === "OMOK") {
                         setMaxPlayers(2);
                         setBoardSize(19);
+                      } else if (t === "TETRIS") {
+                        setMaxPlayers(1);
+                        setBoardSize(20);
                       }
                     }}
                     style={{ fontSize: "11px" }}
@@ -388,7 +392,16 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             )}
 
             {/* max players */}
-            {studyType === "OMOK" ? L(
+            {studyType === "TETRIS" ? L(
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span className="kw">const </span>
+                <span className="var">players</span>
+                <span className="pct"> = </span>
+                <span className="num">1</span>
+                <span className="cmt"> // local queue monitor</span>
+              </span>,
+              1,
+            ) : studyType === "OMOK" ? L(
               <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                 <span className="kw">const </span>
                 <span className="var">players</span>
@@ -468,6 +481,18 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                   <span className="pct"> = </span>
                   <span className="num">19</span>
                   <span className="cmt"> // fixed 19x19, P1 3-3 forbidden</span>
+                </span>,
+                1,
+              )}
+
+            {studyType === "TETRIS" &&
+              L(
+                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className="kw">const </span>
+                  <span className="var">queue</span>
+                  <span className="pct"> = </span>
+                  <span className="num">20x10</span>
+                  <span className="cmt"> // solo TETRIS workspace</span>
                 </span>,
                 1,
               )}
