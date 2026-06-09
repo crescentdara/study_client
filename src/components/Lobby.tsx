@@ -58,7 +58,6 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   // Explorer sections
   const [userExpanded, setUserExpanded] = useState(true);
   const [roomsExpanded, setRoomsExpanded] = useState(true);
-  const [ytExpanded, setYtExpanded] = useState(true);
 
   // Active sidebar panel
   const [activePanel, setActivePanel] = useState<"explorer" | "profile">("explorer");
@@ -125,17 +124,6 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
     setTimeout(() => {
       if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
     }, 30);
-  };
-
-  // YouTube
-  const [ytUrl, setYtUrl] = useState("");
-  const [ytInput, setYtInput] = useState("");
-  const [showPlayer, setShowPlayer] = useState(false);
-  const [ytCollapsed, setYtCollapsed] = useState(false);
-
-  const extractYtId = (url: string): string | null => {
-    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-    return m ? m[1] : null;
   };
 
   useEffect(() => {
@@ -415,57 +403,6 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                   </button>
                 </div>
               </>
-            )}
-
-            {/* YOUTUBE section */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "5px", padding: "3px 10px", fontSize: "11px", color: "#bbb", cursor: "pointer", userSelect: "none", borderTop: "1px solid #3e3e42" }}
-              onClick={() => setYtExpanded((v) => !v)}
-            >
-              <span style={{ fontSize: "9px", color: "#666", display: "inline-block", transition: "transform 0.15s", transform: ytExpanded ? "rotate(90deg)" : "none" }}>▶</span>
-              <span>YOUTUBE</span>
-            </div>
-
-            {ytExpanded && (
-              <div style={{ padding: "4px 8px 8px", flexShrink: 0 }}>
-                <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
-                  <input
-                    style={{ flex: 1, fontSize: "10px", padding: "2px 5px", minWidth: 0 }}
-                    placeholder="paste YouTube URL..."
-                    value={ytInput}
-                    onChange={(e) => setYtInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const id = extractYtId(ytInput);
-                        if (id) { setYtUrl(id); setShowPlayer(true); }
-                      }
-                    }}
-                  />
-                  <button className="btn-secondary" style={{ fontSize: "10px", padding: "2px 7px" }}
-                    onClick={() => { const id = extractYtId(ytInput); if (id) { setYtUrl(id); setShowPlayer(true); } }}>
-                    ▶
-                  </button>
-                  {showPlayer && <>
-                    <button className="btn-secondary" style={{ fontSize: "10px", padding: "2px 6px" }} onClick={() => setYtCollapsed(c => !c)}>
-                      {ytCollapsed ? "▼" : "▲"}
-                    </button>
-                    <button className="btn-secondary" style={{ fontSize: "10px", padding: "2px 5px", color: "#f44747" }}
-                      onClick={() => { setShowPlayer(false); setYtUrl(""); setYtInput(""); }}>
-                      ✕
-                    </button>
-                  </>}
-                </div>
-                {showPlayer && ytUrl && (
-                  <div style={{ overflow: "hidden", height: ytCollapsed ? 0 : undefined, transition: "height 0.2s", ...(ytCollapsed ? {} : { position: "relative", paddingBottom: "56.25%" }) }}>
-                    <iframe
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: ytCollapsed ? 0 : "100%", border: "none" }}
-                      src={`https://www.youtube.com/embed/${ytUrl}?autoplay=1`}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-                      allowFullScreen
-                    />
-                  </div>
-                )}
-              </div>
             )}
           </div>
         )}
