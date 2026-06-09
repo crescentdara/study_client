@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Room, StudyStateResponse } from './types';
+import { Room, StudyStateResponse, ChatMessage } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
+import Chat from './components/Chat';
+import { useLobbyChat } from './hooks/useLobbyChat';
 
 /**
  * 최상위 컴포넌트 (App)
@@ -49,6 +51,16 @@ function App() {
 
   // 서버에서 WebSocket으로 받는 최신 게임 상태
   const [studyState, setStudyState] = useState<StudyStateResponse | null>(null);
+
+  // 로비 채팅
+  const [lobbyMessages, setLobbyMessages] = useState<ChatMessage[]>([]);
+  const handleLobbyMessage = useCallback((msg: ChatMessage) => {
+    setLobbyMessages(prev => [...prev, msg]);
+  }, []);
+  const { sendChat: sendLobbyChat } = useLobbyChat({ onMessage: handleLobbyMessage });
+  const handleLobbyChatSend = useCallback((text: string, _sid: string) => {
+    sendLobbyChat(text, nickname, emoji, sessionId);
+  }, [sendLobbyChat, nickname, emoji, sessionId]);
 
   /**
    * 앱 최초 마운트 시 세션 ID 초기화
@@ -164,15 +176,41 @@ function App() {
       {/* flex: 1 로 남은 공간을 모두 차지, overflow: auto로 스크롤 허용 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {currentRoom === null ? (
-          // 로비: 닉네임 설정 + 방 목록 + 방 만들기
-          <Lobby
-            nickname={nickname}
-            emoji={emoji}
-            onEmojiChange={handleEmojiChange}
-            sessionId={sessionId}
-            onNicknameChange={handleNicknameChange}
-            onJoinRoom={handleJoinRoom}                
-          />
+          // 로비: 닉네임 설정 + 방 목록 + 방 만들기 + 로비 채팅
+          <div style={{ display: 'flex', gap: '16px', height: '100%', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Lobby
+                nickname={nickname}
+                emoji={emoji}
+                onEmojiChange={handleEmojiChange}
+                sessionId={sessionId}
+                onNicknameChange={handleNicknameChange}
+                onJoinRoom={handleJoinRoom}
+              />
+            </div>
+            <div style={{ width: '240px', flexShrink: 0, height: '520px', position: 'sticky', top: 0 }}>
+              {!nickname.trim() && (
+                <div style={{
+                  position: 'absolute', inset: 0, zIndex: 1,
+                  background: 'rgba(30,30,30,0.85)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '4px', fontSize: '12px', color: '#858585',
+                  fontFamily: 'monospace', flexDirection: 'column', gap: '6px',
+                  pointerEvents: 'none',
+                }}>
+                  <span style={{ color: '#569cd6' }}>// 채팅하려면</span>
+                  <span>닉네임을 먼저 입력해주세요</span>
+                </div>
+              )}
+              <Chat
+                messages={lobbyMessages}
+                myNickname={nickname}
+                myEmoji={emoji}
+                sessionId={sessionId}
+                onSend={nickname.trim() ? handleLobbyChatSend : () => {}}
+              />
+            </div>
+          </div>
         ) : (
           // 게임방: WebSocket 연결 + 게임 컴포넌트 + 채팅
           <StudyRoom
