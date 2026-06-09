@@ -42,22 +42,6 @@ const renderAvatar = (emojiId: string, size = 16) => {
   );
 };
 
-const [showOpacity, setShowOpacity] = useState(false);
-const [opacity, setOpacity] = useState(100);
-
-<div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    background: "#1e1e1e",
-    border: "1px solid #3e3e42",
-    height: "100%",
-    minHeight: "200px",
-    opacity: opacity / 100, // ← 추가
-    transition: "opacity 0.2s", // ← 추가 (부드럽게)
-  }}
-></div>;
-
 /**
  * 채팅 패널 컴포넌트
  *
@@ -79,6 +63,9 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
   const [input, setInput] = useState("");
   // 패널 접기/펼치기 상태 (true = 펼침)
   const [open, setOpen] = useState(true);
+
+  const [showOpacity, setShowOpacity] = useState(false);
+  const [chatOpacity, setChatOpacity] = useState(100);
 
   /**
    * 메시지 목록의 맨 아래를 참조하는 DOM 참조 (useRef)
@@ -123,8 +110,10 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
         flexDirection: "column",
         background: "#1e1e1e",
         border: "1px solid #3e3e42",
-        height: "100%", // 부모(StudyRoom 우측 패널)의 높이를 꽉 채움
-        minHeight: "200px", // 최소 높이 보장
+        height: "100%",
+        minHeight: "200px",
+        opacity: chatOpacity / 100, // ← 추가
+        transition: "opacity 0.2s", // ← 추가
       }}
     >
       {/* ── 패널 헤더 (VS Code 출력 패널 스타일) ── */}
@@ -310,11 +299,11 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
                 type="range"
                 min={20}
                 max={100}
-                value={opacity}
-                onChange={(e) => setOpacity(Number(e.target.value))}
+                onChange={(e) => setChatOpacity(Number(e.target.value))}
+                value={chatOpacity}
                 style={{ flex: 1, accentColor: "#4ec9b0", cursor: "pointer" }}
               />
-              <span style={{ color: "#858585", fontSize: "10px", width: "28px", textAlign: "right" }}>{opacity}%</span>
+              <span style={{ color: "#858585", fontSize: "10px", width: "28px", textAlign: "right" }}>{chatOpacity}%</span>
             </div>
           )}
 
