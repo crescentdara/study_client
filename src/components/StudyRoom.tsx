@@ -6,6 +6,7 @@ import Bingo from './games/Bingo';
 import Omok from './games/Omok';
 import OldMaid from './games/OldMaid';
 import Tetris from './games/Tetris';
+import IncidentAvoid from './games/IncidentAvoid';
 
 interface StudyRoomProps {
     room: Room;
@@ -22,7 +23,7 @@ interface StudyRoomProps {
 export default function StudyRoom({
     room,
     nickname,
-    emoji,
+    emoji: _emoji,
     sessionId,
     studyState,
     onStudyState,
@@ -41,7 +42,8 @@ export default function StudyRoom({
     const isBaseball = room.studyType === 'BASEBALL';
     const isOmok = room.studyType === 'OMOK';
     const isTetris = room.studyType === 'TETRIS';
-    const maxPlayers = isTetris ? 3 : room.maxPlayers;
+    const isIncidentAvoid = room.studyType === 'INCIDENT_AVOID';
+    const maxPlayers = isTetris || isIncidentAvoid ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
 
@@ -115,9 +117,11 @@ export default function StudyRoom({
                                 ? `${room.digits}-digit`
                                 : isTetris
                                   ? '20×10'
-                                  : isOldMaid
-                                    ? '🃏 Old Maid'
-                                    : `${room.boardSize}×${room.boardSize}`}
+                                  : isIncidentAvoid
+                                    ? '360×520'
+                                    : isOldMaid
+                                      ? '🃏 Old Maid'
+                                      : `${room.boardSize}×${room.boardSize}`}
                         </span>
                         <span className="dim"> · </span>
                         <span style={{ color: connected ? '#6a9955' : '#f14c4c' }}>
@@ -191,11 +195,13 @@ export default function StudyRoom({
                                             className="btn-primary"
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
-                                            disabled={!isTetris && !isOldMaid && playerNames.length < 2}
+                                            disabled={
+                                                !isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2
+                                            }
                                         >
                                             ▶ startGame()
                                         </button>
-                                        {!isTetris && !isOldMaid && playerNames.length < 2 && (
+                                        {!isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2 && (
                                             <span className="cmt">// need at least 2 players</span>
                                         )}
                                     </span>
@@ -241,6 +247,13 @@ export default function StudyRoom({
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}
                         />
+                    ) : isIncidentAvoid ? (
+                        <IncidentAvoid
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
                     ) : (
                         <Bingo
                             studyState={studyState}
@@ -251,7 +264,6 @@ export default function StudyRoom({
                         />
                     ))}
             </div>
-
         </div>
     );
 }
