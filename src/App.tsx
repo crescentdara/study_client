@@ -132,26 +132,39 @@ function App() {
       <div style={{
         background: '#323233',
         borderBottom: '1px solid #3e3e42',
-        padding: '0 12px',
+        padding: '2px 12px',
+        boxSizing: 'border-box',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '30px',
+        height: '32px',
         flexShrink: 0, // flex 컨테이너 안에서 크기가 줄어들지 않도록
+        position: 'relative',
       }}>
-        {/* 앱 이름을 syntax highlight 스타일로 표시 */}
-        <span style={{ fontSize: '12px', color: '#cccccc' }}>
-          <span style={{ color: '#569cd6' }}>study</span>
-          <span style={{ color: '#d4d4d4' }}>-</span>
-          <span style={{ color: '#ce9178' }}>platform</span>
-        </span>
-        {/* 닉네임이 설정된 경우 코드 주석 스타일로 표시 */}
-        {nickname && (
-          <span style={{ fontSize: '11px', color: '#858585' }}>
-            <span style={{ color: '#6a9955' }}>// </span>
-            <span style={{ color: '#9cdcfe' }}>{nickname}</span>
-          </span>
-        )}
+        <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
+          <li style={{ color: '#888', fontSize: '12px' }}>File</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Edit</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Selection</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>View</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Go</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Run</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Terminal</li>
+          <li style={{ color: '#888', fontSize: '12px' }}>Help</li>
+        </ul>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0 }}>
+            <li style={{ color: '#888', fontSize: '12px' }}>←</li>
+            <li style={{ color: '#888', fontSize: '12px' }}>→</li>
+          </ul>
+          <div style={{ background: '#555', color: '#888', fontSize: '12px', padding: '3px 8px', width: '500px', borderRadius: '6px' }}>⚡ study-platform</div>
+        </div>
+
+        <ul style={{ display: 'flex', gap: '30px', listStyle: 'none', margin: 0, padding: 0, fontSize: '14px', color: '#888' }}>
+          <li style={{ width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ background: '#888', width: '16px', display: 'block', height: '2px', borderRadius: '2px' }}></span></li>
+          <li style={{ width: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg style={{ fill: '#888'}} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M544 144L256 144C247.2 144 240 151.2 240 160L240 176L192 176L192 160C192 124.7 220.7 96 256 96L544 96C579.3 96 608 124.7 608 160L608 352C608 387.3 579.3 416 544 416L496 416L496 368L544 368C552.8 368 560 360.8 560 352L560 160C560 151.2 552.8 144 544 144zM400 352L80 352L80 480C80 488.8 87.2 496 96 496L384 496C392.8 496 400 488.8 400 480L400 352zM96 224L384 224C419.3 224 448 252.7 448 288L448 480C448 515.3 419.3 544 384 544L96 544C60.7 544 32 515.3 32 480L32 288C32 252.7 60.7 224 96 224z"/></svg></li>
+          <li style={{ width: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg style={{ fill: '#888'}} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.2 320L137.9 457.4C125.4 469.9 125.4 490.2 137.9 502.7C150.4 515.2 170.7 515.2 183.2 502.7L320.5 365.3L457.9 502.6C470.4 515.1 490.7 515.1 503.2 502.6C515.7 490.1 515.7 469.8 503.2 457.3L365.8 320L503.1 182.6C515.6 170.1 515.6 149.8 503.1 137.3C490.6 124.8 470.3 124.8 457.8 137.3L320.5 274.7L183.1 137.4z"/></svg></li>
+        </ul>
       </div>
 
       {/* ── VS Code 탭 바 ─────────────────────────────────────── */}
