@@ -547,36 +547,6 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                 </div>
                             </>
                         )}
-
-                        {/* YOUTUBE section */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '3px 10px',
-                                fontSize: '11px',
-                                color: '#bbb',
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                borderTop: '1px solid #3e3e42',
-                            }}
-                            onClick={() => setYtExpanded((v) => !v)}
-                        >
-                            <span
-                                style={{
-                                    fontSize: '9px',
-                                    color: '#666',
-                                    display: 'inline-block',
-                                    transition: 'transform 0.15s',
-                                    transform: ytExpanded ? 'rotate(90deg)' : 'none',
-                                }}
-                            >
-                                ▶
-                            </span>
-                            <span>YOUTUBE</span>
-                        </div>
-
                         {ytExpanded && (
                             <div style={{ padding: '4px 8px 8px', flexShrink: 0 }}>
                                 <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
