@@ -82,7 +82,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
         { type: 'out', text: '  VITE v5.4.0  ready in 312 ms' },
         { type: 'out', text: '' },
         { type: 'out', text: '  ➜  Local:   http://localhost:8000/' },
-        { type: 'out', text: '  ➜  Network: http://192.168.0.x:8000/' },
+        { type: 'out', text: '  ➜  Network: http://192.168.0.124:8000/' },
     ]);
 
     const termRef = { current: null as HTMLDivElement | null };
@@ -909,6 +909,46 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                         </div>
                     )}
 
+                    {/* ── Filler: matchmaking.ts ── */}
+                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
+                        {L(<></>)}
+                        {L(<><span className="cmt">{'// utils/matchmaking.ts'}</span></>)}
+                        {L(<><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">Player</span><span className="pct">{', '}</span><span className="var">Room</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">"@study/types"</span></>)}
+                        {L(<><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">shuffle</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">"lodash"</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">const </span><span className="var">MAX_RECONNECT</span><span className="pct"> = </span><span className="num">5</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">HEARTBEAT_MS</span><span className="pct"> = </span><span className="num">3000</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">LOBBY_VERSION</span><span className="pct"> = </span><span className="str">"2.4.1"</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">interface </span><span className="typ">MatchConfig</span><span className="pct">{' {'}</span></>)}
+                        {L(<><span className="var">mode</span><span className="pct">: </span><span className="str">"ranked"</span><span className="pct">{' | '}</span><span className="str">"casual"</span><span className="pct">{' | '}</span><span className="str">"custom"</span></>, 1)}
+                        {L(<><span className="var">maxLatency</span><span className="pct">: </span><span className="typ">number</span><span className="cmt">{'  // ms'}</span></>, 1)}
+                        {L(<><span className="var">region</span><span className="pct">: </span><span className="str">"kr"</span><span className="pct">{' | '}</span><span className="str">"jp"</span><span className="pct">{' | '}</span><span className="str">"global"</span></>, 1)}
+                        {L(<><span className="var">allowSpectators</span><span className="pct">?: </span><span className="typ">boolean</span></>, 1)}
+                        {L(<><span className="pct">{'}'}</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">async function </span><span className="fn">findMatch</span><span className="pct">{'(player: Player, cfg: MatchConfig) {'}</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">pool</span><span className="pct"> = </span><span className="kw">await </span><span className="fn">fetchRoomPool</span><span className="pct">{'({ region: cfg.region })'}</span></>, 1)}
+                        {L(<><span className="kw">const </span><span className="var">ok</span><span className="pct"> = </span><span className="var">pool</span><span className="pct">{'.'}</span><span className="fn">filter</span><span className="pct">{'(r => r.ping <= cfg.maxLatency)'}</span></>, 1)}
+                        {L(<><span className="kw">if </span><span className="pct">{'(ok.length === 0)'}</span><span className="kw"> return </span><span className="num">null</span></>, 1)}
+                        {L(<><span className="kw">return </span><span className="fn">shuffle</span><span className="pct">{'(ok)[0]'}</span></>, 1)}
+                        {L(<><span className="pct">{'}'}</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">function </span><span className="fn">calcMMR</span><span className="pct">{'(wins: number, losses: number): number {'}</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">total</span><span className="pct"> = </span><span className="var">wins</span><span className="pct"> + </span><span className="var">losses</span></>, 1)}
+                        {L(<><span className="kw">if </span><span className="pct">{'(total === 0)'}</span><span className="kw"> return </span><span className="num">1000</span><span className="cmt">{'  // default'}</span></>, 1)}
+                        {L(<><span className="kw">return </span><span className="typ">Math</span><span className="pct">{'.'}</span><span className="fn">round</span><span className="pct">{'(1000 + (wins / total - 0.5) * 400)'}</span></>, 1)}
+                        {L(<><span className="pct">{'}'}</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="cmt">{'// event bus'}</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">emitter</span><span className="pct"> = </span><span className="kw">new </span><span className="typ">EventEmitter</span><span className="pct">{'()'}</span></>)}
+                        {L(<><span className="var">emitter</span><span className="pct">{'.'}</span><span className="fn">on</span><span className="pct">{'("room:created", (r) => console.log("[lobby]", r.roomId))'}</span></>)}
+                        {L(<><span className="var">emitter</span><span className="pct">{'.'}</span><span className="fn">on</span><span className="pct">{'("player:joined", (p) => updateRoster(p))'}</span></>)}
+                        {L(<><span className="var">emitter</span><span className="pct">{'.'}</span><span className="fn">on</span><span className="pct">{'("session:expire", () => handleLogout())'}</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">export </span><span className="pct">{'{ '}</span><span className="fn">findMatch</span><span className="pct">{', '}</span><span className="fn">calcMMR</span><span className="pct">{', '}</span><span className="var">emitter</span><span className="pct">{' }'}</span></>)}
+                    </div>
+
                     {/* ── CREATE ROOM view ── */}
                     {showCreate && (
                         <div className="code-block" style={{ borderRadius: 0, border: 'none' }}>
@@ -1164,6 +1204,40 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                             )}
                         </div>
                     )}
+
+                    {/* ── Filler: websocket.ts ── */}
+                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
+                        {L(<></>)}
+                        {L(<><span className="cmt">{'// hooks/useWebSocket.ts'}</span></>)}
+                        {L(<><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">useEffect</span><span className="pct">{', '}</span><span className="var">useRef</span><span className="pct">{', '}</span><span className="var">useCallback</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">"react"</span></>)}
+                        {L(<><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">Client</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">"@stomp/stompjs"</span></>)}
+                        {L(<><span className="kw">import </span><span className="typ">SockJS</span><span className="kw"> from </span><span className="str">"sockjs-client"</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">type </span><span className="typ">MoveType</span><span className="pct"> = </span><span className="str">"START_GAME"</span><span className="pct">{' | '}</span><span className="str">"LEAVE"</span><span className="pct">{' | '}</span><span className="str">"CHAT"</span><span className="pct">{' | '}</span><span className="str">"..."</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="kw">export function </span><span className="fn">useWebSocket</span><span className="pct">{'({ roomId, onState }) {'}</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">clientRef</span><span className="pct"> = </span><span className="fn">useRef</span><span className="pct">{'<Client | null>(null)'}</span></>, 1)}
+                        {L(<><span className="kw">const </span><span className="pct">{'['}</span><span className="var">connected</span><span className="pct">{', '}</span><span className="var">setConnected</span><span className="pct">{'] = '}</span><span className="fn">useState</span><span className="pct">{'(false)'}</span></>, 1)}
+                        {L(<></>)}
+                        {L(<><span className="fn">useEffect</span><span className="pct">{'(() => {'}</span></>, 1)}
+                        {L(<><span className="kw">const </span><span className="var">c</span><span className="pct"> = </span><span className="kw">new </span><span className="typ">Client</span><span className="pct">{'({'}</span></>, 2)}
+                        {L(<><span className="var">webSocketFactory</span><span className="pct">: () =&gt; </span><span className="kw">new </span><span className="typ">SockJS</span><span className="pct">{'("/ws")'}</span></>, 3)}
+                        {L(<><span className="var">reconnectDelay</span><span className="pct">: </span><span className="num">5000</span></>, 3)}
+                        {L(<><span className="var">onConnect</span><span className="pct">{': () => { setConnected(true) }'}</span></>, 3)}
+                        {L(<><span className="pct">{'}'}</span><span className="pct">{')'}</span></>, 2)}
+                        {L(<><span className="var">c</span><span className="pct">{'.'}</span><span className="fn">activate</span><span className="pct">{'()'}</span></>, 2)}
+                        {L(<><span className="var">clientRef</span><span className="pct">{'.'}</span><span className="var">current</span><span className="pct"> = </span><span className="var">c</span></>, 2)}
+                        {L(<><span className="kw">return </span><span className="pct">{'() => c.'}</span><span className="fn">deactivate</span><span className="pct">{'()'}</span></>, 2)}
+                        {L(<><span className="pct">{'}, [roomId])'}</span></>, 1)}
+                        {L(<></>)}
+                        {L(<><span className="kw">const </span><span className="fn">sendMove</span><span className="pct"> = </span><span className="fn">useCallback</span><span className="pct">{'((move) => {'}</span></>, 1)}
+                        {L(<><span className="var">clientRef</span><span className="pct">{'.'}</span><span className="var">current</span><span className="pct">{'?.publish({ destination: "/app/move", body: JSON.stringify(move) })'}</span></>, 2)}
+                        {L(<><span className="pct">{'}, [])'}</span></>, 1)}
+                        {L(<></>)}
+                        {L(<><span className="kw">return </span><span className="pct">{'{ '}</span><span className="var">connected</span><span className="pct">{', '}</span><span className="fn">sendMove</span><span className="pct">{' }'}</span></>, 1)}
+                        {L(<><span className="pct">{'}'}</span></>)}
+                        {L(<></>)}
+                    </div>
                 </div>
 
                 {/* ════════ TERMINAL PANEL ════════ */}
@@ -1261,11 +1335,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                 <div key={i} style={{ display: 'flex', gap: '6px' }}>
                                     {line.type === 'cmd' && (
                                         <>
-                                            <span style={{ color: '#6a9955', userSelect: 'none' }}>
-                                                PC024@STUDY-PLATFORM <span style={{ color: '#569cd6' }}>MINGW64</span>{' '}
-                                                <span style={{ color: '#ce9178' }}>~/study-platform</span>
+                                            <span style={{ color: '#00d48e', userSelect: 'none' }}>
+                                                PC024@STUDY-PLATFORM <span style={{ color: '#ff63ff' }}>MINGW64</span>{' '}
+                                                <span style={{ color: '#f1ff2f' }}>~/study-platform</span>
                                             </span>
-                                            <span style={{ color: '#4ec9b0' }}>$</span>
+                                            <span style={{ color: '#49cbff' }}>(main)</span>
                                             <span style={{ color: '#d4d4d4' }}>{line.text}</span>
                                         </>
                                     )}
@@ -1280,11 +1354,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
 
                             {/* Input line */}
                             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
-                                <span style={{ color: '#6a9955', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                                    PC024@STUDY-PLATFORM <span style={{ color: '#569cd6' }}>MINGW64</span>{' '}
-                                    <span style={{ color: '#ce9178' }}>~/study-platform</span>
+                                <span style={{ color: '#00d48e', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                                    PC024@STUDY-PLATFORM <span style={{ color: '#ff63ff' }}>MINGW64</span>{' '}
+                                    <span style={{ color: '#f1ff2f' }}>~/study-platform</span>
                                 </span>
-                                <span style={{ color: '#4ec9b0' }}>$</span>
+                                <span style={{ color: '#49cbff' }}>(main)</span>
                                 <input
                                     style={{
                                         flex: 1,
@@ -1311,7 +1385,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 )}
 
                 {/* Re-open terminal button when closed */}
-                {!termOpen && (
+                {!termOpen && ( 
                     <div
                         style={{
                             flexShrink: 0,
