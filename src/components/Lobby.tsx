@@ -74,7 +74,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
         sessionId,
         maxPlayers: studyType === "TETRIS" ? 1 : studyType === "OMOK" ? 2 : maxPlayers,
         digits,
-        boardSize: studyType === "TETRIS" ? 20 : studyType === "OMOK" ? 19 : boardSize,
+        boardSize: studyType === "TETRIS" ? 20 : studyType === "OMOK" ? 19 : studyType === "OLDMAID" ? 0 : boardSize,
       };
       const res = await fetch("/api/rooms", {
         method: "POST",
@@ -231,6 +231,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 📝 BINGO</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ▦ OMOK</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ TETRIS</div>
+          <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 🃏 OLDMAID</div>
         </div>
       </div>
 
@@ -309,7 +310,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
 
           {L(
             <>
-              <span className="pct">]</span>
+              <span className="pct"></span>
             </>,
           )}
           <div className="c-line">
@@ -368,7 +369,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">type</span>
                 <span className="pct"> = </span>
-                {(["BASEBALL", "BINGO", "OMOK", "TETRIS"] as StudyType[]).map((t) => (
+                {(["BASEBALL", "BINGO", "OMOK", "TETRIS", "OLDMAID"] as StudyType[]).map((t) => (
                   <button
                     key={t}
                     className={`btn-opt ${studyType === t ? "on" : ""}`}
@@ -380,11 +381,14 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                       } else if (t === "TETRIS") {
                         setMaxPlayers(1);
                         setBoardSize(20);
+                      } else if (t === "OLDMAID") {
+                        setMaxPlayers(4); // 기본 4명
+                        setBoardSize(0);
                       }
                     }}
                     style={{ fontSize: "11px" }}
                   >
-                    <span className="typ">{t === "OMOK" ? "OMOK" : t}</span>
+                    <span className="typ">{t === "OLDMAID" ? "OLD MAID" : t === "OMOK" ? "OMOK" : t}</span>
                   </button>
                 ))}
               </span>,
@@ -392,6 +396,22 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             )}
 
             {/* max players */}
+            {/* OLDMAID: 인원 선택 (2~7명) */}
+            {studyType === "OLDMAID" && L(
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span className="kw">const </span>
+                <span className="var">maxPlayers</span>
+                <span className="pct"> = </span>
+                {[2, 3, 4, 5, 6, 7].map((n) => (
+                  <button key={n} className={`btn-opt ${maxPlayers === n ? "on" : ""}`}
+                    onClick={() => setMaxPlayers(n)} style={{ fontSize: "11px", padding: "3px 8px" }}>
+                    <span className="num">{n}</span>
+                  </button>
+                ))}
+                <span className="cmt"> // Joker stays to the end</span>
+              </span>, 1,
+            )}
+
             {studyType === "TETRIS" ? L(
               <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                 <span className="kw">const </span>
@@ -410,7 +430,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="cmt"> // OMOK is 2-player only</span>
               </span>,
               1,
-            ) : L(
+            ) : studyType === "OLDMAID" ? null : L(
               <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                 <span className="kw">const </span>
                 <span className="var">maxPlayers</span>
