@@ -37,6 +37,7 @@ export default function StudyRoom({
   const isBaseball    = room.studyType === 'BASEBALL';
   const isOmok        = room.studyType === 'OMOK';
   const isTetris      = room.studyType === 'TETRIS';
+  const maxPlayers    = isTetris ? 3 : room.maxPlayers;
   const status        = studyState?.status ?? room.status;
   const playerNames   = studyState?.playerNames ?? room.playerNames;
 
@@ -157,7 +158,7 @@ export default function StudyRoom({
                   </span>
                 ))}
                 <span className="pct">]</span>
-                <span className="dim">  // {playerNames.length}/{room.maxPlayers}</span>
+                <span className="dim">  // {playerNames.length}/{maxPlayers}</span>
               </span>
             </div>
             <div className="c-line">
