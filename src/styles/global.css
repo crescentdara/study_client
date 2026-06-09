@@ -721,11 +721,12 @@ select option { background: var(--bg-sidebar); }
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(156, 220, 254, 0.18);
-  background: rgba(138, 77, 77, var(--incident-alpha, 0.58));
-  color: rgba(255, 220, 220, 0.8);
+  border: 1px solid rgba(230, 166, 120, 0.55);
+  background: rgba(154, 100, 50, var(--incident-alpha, 0.72));
+  color: rgba(255, 226, 189, 0.95);
   font-size: 8px;
   line-height: 1;
+  box-shadow: 0 0 0 1px rgba(47, 33, 23, 0.45);
 }
 
 .incident-player {

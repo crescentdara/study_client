@@ -42,6 +42,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
   const lastFrameRef = useRef<number | null>(null);
   const spawnRef = useRef(0);
   const nextIdRef = useRef(1);
+  const survivedMsRef = useRef(0);
   const syncPayloadRef = useRef<object>({});
 
   const playerNames = studyState?.playerNames ?? [];
@@ -79,6 +80,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
     setGameOver(false);
     spawnRef.current = 0;
     nextIdRef.current = 1;
+    survivedMsRef.current = 0;
     lastFrameRef.current = null;
   }, []);
 
@@ -88,14 +90,16 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
       const last = lastFrameRef.current ?? now;
       const dt = Math.min(40, now - last);
       lastFrameRef.current = now;
-      const level = 1 + survivedMs / 18000;
+      survivedMsRef.current += dt;
+      const elapsed = survivedMsRef.current;
+      const level = 1 + elapsed / 18000;
       const moveSpeed = 0.34 * dt;
 
       setX((prev) => {
         const delta = (keysRef.current.right ? moveSpeed : 0) - (keysRef.current.left ? moveSpeed : 0);
         return clamp(prev + delta, PLAYER_W / 2, WIDTH - PLAYER_W / 2);
       });
-      setSurvivedMs((prev) => prev + dt);
+      setSurvivedMs(elapsed);
       setScore((prev) => prev + Math.max(1, Math.floor(dt / 12)));
 
       spawnRef.current -= dt;
@@ -116,7 +120,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
             },
           ];
           nextIdRef.current += 1;
-          spawnRef.current = Math.max(210, 720 - survivedMs / 35);
+          spawnRef.current = Math.max(210, 720 - elapsed / 35);
         }
         return next;
       });
@@ -126,7 +130,7 @@ export default function IncidentAvoid({ studyState, sessionId, myPlayerIndex, se
     return () => {
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
     };
-  }, [gameOver, running, studyState?.status, survivedMs]);
+  }, [gameOver, running, studyState?.status]);
 
   useEffect(() => {
     const hit = incidents.some((item) => {

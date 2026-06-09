@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Room, StudyStateResponse, ChatMessage } from '../types';
+import { useCallback, useEffect } from 'react';
+import { Room, StudyStateResponse } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
 import Bingo from './games/Bingo';
@@ -31,16 +31,10 @@ export default function StudyRoom({
     onLeave,
     leaveRef,
 }: StudyRoomProps) {
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-
-    const handleChat = useCallback((msg: ChatMessage) => {
-        setChatMessages((prev) => [...prev, msg]);
-    }, []);
-
-    const { connected, sendMove, sendChat } = useWebSocket({
+    const { connected, sendMove } = useWebSocket({
         roomId: room.roomId,
         onStudyState,
-        onChat: handleChat,
+        onChat: () => {},
     });
 
     const playerNames = studyState?.playerNames ?? room.playerNames;
@@ -96,20 +90,8 @@ export default function StudyRoom({
         sendMove({ moveType: 'RESTART', data: '', sessionId });
     };
 
-    /**
-     * 채팅 전송 래퍼
-     * sendChat(text, sessionId)를 호출하면서 emoji를 자동으로 추가합니다.
-     * Chat 컴포넌트는 (text, sessionId)만 넘기므로, 여기서 emoji를 붙여줍니다.
-     */
-    const handleChatSend = useCallback(
-        (text: string, sid: string) => {
-            sendChat(text, sid, emoji);
-        },
-        [sendChat, emoji],
-    );
-
     return (
-        <div style={{ display: 'flex', gap: '12px', height: '100%' }}>
+        <div style={{ display: 'flex', height: '100%' }}>
             {/* ── 게임 영역 ── */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
                 {/* 상단 정보바 */}
@@ -138,9 +120,9 @@ export default function StudyRoom({
                                   ? '20×10'
                                   : isIncidentAvoid
                                     ? '360×520'
-                                  : isOldMaid
-                                    ? '🃏 Old Maid'
-                                    : `${room.boardSize}×${room.boardSize}`}
+                                    : isOldMaid
+                                      ? '🃏 Old Maid'
+                                      : `${room.boardSize}×${room.boardSize}`}
                         </span>
                         <span className="dim"> · </span>
                         <span style={{ color: connected ? '#6a9955' : '#f14c4c' }}>
@@ -214,7 +196,9 @@ export default function StudyRoom({
                                             className="btn-primary"
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
-                                            disabled={!isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2}
+                                            disabled={
+                                                !isTetris && !isIncidentAvoid && !isOldMaid && playerNames.length < 2
+                                            }
                                         >
                                             ▶ startGame()
                                         </button>
@@ -280,17 +264,6 @@ export default function StudyRoom({
                             boardSize={room.boardSize}
                         />
                     ))}
-            </div>
-
-            {/* ── 채팅 패널 (우측 220px) ── */}
-            <div style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                <Chat
-                    messages={chatMessages}
-                    myNickname={nickname}
-                    myEmoji={emoji}
-                    sessionId={sessionId}
-                    onSend={handleChatSend}
-                />
             </div>
         </div>
     );

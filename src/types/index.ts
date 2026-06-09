@@ -45,6 +45,7 @@ export interface StudyMoveRequest {
     | 'DRAW_CARD'
     | 'DISCARD_PAIR'
     | 'SHUFFLE_HAND'
+    | 'END_TURN'
     | 'CHAT';
   data: string;
   sessionId: string;
