@@ -121,11 +121,15 @@ export default function OldMaid({ studyState, sessionId, myPlayerIndex, sendMove
   const nextPlayer = game.nextActivePlayer;
   const myHand     = game.hands[myPlayerIndex] ?? [];
   const iAmSafe    = game.safe[myPlayerIndex];
-  const canDiscard = selected.length === 2 && isPair(myHand[selected[0]], myHand[selected[1]]);
+  const canDiscard = selected.length === 2
+    && selected[0] < myHand.length
+    && selected[1] < myHand.length
+    && isPair(myHand[selected[0]], myHand[selected[1]]);
 
-  const handleDeal    = () => { if (isDealing && isMyTurn) sendMove({ moveType: 'DEAL_CARD',    data: '',              sessionId }); };
-  const handleDraw    = (i: number)  => { if (!isDealing && isMyTurn && !isFinished) sendMove({ moveType: 'DRAW_CARD',    data: String(i),   sessionId }); };
-  const handleShuffle = () => { if (!isDealing && !isFinished && !iAmSafe)           sendMove({ moveType: 'SHUFFLE_HAND', data: '',           sessionId }); };
+  const handleDeal    = () => { if (isDealing && isMyTurn) sendMove({ moveType: 'DEAL_CARD',    data: '', sessionId }); };
+  const handleDraw    = (i: number) => { if (!isDealing && isMyTurn && !isFinished) sendMove({ moveType: 'DRAW_CARD',    data: String(i), sessionId }); };
+  const handleShuffle = () => { if (!isDealing && !isFinished && !iAmSafe)          sendMove({ moveType: 'SHUFFLE_HAND', data: '', sessionId }); };
+  const handleEndTurn = () => { if (!isDealing && isMyTurn && !isFinished)          sendMove({ moveType: 'END_TURN',     data: '', sessionId }); };
   const handleDiscard = () => {
     if (selected.length !== 2) return;
     const [i1, i2] = selected;
@@ -194,6 +198,16 @@ export default function OldMaid({ studyState, sessionId, myPlayerIndex, sendMove
             🃏 {playerNames[game.loser]} THIEF
           </span>
         )}
+        {/* 완료 버튼 */}
+        {!isDealing && !isFinished && isMyTurn && (
+          <button
+            className="btn-primary"
+            style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 10px' }}
+            onClick={handleEndTurn}
+          >
+            완료 ▶
+          </button>
+        )}
       </div>
 
       {/* ── 메인 영역: 좌우 분할 ──────────────────────────────────────────── */}
@@ -228,19 +242,20 @@ export default function OldMaid({ studyState, sessionId, myPlayerIndex, sendMove
             ) : myHand.map((card, idx) => {
               const isSel     = selected.includes(idx);
               const wouldPair = selected.length === 1 && isPair(myHand[selected[0]], card) && !isSel;
+              const canClick  = !isDealing && isMyTurn && !isFinished;
               return (
                 <CardChip
                   key={idx} card={card}
                   selected={isSel} pairHint={wouldPair}
-                  onClick={() => !isDealing && toggleSelect(idx)}
-                  disabled={isDealing || isFinished}
+                  onClick={() => canClick && toggleSelect(idx)}
+                  disabled={!canClick}
                 />
               );
             })}
           </div>
 
-          {/* 쌍 버리기 컨트롤 */}
-          {!iAmSafe && !isDealing && !isFinished && (
+          {/* 쌍 버리기 컨트롤 (내 턴에만) */}
+          {!iAmSafe && !isDealing && !isFinished && isMyTurn && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
               <button
                 className={canDiscard ? 'btn-primary' : 'btn-secondary'}
@@ -258,6 +273,10 @@ export default function OldMaid({ studyState, sessionId, myPlayerIndex, sendMove
                 </span>
               )}
             </div>
+          )}
+          {/* 내 턴 아닐 때 안내 */}
+          {!iAmSafe && !isDealing && !isFinished && !isMyTurn && myHand.length > 0 && (
+            <span className="cmt" style={{ fontSize: '10px' }}>// 상대 턴 대기 중...</span>
           )}
         </div>
 
