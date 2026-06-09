@@ -174,29 +174,97 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
               minute: "2-digit",
             });
 
-            return (
-              <div key={i} style={{ padding: "2px 10px", fontSize: "12px", lineHeight: "1.6" }}>
-                {/* 시각 표시 (어두운 색으로 보조적으로 표시) */}
-                <span style={{ color: "#4e4e4e", marginRight: "6px", fontSize: "10px" }}>{time}</span>
+            // ── 그룹핑 판단 ──
+            const prev = messages[i - 1];
+            const prevTime = prev
+              ? new Date(prev.timestamp).toLocaleTimeString("en-US", {
+                  hour12: false,
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : null;
+            // 이전 메시지와 같은 사람 + 같은 분이면 헤더 숨김
+            const isGrouped = !!prev && prev.nickname === m.nickname && prevTime === time;
 
-                {/* 닉네임: 내 것은 청록색, 상대방은 하늘색
-                  m.emoji: 서버가 포함해서 브로드캐스트한 발신자 이모지
-                  → 모든 클라이언트가 각자의 이모지를 볼 수 있음 */}
-                <span
+            // ── 다음 메시지와도 같은 그룹인지 (시각 표시 위치 조정용) ──
+            const next = messages[i + 1];
+            const nextTime = next
+              ? new Date(next.timestamp).toLocaleTimeString("en-US", {
+                  hour12: false,
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : null;
+            const isLastInGroup = !next || next.nickname !== m.nickname || nextTime !== time;
+
+            return (
+              <div
+                key={i}
+                style={{
+                  width: "100%",
+                  padding: isGrouped ? "2px 10px" : "6px 10px 1px",
+                  fontSize: "12px",
+                  lineHeight: "1.6",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: isMe ? "flex-end" : "flex-start",
+                }}
+              >
+                {/* 닉네임 + 아바타: 그룹 첫 메시지에만 표시 */}
+                {!isGrouped && (
+                  <span
+                    style={{
+                      color: isMe ? "#4ec9b0" : "#9cdcfe",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      marginBottom: "2px",
+                      flexDirection: isMe ? "row-reverse" : "row",
+                    }}
+                  >
+                    {renderAvatar(m.emoji || (isMe ? myEmoji : ""))}
+                    {m.nickname}
+                  </span>
+                )}
+
+                {/* 말풍선 + 시각 */}
+                <div
                   style={{
-                    color: isMe ? "#4ec9b0" : "#9cdcfe",
-                    marginRight: "6px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "3px",
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: isMe ? "row-reverse" : "row",
+                    alignItems: "flex-end",
+                    gap: "4px",
+                    // 그룹 연속 메시지는 왼쪽/오른쪽 여백으로 아바타 너비만큼 들여쓰기
+                    ...(isGrouped && {
+                      [isMe ? "marginRight" : "marginLeft"]: "0px",
+                    }),
                   }}
                 >
-                  {renderAvatar(m.emoji || (isMe ? myEmoji : ""))}
-                  {m.nickname}
-                </span>
+                  <div
+                    style={{
+                      maxWidth: "80%",
+                      background: isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
+                      border: `1px solid ${isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
+                      padding: "5px 10px",
+                      borderRadius: isMe
+                        ? isGrouped
+                          ? "12px 2px 12px 12px"
+                          : "12px 2px 12px 12px"
+                        : isGrouped
+                          ? "2px 12px 12px 12px"
+                          : "2px 12px 12px 12px",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <span style={{ color: "#d4d4d4" }}>{m.text}</span>
+                  </div>
 
-                {/* 메시지 내용 */}
-                <span style={{ color: "#d4d4d4" }}>{m.text}</span>
+                  {/* 시각: 그룹의 마지막 메시지에만 표시 */}
+                  {isLastInGroup && (
+                    <span style={{ color: "#4e4e4e", fontSize: "10px", whiteSpace: "nowrap" }}>{time}</span>
+                  )}
+                </div>
               </div>
             );
           })}
