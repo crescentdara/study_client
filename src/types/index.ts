@@ -1,4 +1,4 @@
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'JJAPTALSLUG';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -53,7 +53,7 @@ export interface StudyStateResponse {
   message: string;
   currentTurn: number;
   winner: number;
-  gameData: BaseballGameData | BingoGameData | OmokGameData | TetrisGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | TetrisGameData | JjaptalSlugGameData | null;
   playerNames: string[];
 }
 
@@ -111,6 +111,12 @@ export interface TetrisGameData {
   rows: number;
   cols: number;
 }
+
+
+export interface JjaptalSlugGameData {
+  
+}
+
 
 export interface ChatMessage {
   nickname: string;

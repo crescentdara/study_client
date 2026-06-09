@@ -231,6 +231,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 📝 BINGO</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ▦ OMOK</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ TETRIS</div>
+          <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ JJAPTALSLUG</div>
         </div>
       </div>
 
@@ -368,7 +369,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">type</span>
                 <span className="pct"> = </span>
-                {(["BASEBALL", "BINGO", "OMOK", "TETRIS"] as StudyType[]).map((t) => (
+                {(["BASEBALL", "BINGO", "OMOK", "TETRIS",] as StudyType[]).map((t) => (
                   <button
                     key={t}
                     className={`btn-opt ${studyType === t ? "on" : ""}`}
