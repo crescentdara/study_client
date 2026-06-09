@@ -272,7 +272,7 @@ export default function StudyRoom({
             </div>
 
             {/* ── 채팅 패널 (우측 220px) ── */}
-            <div style={{ width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                 <Chat
                     messages={chatMessages}
                     myNickname={nickname}
