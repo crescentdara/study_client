@@ -20,9 +20,9 @@ import StudyRoom from './components/StudyRoom';
  */
 function App() {
   // 플레이어 닉네임: Lobby에서 입력, StudyRoom 상단에 표시
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNicknameState] = useState(() => localStorage.getItem('study.nickname') ?? '');
 
-  const [emoji, setEmoji] = useState("🐱");
+  const [emoji, setEmojiState] = useState(() => localStorage.getItem('study.emoji') ?? "🐱");
 
   /**
    * 클라이언트 고유 세션 ID
@@ -97,6 +97,16 @@ function App() {
     setStudyState(s);
   }, []);
 
+  const handleNicknameChange = useCallback((name: string) => {
+    setNicknameState(name);
+    localStorage.setItem('study.nickname', name);
+  }, []);
+
+  const handleEmojiChange = useCallback((nextEmoji: string) => {
+    setEmojiState(nextEmoji);
+    localStorage.setItem('study.emoji', nextEmoji);
+  }, []);
+
   // 현재 열린 탭 레이블: 로비면 'lobby.ts', 방에 들어가면 '방이름.bs/.bg'
   // (VS Code 파일탭 스타일)
   const tabLabel = currentRoom
@@ -158,9 +168,9 @@ function App() {
           <Lobby
             nickname={nickname}
             emoji={emoji}
-            onEmojiChange={(e) => setEmoji(e)}
+            onEmojiChange={handleEmojiChange}
             sessionId={sessionId}
-            onNicknameChange={(name) => setNickname(name)}  
+            onNicknameChange={handleNicknameChange}
             onJoinRoom={handleJoinRoom}                
           />
         ) : (
