@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Room, StudyType, CreateRoomRequest, JoinRoomRequest } from "../types";
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
-  { id: "🐱", src: null,               label: "🐱" },
-  { id: "🐶", src: null,               label: "🐶" },
-  { id: "🦊", src: null,               label: "🦊" },
-  { id: "🐼", src: null,               label: "🐼" },
-  { id: "🐨", src: null,               label: "🐨" },
-  { id: "💀", src: null,               label: "💀" },
+  { id: "🐱", src: null, label: "🐱" },
+  { id: "🐶", src: null, label: "🐶" },
+  { id: "🦊", src: null, label: "🦊" },
+  { id: "🐼", src: null, label: "🐼" },
+  { id: "🐨", src: null, label: "🐨" },
+  { id: "💀", src: null, label: "💀" },
   { id: "ch1", src: "/src/assets/images/ch1.png", label: "😀" },
   { id: "ch2", src: "/src/assets/images/ch2.png", label: "😁" },
   { id: "ch3", src: "/src/assets/images/ch3.png", label: "👻" },
@@ -38,6 +38,20 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
   const [profileEditing, setProfileEditing] = useState(() => !nickname.trim());
   const [draftNickname, setDraftNickname] = useState(nickname);
   const [draftEmoji, setDraftEmoji] = useState(emoji);
+
+  const [ytUrl, setYtUrl] = useState("");
+  const [ytInput, setYtInput] = useState("");
+  const [showPlayer, setShowPlayer] = useState(false);
+  const [ytCollapsed, setYtCollapsed] = useState(false);
+
+  const extractYtId = (url: string): string | null => {
+    const patterns = [/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!profileEditing) {
@@ -212,11 +226,18 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                     <span style={{ fontSize: "32px", lineHeight: 1 }}>{a.label}</span>
                   )}
                   {isSelected && (
-                    <span style={{
-                      position: "absolute", top: "-4px", right: "-4px",
-                      width: "10px", height: "10px",
-                      background: "#4ec9b0", border: "1px solid #1e1e1e", borderRadius: "50%",
-                    }} />
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "-4px",
+                        right: "-4px",
+                        width: "10px",
+                        height: "10px",
+                        background: "#4ec9b0",
+                        border: "1px solid #1e1e1e",
+                        borderRadius: "50%",
+                      }}
+                    />
                   )}
                 </div>
               );
@@ -227,12 +248,15 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
             <span className="cmt">NICKNAME</span>
           </div>
           <div style={{ padding: "0 12px 10px", display: "flex", gap: "6px", alignItems: "center" }}>
-            {draftEmoji && (() => {
-              const a = PLAYER_AVATARS.find(a => a.id === draftEmoji);
-              return a?.src
-                ? <img src={a.src} alt={a.label} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
-                : <span style={{ fontSize: "16px", lineHeight: 1 }}>{a?.label}</span>;
-            })()}
+            {draftEmoji &&
+              (() => {
+                const a = PLAYER_AVATARS.find((a) => a.id === draftEmoji);
+                return a?.src ? (
+                  <img src={a.src} alt={a.label} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                ) : (
+                  <span style={{ fontSize: "16px", lineHeight: 1 }}>{a?.label}</span>
+                );
+              })()}
             <input
               style={{
                 fontSize: "12px",
@@ -253,15 +277,27 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "0 12px 10px", display: "flex", gap: "6px" }}>
             {profileEditing ? (
               <>
-                <button className="btn-primary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={saveProfile}>
+                <button
+                  className="btn-primary"
+                  style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }}
+                  onClick={saveProfile}
+                >
                   save()
                 </button>
-                <button className="btn-secondary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={cancelProfileEdit}>
+                <button
+                  className="btn-secondary"
+                  style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }}
+                  onClick={cancelProfileEdit}
+                >
                   cancel()
                 </button>
               </>
             ) : (
-              <button className="btn-secondary" style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }} onClick={() => setProfileEditing(true)}>
+              <button
+                className="btn-secondary"
+                style={{ flex: 1, fontSize: "11px", padding: "4px 8px" }}
+                onClick={() => setProfileEditing(true)}
+              >
                 editProfile()
               </button>
             )}
@@ -286,7 +322,94 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ ▦ OMOK</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ TETRIS</div>
           <div style={{ padding: "2px 12px 2px 24px", fontSize: "12px", color: "#555" }}>ㄴ 🃏 OLDMAID</div>
+        </div>
 
+        {/* ── YouTube 플레이어 ── */}
+        <div style={{ flexShrink: 0, borderBottom: "1px solid #3e3e42" }}>
+          {/* URL 입력 바 */}
+          {/* 접기/펼치기 토글 버튼 추가 */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px 8px", background: "#252526" }}>
+            <span style={{ color: "#569cd6", fontSize: "10px", flexShrink: 0 }}>▶ YT</span>
+            <input
+              style={{ flex: 1, fontSize: "11px", padding: "2px 6px" }}
+              placeholder="paste YouTube URL..."
+              value={ytInput}
+              onChange={(e) => setYtInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const id = extractYtId(ytInput);
+                  if (id) {
+                    setYtUrl(id);
+                    setShowPlayer(true);
+                  }
+                }
+              }}
+            />
+            <button
+              className="btn-secondary"
+              style={{ fontSize: "10px", padding: "2px 8px", flexShrink: 0 }}
+              onClick={() => {
+                const id = extractYtId(ytInput);
+                if (id) {
+                  setYtUrl(id);
+                  setShowPlayer(true);
+                }
+              }}
+            >
+              load
+            </button>
+
+            {/* ── 접기/펼치기 버튼 추가 ── */}
+            {showPlayer && (
+              <button
+                className="btn-secondary"
+                style={{ fontSize: "10px", padding: "2px 6px", flexShrink: 0 }}
+                onClick={() => setYtCollapsed((c) => !c)}
+              >
+                {ytCollapsed ? "▼" : "▲"}
+              </button>
+            )}
+
+            {showPlayer && (
+              <button
+                className="btn-secondary"
+                style={{ fontSize: "10px", padding: "2px 6px", flexShrink: 0, color: "#f44747" }}
+                onClick={() => {
+                  setShowPlayer(false);
+                  setYtUrl("");
+                  setYtInput("");
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* ── 플레이어: 접혀도 DOM은 유지 (소리 계속 재생) ── */}
+          {showPlayer && ytUrl && (
+            <div
+              style={{
+                overflow: "hidden",
+                height: ytCollapsed ? 0 : undefined, // ← 핵심: display:none 대신 height:0
+                transition: "height 0.2s",
+                ...(ytCollapsed ? {} : { position: "relative", paddingBottom: "56.25%" }),
+              }}
+            >
+              <iframe
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: ytCollapsed ? 0 : "100%",
+                  border: "none",
+                }}
+                src={`https://www.youtube.com/embed/${ytUrl}?autoplay=1`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                allowFullScreen
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -321,7 +444,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
 
           {rooms.map((room) => {
             const isBaseball = room.studyType === "BASEBALL";
-            const opt = isBaseball ? `${room.digits}digit` : room.studyType === "TETRIS" ? "20x10" : `${room.boardSize}x${room.boardSize}`;
+            const opt = isBaseball
+              ? `${room.digits}digit`
+              : room.studyType === "TETRIS"
+                ? "20x10"
+                : `${room.boardSize}x${room.boardSize}`;
             return (
               <div className="c-line" key={room.roomId} style={{ alignItems: "flex-start" }}>
                 <span className="ln">{ln++}</span>
@@ -376,7 +503,11 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
               </button>
               <button
                 className={showCreate ? "btn-primary" : "btn-secondary"}
-                style={{ fontSize: "11px", background: showCreate ? "#0e639c" : "#00ab77", color: showCreate ? "#fff" : "#fff" }}
+                style={{
+                  fontSize: "11px",
+                  background: showCreate ? "#0e639c" : "#00ab77",
+                  color: showCreate ? "#fff" : "#fff",
+                }}
                 onClick={() => setShowCreate(!showCreate)}
               >
                 {showCreate ? "✕ cancel" : "+ createRoom()"}
@@ -424,7 +555,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 <span className="kw">const </span>
                 <span className="var">type</span>
                 <span className="pct"> = </span>
-                
+
                 {(["BASEBALL", "BINGO", "OMOK", "TETRIS", "OLDMAID"] as StudyType[]).map((t) => (
                   <button
                     key={t}
@@ -453,57 +584,69 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
 
             {/* max players */}
             {/* OLDMAID: 인원 선택 (2~7명) */}
-            {studyType === "OLDMAID" && L(
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                <span className="kw">const </span>
-                <span className="var">maxPlayers</span>
-                <span className="pct"> = </span>
-                {[2, 3, 4, 5, 6, 7].map((n) => (
-                  <button key={n} className={`btn-opt ${maxPlayers === n ? "on" : ""}`}
-                    onClick={() => setMaxPlayers(n)} style={{ fontSize: "11px", padding: "3px 8px" }}>
-                    <span className="num">{n}</span>
-                  </button>
-                ))}
-                <span className="cmt"> // Joker stays to the end</span>
-              </span>, 1,
-            )}
+            {studyType === "OLDMAID" &&
+              L(
+                <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span className="kw">const </span>
+                  <span className="var">maxPlayers</span>
+                  <span className="pct"> = </span>
+                  {[2, 3, 4, 5, 6, 7].map((n) => (
+                    <button
+                      key={n}
+                      className={`btn-opt ${maxPlayers === n ? "on" : ""}`}
+                      onClick={() => setMaxPlayers(n)}
+                      style={{ fontSize: "11px", padding: "3px 8px" }}
+                    >
+                      <span className="num">{n}</span>
+                    </button>
+                  ))}
+                  <span className="cmt"> // Joker stays to the end</span>
+                </span>,
+                1,
+              )}
 
-            {studyType === "TETRIS" ? L(
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                <span className="kw">const </span>
-                <span className="var">players</span>
-                <span className="pct"> = </span>
-                <span className="num">3</span>
-                <span className="cmt"> // lightweight multiplayer max</span>
-              </span>,
-              1,
-            ) : studyType === "OMOK" ? L(
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                <span className="kw">const </span>
-                <span className="var">players</span>
-                <span className="pct"> = </span>
-                <span className="num">2</span>
-                <span className="cmt"> // OMOK is 2-player only</span>
-              </span>,
-              1,
-            ) : studyType === "OLDMAID" ? null : L(
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                <span className="kw">const </span>
-                <span className="var">maxPlayers</span>
-                <span className="pct"> = </span>
-                {[2, 3, 4, 5, 6].map((n) => (
-                  <button
-                    key={n}
-                    className={`btn-opt ${maxPlayers === n ? "on" : ""}`}
-                    onClick={() => setMaxPlayers(n)}
-                    style={{ fontSize: "11px", padding: "3px 8px" }}
-                  >
-                    <span className="num">{n}</span>
-                  </button>
-                ))}
-              </span>,
-              1,
-            )}
+            {studyType === "TETRIS"
+              ? L(
+                  <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                    <span className="kw">const </span>
+                    <span className="var">players</span>
+                    <span className="pct"> = </span>
+                    <span className="num">3</span>
+                    <span className="cmt"> // lightweight multiplayer max</span>
+                  </span>,
+                  1,
+                )
+              : studyType === "OMOK"
+                ? L(
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                      <span className="kw">const </span>
+                      <span className="var">players</span>
+                      <span className="pct"> = </span>
+                      <span className="num">2</span>
+                      <span className="cmt"> // OMOK is 2-player only</span>
+                    </span>,
+                    1,
+                  )
+                : studyType === "OLDMAID"
+                  ? null
+                  : L(
+                      <span style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                        <span className="kw">const </span>
+                        <span className="var">maxPlayers</span>
+                        <span className="pct"> = </span>
+                        {[2, 3, 4, 5, 6].map((n) => (
+                          <button
+                            key={n}
+                            className={`btn-opt ${maxPlayers === n ? "on" : ""}`}
+                            onClick={() => setMaxPlayers(n)}
+                            style={{ fontSize: "11px", padding: "3px 8px" }}
+                          >
+                            <span className="num">{n}</span>
+                          </button>
+                        ))}
+                      </span>,
+                      1,
+                    )}
 
             {/* baseball: digits */}
             {studyType === "BASEBALL" &&
