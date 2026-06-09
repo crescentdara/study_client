@@ -16,7 +16,7 @@ const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
     { id: 'ggobuk', src: '/src/assets/images/ggobuk.png', label: '🐢' },
 ];
 
-const GAME_ICONS: Record<StudyType, string> = {
+const GAME_ICONS: Partial<Record<StudyType, string>> = {
     BASEBALL: '⚾',
     BINGO: '📝',
     OMOK: '⬛',
@@ -29,6 +29,7 @@ const GAME_EXT: Record<StudyType, string> = {
     OMOK: '.omok',
     TETRIS: '.tetris',
     OLDMAID: '.cards',
+    INCIDENT_AVOID: '.risk',
 };
 
 interface LobbyProps {
@@ -201,10 +202,16 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 studyType,
                 nickname: nickname.trim(),
                 sessionId,
-                maxPlayers: studyType === 'TETRIS' ? 3 : studyType === 'OMOK' ? 2 : maxPlayers,
+                maxPlayers: studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' ? 3 : studyType === 'OMOK' ? 2 : maxPlayers,
                 digits,
                 boardSize:
-                    studyType === 'TETRIS' ? 20 : studyType === 'OMOK' ? 19 : studyType === 'OLDMAID' ? 0 : boardSize,
+                    studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID'
+                        ? 20
+                        : studyType === 'OMOK'
+                          ? 19
+                          : studyType === 'OLDMAID'
+                            ? 0
+                            : boardSize,
             };
             const res = await fetch('/api/rooms', {
                 method: 'POST',
@@ -471,7 +478,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                             onClick={() => handleJoin(room.roomId)}
                                         >
                                             <span style={{ fontSize: '11px', flexShrink: 0 }}>
-                                                {GAME_ICONS[room.studyType]}
+                                                {GAME_ICONS[room.studyType] ?? '!'}
                                             </span>
                                             <span
                                                 style={{
@@ -838,11 +845,13 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                         ? `${room.digits}digit`
                                         : room.studyType === 'TETRIS'
                                           ? '20x10'
-                                          : room.studyType === 'OMOK'
-                                            ? '19x19'
-                                            : room.studyType === 'OLDMAID'
-                                              ? `${room.maxPlayers}p`
-                                              : `${room.boardSize}x${room.boardSize}`;
+                                          : room.studyType === 'INCIDENT_AVOID'
+                                            ? '360x520'
+                                            : room.studyType === 'OMOK'
+                                              ? '19x19'
+                                              : room.studyType === 'OLDMAID'
+                                                ? `${room.maxPlayers}p`
+                                                : `${room.boardSize}x${room.boardSize}`;
                                 const lineNum = ln++;
                                 return (
                                     <div className="c-line" key={room.roomId}>
@@ -990,7 +999,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                     <span className="pct">: </span>
                                     <span className="typ">StudyType</span>
                                     <span className="pct"> = </span>
-                                    {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'OLDMAID'] as StudyType[]).map((t) => (
+                                    {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'OLDMAID'] as StudyType[]).map((t) => (
                                         <button
                                             key={t}
                                             className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -999,7 +1008,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                                 if (t === 'OMOK') {
                                                     setMaxPlayers(2);
                                                     setBoardSize(19);
-                                                } else if (t === 'TETRIS') {
+                                                } else if (t === 'TETRIS' || t === 'INCIDENT_AVOID') {
                                                     setMaxPlayers(3);
                                                     setBoardSize(20);
                                                 } else if (t === 'OLDMAID') {
@@ -1036,7 +1045,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                     </span>,
                                     1,
                                 )}
-                            {studyType === 'TETRIS' &&
+                            {(studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID') &&
                                 L(
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span className="kw">const </span>
@@ -1060,6 +1069,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                 )}
                             {studyType !== 'OLDMAID' &&
                                 studyType !== 'TETRIS' &&
+                                studyType !== 'INCIDENT_AVOID' &&
                                 studyType !== 'OMOK' &&
                                 L(
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1140,6 +1150,17 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                         <span className="var">queue</span>
                                         <span className="pct"> = </span>
                                         <span className="str">"20x10"</span>
+                                        <span className="cmt"> // 3-player workspace</span>
+                                    </span>,
+                                    1,
+                                )}
+                            {studyType === 'INCIDENT_AVOID' &&
+                                L(
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span className="kw">const </span>
+                                        <span className="var">monitor</span>
+                                        <span className="pct"> = </span>
+                                        <span className="str">"360x520"</span>
                                         <span className="cmt"> // 3-player workspace</span>
                                     </span>,
                                     1,
