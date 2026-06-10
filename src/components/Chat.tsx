@@ -65,7 +65,12 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
   const [open, setOpen] = useState(true);
 
   const [showOpacity, setShowOpacity] = useState(false);
-  const [chatOpacity, setChatOpacity] = useState(100);
+  const [chatOpacity, setChatOpacity] = useState<number>(() => {
+    const raw = parseFloat(localStorage.getItem('study.chatOpacity') ?? '100');
+    // 이전에 0~1 float로 저장된 값 호환 처리
+    const v = raw <= 1 ? Math.round(raw * 100) : raw;
+    return Math.max(20, Math.min(100, v));
+  });
 
   /**
    * 메시지 목록의 맨 아래를 참조하는 DOM 참조 (useRef)
@@ -299,7 +304,11 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
                 type="range"
                 min={20}
                 max={100}
-                onChange={(e) => setChatOpacity(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setChatOpacity(v);
+                  localStorage.setItem('study.chatOpacity', String(v)); // 20~100 정수로 저장
+                }}
                 value={chatOpacity}
                 style={{ flex: 1, accentColor: "#4ec9b0", cursor: "pointer" }}
               />
