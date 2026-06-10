@@ -39,6 +39,7 @@ export interface StudyMoveRequest {
     | 'SET_BOARD'
     | 'CALL_TOPIC'
     | 'PLACE_STONE'
+    | 'OMOK_RPS'
     | 'TETRIS_SYNC'
     | 'INCIDENT_SYNC'
     | 'BREAKOUT_SYNC'
@@ -114,6 +115,9 @@ export interface OmokGameData {
   lastRow: number;
   lastCol: number;
   winPath: number[][];
+  firstDecided: boolean;
+  firstPlayerIndex: number;
+  openingChoices: Array<'ROCK' | 'PAPER' | 'SCISSORS' | null>;
 }
 
 /** 도둑잡기 카드: [rank, suit]  rank=0 → 조커  suit=-1 → 조커 */
