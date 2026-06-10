@@ -30,6 +30,7 @@ const GAME_EXT: Record<StudyType, string> = {
     TETRIS: '.tetris',
     OLDMAID: '.cards',
     INCIDENT_AVOID: '.risk',
+    BREAKOUT: '.flow',
 };
 
 interface LobbyProps {
@@ -202,10 +203,10 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                 studyType,
                 nickname: nickname.trim(),
                 sessionId,
-                maxPlayers: studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' ? 3 : studyType === 'OMOK' ? 2 : maxPlayers,
+                maxPlayers: studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT' ? 3 : studyType === 'OMOK' ? 2 : maxPlayers,
                 digits,
                 boardSize:
-                    studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID'
+                    studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT'
                         ? 20
                         : studyType === 'OMOK'
                           ? 19
@@ -817,6 +818,8 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                           ? '20x10'
                                           : room.studyType === 'INCIDENT_AVOID'
                                             ? '360x520'
+                                            : room.studyType === 'BREAKOUT'
+                                              ? '420x520'
                                             : room.studyType === 'OMOK'
                                               ? '19x19'
                                               : room.studyType === 'OLDMAID'
@@ -1009,7 +1012,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                     <span className="pct">: </span>
                                     <span className="typ">StudyType</span>
                                     <span className="pct"> = </span>
-                                    {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'OLDMAID'] as StudyType[]).map((t) => (
+                                    {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'OLDMAID'] as StudyType[]).map((t) => (
                                         <button
                                             key={t}
                                             className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -1018,7 +1021,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                                 if (t === 'OMOK') {
                                                     setMaxPlayers(2);
                                                     setBoardSize(19);
-                                                } else if (t === 'TETRIS' || t === 'INCIDENT_AVOID') {
+                                                } else if (t === 'TETRIS' || t === 'INCIDENT_AVOID' || t === 'BREAKOUT') {
                                                     setMaxPlayers(3);
                                                     setBoardSize(20);
                                                 } else if (t === 'OLDMAID') {
@@ -1055,7 +1058,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                     </span>,
                                     1,
                                 )}
-                            {(studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID') &&
+                            {(studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT') &&
                                 L(
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span className="kw">const </span>
@@ -1080,6 +1083,7 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                             {studyType !== 'OLDMAID' &&
                                 studyType !== 'TETRIS' &&
                                 studyType !== 'INCIDENT_AVOID' &&
+                                studyType !== 'BREAKOUT' &&
                                 studyType !== 'OMOK' &&
                                 L(
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1171,6 +1175,17 @@ function Lobby({ nickname, emoji, sessionId, onNicknameChange, onEmojiChange, on
                                         <span className="var">monitor</span>
                                         <span className="pct"> = </span>
                                         <span className="str">"360x520"</span>
+                                        <span className="cmt"> // 3-player workspace</span>
+                                    </span>,
+                                    1,
+                                )}
+                            {studyType === 'BREAKOUT' &&
+                                L(
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span className="kw">const </span>
+                                        <span className="var">pipeline</span>
+                                        <span className="pct"> = </span>
+                                        <span className="str">"420x520"</span>
                                         <span className="cmt"> // 3-player workspace</span>
                                     </span>,
                                     1,

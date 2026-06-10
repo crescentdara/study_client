@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -41,6 +41,7 @@ export interface StudyMoveRequest {
     | 'PLACE_STONE'
     | 'TETRIS_SYNC'
     | 'INCIDENT_SYNC'
+    | 'BREAKOUT_SYNC'
     | 'DEAL_CARD'
     | 'DRAW_CARD'
     | 'DISCARD_PAIR'
@@ -61,7 +62,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | null;
 
   playerNames: string[];
 }
@@ -172,6 +173,27 @@ export interface IncidentAvoidPlayerState {
   running: boolean;
   gameOver: boolean;
   incidents: number[][];
+  updatedAt: number;
+}
+
+export interface BreakoutGameData {
+  mode: string;
+  width: number;
+  height: number;
+  numPlayers: number;
+  playerStates: Record<string, BreakoutPlayerState>;
+}
+
+export interface BreakoutPlayerState {
+  paddleX: number;
+  ballX: number;
+  ballY: number;
+  score: number;
+  bricksLeft: number;
+  running: boolean;
+  gameOver: boolean;
+  cleared: boolean;
+  bricks: number[];
   updatedAt: number;
 }
 
