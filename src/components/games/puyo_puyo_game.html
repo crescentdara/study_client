@@ -1,0 +1,422 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+#game-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  gap: 12px;
+  user-select: none;
+}
+#top-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  justify-content: space-between;
+}
+.stat-box {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 8px 16px;
+  min-width: 80px;
+  text-align: center;
+}
+.stat-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 2px; }
+.stat-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+#main-area {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+canvas#board {
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  display: block;
+  image-rendering: pixelated;
+}
+#side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.panel-card {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  width: 90px;
+  text-align: center;
+}
+.panel-title { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 6px; }
+canvas.preview { display: block; margin: 0 auto; }
+#controls-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  line-height: 1.8;
+}
+#message-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: 20px 28px;
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+}
+#overlay-wrap { position: relative; }
+#chain-flash {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-height: 36px;
+  text-align: center;
+}
+#btn-restart {
+  margin-top: 4px;
+  padding: 8px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+#btn-restart:hover { background: var(--color-background-primary); }
+</style>
+
+<div id="game-wrapper">
+  <div id="top-bar">
+    <div class="stat-box"><div class="stat-label">점수</div><div class="stat-val" id="score-val">0</div></div>
+    <div class="stat-box"><div class="stat-label">레벨</div><div class="stat-val" id="level-val">1</div></div>
+    <div class="stat-box"><div class="stat-label">체인</div><div class="stat-val" id="chain-val">0</div></div>
+  </div>
+  <div id="main-area">
+    <div id="overlay-wrap">
+      <canvas id="board" width="192" height="288"></canvas>
+      <div id="message-overlay" style="display:none;">
+        <div id="overlay-title" style="font-size:18px; font-weight:500; margin-bottom:8px;"></div>
+        <div id="overlay-sub" style="font-size:13px; color: var(--color-text-secondary); margin-bottom:12px;"></div>
+        <button id="btn-restart">다시 시작</button>
+      </div>
+    </div>
+    <div id="side-panel">
+      <div class="panel-card">
+        <div class="panel-title">NEXT</div>
+        <canvas class="preview" id="next-canvas" width="40" height="80"></canvas>
+      </div>
+      <div class="panel-card" style="padding: 8px;">
+        <div id="controls-hint">
+          ← → 이동<br>↑ 회전<br>↓ 빠르게<br>스페이스 즉시낙하
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="chain-flash"></div>
+</div>
+
+<script>
+const COLS = 6, ROWS = 12;
+const CELL = 32;
+const COLORS = ['#E24B4A','#378ADD','#639922','#D4537E','#BA7517'];
+const COLOR_NAMES = ['red','blue','green','pink','amber'];
+const EMPTY = 0;
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next-canvas');
+const nCtx = nextCanvas.getContext('2d');
+
+let board, currentPair, nextPair, score, level, chainCount, gameOver, dropping, dropTimer, dropInterval;
+let chainFlashTimer = null;
+
+function isDarkMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function getBg() { return isDarkMode() ? '#1a1a1a' : '#f8f8f8'; }
+function getEmptyColor() { return isDarkMode() ? '#2a2a2a' : '#eeeeee'; }
+function getTextColor() { return isDarkMode() ? '#e0e0e0' : '#222'; }
+
+function newBoard() {
+  return Array.from({length: ROWS}, () => Array(COLS).fill(EMPTY));
+}
+
+function randColor() { return Math.floor(Math.random() * COLORS.length) + 1; }
+
+function newPair() {
+  return { c: [randColor(), randColor()], rot: 0, x: 2, y: -1 };
+}
+
+function init() {
+  board = newBoard();
+  currentPair = newPair();
+  nextPair = newPair();
+  score = 0; level = 1; chainCount = 0; gameOver = false; dropping = false;
+  dropInterval = 700;
+  document.getElementById('score-val').textContent = '0';
+  document.getElementById('level-val').textContent = '1';
+  document.getElementById('chain-val').textContent = '0';
+  document.getElementById('message-overlay').style.display = 'none';
+  document.getElementById('chain-flash').textContent = '';
+  startDropTimer();
+}
+
+function puyoPositions(pair) {
+  const {c, rot, x, y} = pair;
+  if (rot === 0) return [{x, y: y-1, c: c[0]}, {x, y, c: c[1]}];
+  if (rot === 1) return [{x: x+1, y, c: c[0]}, {x, y, c: c[1]}];
+  if (rot === 2) return [{x, y: y+1, c: c[0]}, {x, y, c: c[1]}];
+  return [{x: x-1, y, c: c[0]}, {x, y, c: c[1]}];
+}
+
+function isValid(pair, dx=0, dy=0, dr=0) {
+  let p = {...pair, x: pair.x+dx, y: pair.y+dy, rot: (pair.rot+dr+4)%4};
+  return puyoPositions(p).every(({x, y}) =>
+    x >= 0 && x < COLS && y < ROWS && (y < 0 || board[y][x] === EMPTY)
+  );
+}
+
+function placePair() {
+  const pos = puyoPositions(currentPair);
+  let placed = false;
+  for (const {x, y, c} of pos) {
+    if (y >= 0 && y < ROWS) { board[y][x] = c; placed = true; }
+  }
+  return placed;
+}
+
+function applyGravity() {
+  let fell = false;
+  for (let col = 0; col < COLS; col++) {
+    let write = ROWS - 1;
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (board[row][col] !== EMPTY) {
+        if (write !== row) { board[write][col] = board[row][col]; board[row][col] = EMPTY; fell = true; }
+        write--;
+      }
+    }
+  }
+  return fell;
+}
+
+function findGroups() {
+  const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+  const groups = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c] !== EMPTY && !visited[r][c]) {
+        const color = board[r][c];
+        const group = [];
+        const stack = [[r, c]];
+        while (stack.length) {
+          const [cr, cc] = stack.pop();
+          if (cr < 0 || cr >= ROWS || cc < 0 || cc >= COLS) continue;
+          if (visited[cr][cc] || board[cr][cc] !== color) continue;
+          visited[cr][cc] = true;
+          group.push([cr, cc]);
+          stack.push([cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]);
+        }
+        if (group.length >= 4) groups.push(group);
+      }
+    }
+  }
+  return groups;
+}
+
+function clearGroups(groups) {
+  let count = 0;
+  for (const g of groups) { for (const [r,c] of g) { board[r][c] = EMPTY; count++; } }
+  return count;
+}
+
+let chainResolving = false;
+
+async function resolveChains() {
+  chainResolving = true;
+  let chain = 0;
+  while (true) {
+    applyGravity();
+    const groups = findGroups();
+    if (groups.length === 0) break;
+    chain++;
+    chainCount = chain;
+    document.getElementById('chain-val').textContent = chain;
+    const cleared = clearGroups(groups);
+    const pts = cleared * 10 * chain * chain;
+    score += pts;
+    document.getElementById('score-val').textContent = score;
+    if (chain > 1) showChainFlash(chain);
+    await sleep(350);
+    draw();
+    await sleep(200);
+  }
+  level = Math.floor(score / 500) + 1;
+  dropInterval = Math.max(150, 700 - (level - 1) * 60);
+  document.getElementById('level-val').textContent = level;
+  chainResolving = false;
+  if (!gameOver) advancePiece();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showChainFlash(n) {
+  const el = document.getElementById('chain-flash');
+  const labels = ['','','2연쇄!','3연쇄!!','4연쇄!!!','5연쇄!!!!','대연쇄!!!!!'];
+  el.textContent = n < labels.length ? labels[n] : `${n}연쇄!!!!!`;
+  el.style.color = COLORS[n % COLORS.length];
+  if (chainFlashTimer) clearTimeout(chainFlashTimer);
+  chainFlashTimer = setTimeout(() => { el.textContent = ''; }, 1200);
+}
+
+function advancePiece() {
+  currentPair = nextPair;
+  nextPair = newPair();
+  currentPair.x = 2; currentPair.y = -1; currentPair.rot = 0;
+  if (!isValid(currentPair, 0, 1)) {
+    if (!isValid(currentPair)) { endGame(); return; }
+  }
+  startDropTimer();
+  draw();
+  drawNext();
+}
+
+function endGame() {
+  gameOver = true;
+  clearInterval(dropTimer);
+  document.getElementById('overlay-title').textContent = '게임 오버';
+  document.getElementById('overlay-sub').textContent = `최종 점수: ${score}`;
+  document.getElementById('message-overlay').style.display = 'block';
+}
+
+function startDropTimer() {
+  clearInterval(dropTimer);
+  dropTimer = setInterval(() => {
+    if (!chainResolving && !gameOver) stepDown();
+  }, dropInterval);
+}
+
+function stepDown() {
+  if (isValid(currentPair, 0, 1)) {
+    currentPair.y++;
+    draw();
+  } else {
+    placePair();
+    draw();
+    resolveChains();
+  }
+}
+
+function moveLeft() { if (isValid(currentPair, -1)) { currentPair.x--; draw(); } }
+function moveRight() { if (isValid(currentPair, 1)) { currentPair.x++; draw(); } }
+function rotate() {
+  if (isValid(currentPair, 0, 0, 1)) {
+    currentPair.rot = (currentPair.rot + 1) % 4;
+    draw();
+  } else if (isValid(currentPair, 1, 0, 1)) {
+    currentPair.x++; currentPair.rot = (currentPair.rot + 1) % 4; draw();
+  } else if (isValid(currentPair, -1, 0, 1)) {
+    currentPair.x--; currentPair.rot = (currentPair.rot + 1) % 4; draw();
+  }
+}
+function hardDrop() {
+  while (isValid(currentPair, 0, 1)) currentPair.y++;
+  placePair(); draw(); resolveChains();
+}
+
+function drawPuyo(c2d, x, y, colorIdx, sz=CELL) {
+  const color = COLORS[colorIdx - 1];
+  c2d.fillStyle = color;
+  const pad = 2;
+  const r = (sz - pad * 2) / 2;
+  const cx = x * sz + sz / 2;
+  const cy = y * sz + sz / 2;
+  c2d.beginPath();
+  c2d.arc(cx, cy, r, 0, Math.PI * 2);
+  c2d.fill();
+  c2d.fillStyle = 'rgba(255,255,255,0.35)';
+  c2d.beginPath();
+  c2d.arc(cx - r * 0.25, cy - r * 0.3, r * 0.35, 0, Math.PI * 2);
+  c2d.fill();
+}
+
+function draw() {
+  ctx.fillStyle = getBg();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]) drawPuyo(ctx, c, r, board[r][c]);
+      else {
+        ctx.fillStyle = getEmptyColor();
+        ctx.fillRect(c*CELL+2, r*CELL+2, CELL-4, CELL-4);
+      }
+    }
+  }
+  if (!gameOver && !chainResolving) {
+    for (const {x, y, c} of puyoPositions(currentPair)) {
+      if (y >= 0) drawPuyo(ctx, x, y, c);
+    }
+  }
+}
+
+function drawNext() {
+  nCtx.fillStyle = getBg();
+  nCtx.fillRect(0, 0, 40, 80);
+  const sz = 20;
+  const puyos = [{x:0, y:0, c: nextPair.c[0]}, {x:0, y:1, c: nextPair.c[1]}];
+  for (const {x, y, c} of puyos) drawPuyo20(nCtx, x, y, c, sz);
+}
+
+function drawPuyo20(c2d, x, y, colorIdx, sz) {
+  const color = COLORS[colorIdx - 1];
+  c2d.fillStyle = color;
+  const r = sz / 2 - 2;
+  const cx = x * sz + sz / 2;
+  const cy = y * sz + sz / 2;
+  c2d.beginPath();
+  c2d.arc(cx, cy, r, 0, Math.PI * 2);
+  c2d.fill();
+  c2d.fillStyle = 'rgba(255,255,255,0.35)';
+  c2d.beginPath();
+  c2d.arc(cx - r * 0.25, cy - r * 0.3, r * 0.35, 0, Math.PI * 2);
+  c2d.fill();
+}
+
+document.getElementById('btn-restart').addEventListener('click', init);
+
+document.addEventListener('keydown', e => {
+  if (gameOver || chainResolving) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveLeft(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); moveRight(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); stepDown(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); rotate(); }
+  else if (e.key === ' ') { e.preventDefault(); hardDrop(); }
+});
+
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  e.preventDefault();
+}, {passive: false});
+canvas.addEventListener('touchend', e => {
+  if (gameOver || chainResolving) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  if (adx < 10 && ady < 10) { rotate(); }
+  else if (adx > ady) { dx < 0 ? moveLeft() : moveRight(); }
+  else { dy > 0 ? hardDrop() : rotate(); }
+  e.preventDefault();
+}, {passive: false});
+
+init();
+drawNext();
+</script>

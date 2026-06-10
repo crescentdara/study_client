@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
+import PuyoPuyo from './components/games/PuyoPuyo';
 import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
 
@@ -58,6 +59,9 @@ function App() {
         },
         [sendLobbyChat, nickname, emoji, sessionId],
     );
+
+    // ── 뿌요뿌요 ──────────────────────────────────────────────────────────────
+    const [showPuyo, setShowPuyo] = useState(false);
 
     // ── 사이드바 상태 ──────────────────────────────────────────────────────────
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -232,7 +236,9 @@ function App() {
     );
 
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
-    const tabLabel = currentRoom
+    const tabLabel = showPuyo && !currentRoom
+        ? 'puyo_puyo.ts'
+        : currentRoom
         ? `${currentRoom.roomName}.${
               currentRoom.studyType === 'BASEBALL'
                   ? 'bs'
@@ -292,12 +298,22 @@ function App() {
                         <div
                             key={panel}
                             title={panel === 'explorer' ? 'Explorer' : 'Profile'}
-                            onClick={() => setActivePanel(panel)}
-                            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: activePanel === panel ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: activePanel === panel ? '2px solid #ccc' : '2px solid transparent', opacity: activePanel === panel ? 1 : 0.45, transition: 'all 0.12s' }}
+                            onClick={() => { setActivePanel(panel); setShowPuyo(false); }}
+                            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: activePanel === panel && !showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}
                         >
                             {panel === 'explorer' ? '📁' : '👤'}
                         </div>
                     ))}
+                    {/* 뿌요뿌요 버튼 */}
+                    {currentRoom === null && (
+                        <div
+                            title="Puyo Puyo"
+                            onClick={() => setShowPuyo((v) => !v)}
+                            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s', marginTop: 'auto', marginBottom: '8px' }}
+                        >
+                            🫧
+                        </div>
+                    )}
                 </div>
 
                 {/* ── SIDEBAR ── */}
@@ -434,7 +450,9 @@ function App() {
 
                     {/* 콘텐츠 영역 */}
                     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        {currentRoom === null ? (
+                        {currentRoom === null && showPuyo ? (
+                            <PuyoPuyo onClose={() => setShowPuyo(false)} />
+                        ) : currentRoom === null ? (
                             <Lobby
                                 nickname={nickname}
                                 emoji={emoji}
