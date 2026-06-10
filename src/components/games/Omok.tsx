@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { OmokGameData, StudyMoveRequest, StudyStateResponse } from '../../types';
 
+type RpsChoice = 'ROCK' | 'PAPER' | 'SCISSORS';
+
+const RPS_LABELS: Record<RpsChoice, string> = {
+  ROCK: 'rock',
+  PAPER: 'paper',
+  SCISSORS: 'scissors',
+};
+
 interface Props {
   studyState: StudyStateResponse | null;
   sessionId: string;
@@ -16,8 +24,15 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
   const data = studyState?.gameData as OmokGameData | null;
   const size = data?.size ?? boardSize;
   const board = data?.board ?? Array.from({ length: size }, () => Array(size).fill(0));
-  const isMyTurn = studyState?.status === 'PLAYING' && data?.currentTurn === myPlayerIndex;
+  const firstDecided = data?.firstDecided ?? false;
+  const openingChoices = data?.openingChoices ?? [];
+  const myChoice = openingChoices[myPlayerIndex] ?? null;
+  const choicesReady = openingChoices.length > 0 && openingChoices.every(Boolean);
+  const isMyTurn = studyState?.status === 'PLAYING' && firstDecided && data?.currentTurn === myPlayerIndex;
   const activeName = studyState?.playerNames?.[data?.currentTurn ?? 0] ?? 'player';
+  const firstName = data?.firstPlayerIndex != null && data.firstPlayerIndex >= 0
+    ? studyState?.playerNames?.[data.firstPlayerIndex] ?? 'pending'
+    : 'pending';
   const winCells = new Set((data?.winPath ?? []).map(([r, c]) => `${r}-${c}`));
   const boardStyle = {
     gridTemplateColumns: `16px repeat(${size}, minmax(12px, 1fr))`,
@@ -33,6 +48,16 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
       data: `${row},${col}`,
       sessionId,
       payload: { row, col },
+    });
+  };
+
+  const selectRps = (choice: RpsChoice) => {
+    if (studyState?.status !== 'PLAYING' || firstDecided || myChoice) return;
+    sendMove({
+      moveType: 'OMOK_RPS',
+      data: choice,
+      sessionId,
+      payload: { choice },
     });
   };
 
@@ -70,7 +95,7 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
 
         <div className="omok-sheet">
           <div className="omok-sheet-head">
-            <span><span className="var">active</span><span className="pct">: </span><span className="str">"{activeName}"</span></span>
+            <span><span className="var">active</span><span className="pct">: </span><span className="str">"{firstDecided ? activeName : 'priority pending'}"</span></span>
             <span><span className="var">mode</span><span className="pct">: </span><span className="typ">OMOK</span></span>
             <span><span className="var">size</span><span className="pct">: </span><span className="num">{size}x{size}</span></span>
           </div>
@@ -120,7 +145,7 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
       </div>
 
       <div className="code-block">
-        <CL ln={1}><span className="cmt">{'// players'}</span></CL>
+        <CL ln={1}><span className="cmt">{firstDecided ? '// players' : '// decide first move'}</span></CL>
         {(studyState.playerNames ?? []).map((name, i) => {
           const active = data?.currentTurn === i && studyState.status === 'PLAYING';
           const winner = studyState.winner === i;
@@ -130,29 +155,61 @@ export default function Omok({ studyState, sessionId, myPlayerIndex, sendMove, b
               <span className="pct">: </span>
               <span className="str">"{name}"</span>
               <span className="dim"> </span>
-              <span style={{ color: winner ? '#dcdcaa' : active ? '#4ec9b0' : '#555' }}>
-                {winner ? 'winner' : active ? 'turn' : 'waiting'}
+              <span style={{ color: winner ? '#dcdcaa' : firstDecided && active ? '#4ec9b0' : '#555' }}>
+                {winner ? 'winner' : firstDecided && active ? 'turn' : openingChoices[i] ? (choicesReady ? RPS_LABELS[openingChoices[i] as RpsChoice] : 'selected') : 'waiting'}
               </span>
             </CL>
           );
         })}
         <CL ln={5}>
-          <span className="var">turn</span><span className="pct">: </span>
-          <span className="str">"{studyState.status === 'PLAYING' ? activeName : 'finished'}"</span>
+          <span className="var">first</span><span className="pct">: </span>
+          <span className="str">"{firstDecided ? firstName : 'not_decided'}"</span>
         </CL>
         <CL ln={6}>
           <span className="var">status</span><span className="pct">: </span>
-          <span className={isMyTurn ? 'typ' : 'dim'}>{isMyTurn ? 'your_turn' : studyState.status.toLowerCase()}</span>
+          <span className={isMyTurn ? 'typ' : 'dim'}>{!firstDecided ? 'priority_setup' : isMyTurn ? 'your_turn' : studyState.status.toLowerCase()}</span>
         </CL>
         <CL ln={7}>
           <span className="cmt">
-            {studyState.status === 'FINISHED'
+            {!firstDecided
+              ? '// rock paper scissors decides first move'
+              : studyState.status === 'FINISHED'
               ? '// game over; host can restart'
               : isMyTurn
                 ? '// select an empty intersection'
                 : '// opponent turn'}
           </span>
         </CL>
+        {(!firstDecided || choicesReady) && (
+          <div className={`omok-rps ${choicesReady ? 'reveal' : ''}`}>
+            {(studyState.playerNames ?? []).map((name, i) => {
+              const choice = openingChoices[i] as RpsChoice | null | undefined;
+              const mine = i === myPlayerIndex;
+              return (
+                <div key={name} className="omok-rps-card">
+                  <span className="var">{mine ? 'me' : `p${i + 1}`}</span>
+                  <span className="pct">: </span>
+                  <span className="str">"{choicesReady && choice ? RPS_LABELS[choice] : choice ? 'selected' : 'pending'}"</span>
+                </div>
+              );
+            })}
+            {!firstDecided && (
+              <div className="omok-rps-buttons">
+                {(['ROCK', 'PAPER', 'SCISSORS'] as RpsChoice[]).map((choice) => (
+                  <button
+                    key={choice}
+                    className={`btn-opt ${myChoice === choice ? 'on' : ''}`}
+                    onClick={() => selectRps(choice)}
+                    disabled={Boolean(myChoice)}
+                  >
+                    {RPS_LABELS[choice]}
+                  </button>
+                ))}
+              </div>
+            )}
+            <span className="cmt">{firstDecided ? `// ${firstName} goes first` : myChoice ? '// waiting for opponent' : '// select one'}</span>
+          </div>
+        )}
         <div className="omok-controls">
           <Slider label="stoneAlpha" value={stoneOpacity} min={12} max={80} onChange={setStoneOpacity} />
           <Slider label="boardAlpha" value={boardOpacity} min={55} max={100} onChange={setBoardOpacity} />
