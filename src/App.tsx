@@ -14,9 +14,9 @@ const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
     { id: 'pig', src: '/src/assets/images/dalbit.png', label: '🐷' },
     { id: 'ggobuk', src: '/src/assets/images/ggobuk.png', label: '🐢' },
     { id: 'ch4', src: '/src/assets/images/ch4.png', label: '👽' },
-    { id: 'ch5', src: '/src/assets/images/ch5.png', label: '👽' },
-    { id: 'ch6', src: '/src/assets/images/ch6.png', label: '👽' },
-    { id: 'ch7', src: '/src/assets/images/ch7.png', label: '👽' },
+    { id: 'ch5', src: '/src/assets/images/ch5.png', label: '🎉' },
+    { id: 'ch6', src: '/src/assets/images/ch6.png', label: '😊' },
+    { id: 'ch7', src: '/src/assets/images/ch7.png', label: '💖' },
 ];
 
 const GAME_ICONS: Partial<Record<StudyType, string>> = {
