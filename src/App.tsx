@@ -4,6 +4,7 @@ import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import PuyoPuyo from './components/games/PuyoPuyo';
 import Sudoku from './components/games/Sudoku';
+import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
 
@@ -61,9 +62,12 @@ function App() {
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
     const [chatWidth, setChatWidth] = useState(() => Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))));
 
-    // ── 뿌요뿌요 / 스도쿠 ─────────────────────────────────────────────────────
+    // ── 뿌요뿌요 / 스도쿠 / 워드레인 ──────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
     const [showSudoku, setShowSudoku] = useState(false);
+    const [wordRainOn, setWordRainOn] = useState(false);       // 게임 실행 중 (컴포넌트 마운트)
+    const [wordRainVisible, setWordRainVisible] = useState(true); // 오버레이 표시 여부
+    const wordRainHandlerRef = useRef<((word: string) => void) | null>(null);
 
     // ── 사이드바 상태 ──────────────────────────────────────────────────────────
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -98,40 +102,101 @@ function App() {
     ]);
     const termRef = useRef<HTMLDivElement | null>(null);
 
+    // 최초 마운트 시 터미널 스크롤을 하단으로
+    useEffect(() => {
+        if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
+    }, []);
+
+    // ESC 보스키 — 게임 실행 중일 때만 오버레이 표시/숨기기
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && wordRainOn) setWordRainVisible(v => !v);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [wordRainOn]);
+
     // ── 유틸 함수 ──────────────────────────────────────────────────────────────
+
+    const scrollTerm = () => setTimeout(() => {
+        if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
+    }, 30);
 
     const handleTermCmd = (cmd: string) => {
         const trimmed = cmd.trim();
         if (!trimmed) return;
-        setTermHistory((prev) => {
-            const next = [...prev, { type: 'cmd' as const, text: trimmed }];
-            if (trimmed === 'clear' || trimmed === 'cls') return [];
-            if (trimmed === 'git status') {
-                next.push({ type: 'out', text: 'On branch main — nothing to commit, working tree clean' });
-            } else if (trimmed === 'git log --oneline') {
-                next.push({ type: 'out', text: 'a3f91c2 fix: OldMaid black screen on discard' });
-                next.push({ type: 'out', text: '8b2e104 feat: global lobby chat' });
-                next.push({ type: 'out', text: 'd19a3f7 feat: OldMaid end-turn button' });
-                next.push({ type: 'out', text: 'c84120a init: study-platform scaffold' });
-            } else if (trimmed === 'git branch') {
-                next.push({ type: 'out', text: '* main' });
-                next.push({ type: 'out', text: '  dev' });
-            } else if (trimmed === 'ls' || trimmed === 'ls -la') {
-                next.push({ type: 'out', text: 'drwxr-xr-x  study-client/' });
-                next.push({ type: 'out', text: 'drwxr-xr-x  study-server/' });
-                next.push({ type: 'out', text: '-rw-r--r--  README.md' });
-                next.push({ type: 'out', text: '-rw-r--r--  .gitignore' });
-            } else if (trimmed === 'help') {
-                next.push({ type: 'out', text: 'Available: git status, git log --oneline, git branch, ls, clear' });
-            } else {
-                next.push({ type: 'err', text: `bash: ${trimmed}: command not found` });
-            }
-            return next;
-        });
+
+        if (trimmed === 'clear' || trimmed === 'cls') {
+            setTermHistory([]);
+            setTermInput('');
+            return;
+        }
+
+        const lines: { type: 'cmd' | 'out' | 'err'; text: string }[] = [
+            { type: 'cmd', text: trimmed },
+        ];
+
+        // 게임 종료 커맨드는 라우팅 이전에 항상 처리
+        if (trimmed === 'wordrain stop') {
+            lines.push({ type: 'out', text: 'info: symbol-resolver daemon stopped' });
+            setTermHistory(prev => [...prev, ...lines]);
+            setTermInput('');
+            scrollTerm();
+            setWordRainOn(false);
+            setWordRainVisible(true);
+            return;
+        }
+
+        // 게임 실행 중엔 나머지 입력을 게임으로 라우팅
+        if (wordRainOn) {
+            setTermHistory(prev => [...prev, { type: 'cmd' as const, text: trimmed }]);
+            wordRainHandlerRef.current?.(trimmed);
+            setTermInput('');
+            scrollTerm();
+            return;
+        }
+
+        if (trimmed === 'wordrain') {
+            lines.push({ type: 'out', text: 'info: starting symbol-resolver daemon...' });
+            lines.push({ type: 'out', text: '' });
+            lines.push({ type: 'out', text: '  <identifier> + Enter  →  resolve symbol' });
+            lines.push({ type: 'out', text: '  ESC                  →  hide overlay (game pauses)' });
+            lines.push({ type: 'out', text: '  wordrain stop        →  terminate daemon' });
+            lines.push({ type: 'out', text: '' });
+            setWordRainOn(true);
+            setWordRainVisible(true);
+            setShowPuyo(false);
+            setShowSudoku(false);
+        } else if (trimmed === 'git status') {
+            lines.push({ type: 'out', text: 'On branch main — nothing to commit, working tree clean' });
+        } else if (trimmed === 'git log --oneline') {
+            lines.push({ type: 'out', text: 'a3f91c2 fix: OldMaid black screen on discard' });
+            lines.push({ type: 'out', text: '8b2e104 feat: global lobby chat' });
+            lines.push({ type: 'out', text: 'd19a3f7 feat: OldMaid end-turn button' });
+            lines.push({ type: 'out', text: 'c84120a init: study-platform scaffold' });
+        } else if (trimmed === 'git branch') {
+            lines.push({ type: 'out', text: '* main' });
+            lines.push({ type: 'out', text: '  dev' });
+        } else if (trimmed === 'ls' || trimmed === 'ls -la') {
+            lines.push({ type: 'out', text: 'drwxr-xr-x  study-client/' });
+            lines.push({ type: 'out', text: 'drwxr-xr-x  study-server/' });
+            lines.push({ type: 'out', text: '-rw-r--r--  README.md' });
+            lines.push({ type: 'out', text: '-rw-r--r--  .gitignore' });
+        } else if (trimmed === 'help') {
+            lines.push({ type: 'out', text: '  git status          show working tree status' });
+            lines.push({ type: 'out', text: '  git log --oneline   show commit history' });
+            lines.push({ type: 'out', text: '  git branch          list branches' });
+            lines.push({ type: 'out', text: '  ls                  list files' });
+            lines.push({ type: 'out', text: '  clear               clear terminal' });
+            lines.push({ type: 'out', text: '  wordrain            start symbol-resolver game' });
+            lines.push({ type: 'out', text: '  wordrain stop       terminate symbol-resolver' });
+        } else {
+            lines.push({ type: 'err', text: `bash: ${trimmed}: command not found` });
+        }
+
+        setTermHistory(prev => [...prev, ...lines]);
         setTermInput('');
-        setTimeout(() => {
-            if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
-        }, 30);
+        scrollTerm();
     };
 
     // ── 초기화 ─────────────────────────────────────────────────────────────────
@@ -319,12 +384,12 @@ function App() {
                     {currentRoom === null && (
                         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
                             <div title="Puyo Puyo"
-                                onClick={() => { setShowPuyo(v => !v); setShowSudoku(false); }}
+                                onClick={() => { setShowPuyo(v => !v); setShowSudoku(false); setWordRainOn(false); setWordRainVisible(true); }}
                                 style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}>
                                 🫧
                             </div>
                             <div title="Sudoku"
-                                onClick={() => { setShowSudoku(v => !v); setShowPuyo(false); }}
+                                onClick={() => { setShowSudoku(v => !v); setShowPuyo(false); setWordRainOn(false); setWordRainVisible(true); }}
                                 style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showSudoku ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showSudoku ? '2px solid #ccc' : '2px solid transparent', opacity: showSudoku ? 1 : 0.45, transition: 'all 0.12s' }}>
                                 🔢
                             </div>
@@ -465,7 +530,7 @@ function App() {
                     </div>
 
                     {/* 콘텐츠 영역 */}
-                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
                         {currentRoom === null && showPuyo ? (
                             <PuyoPuyo onClose={() => setShowPuyo(false)} />
                         ) : currentRoom === null && showSudoku ? (
@@ -485,6 +550,7 @@ function App() {
                                 onJoin={handleJoin}
                                 lobbyError={lobbyError}
                                 onClearLobbyError={() => setLobbyError('')}
+                                wordRainOn={wordRainOn}
                             />
                         ) : (
                             <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
@@ -497,6 +563,26 @@ function App() {
                                     onStudyState={handleStudyState}
                                     onLeave={handleLeaveRoom}
                                     leaveRef={leaveRef}
+                                />
+                            </div>
+                        )}
+
+                        {/* 워드레인 오버레이 — 게임 실행 중 항상 마운트, display로만 표시/숨김 */}
+                        {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && (
+                            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5, display: wordRainVisible ? 'block' : 'none' }}>
+                                <WordRain
+                                    visible={wordRainVisible}
+                                    registerHandler={(fn) => { wordRainHandlerRef.current = fn; }}
+                                    onClose={() => {
+                                        setWordRainOn(false);
+                                        setWordRainVisible(true);
+                                        setTermHistory(prev => [...prev, { type: 'out', text: 'info: symbol-resolver daemon stopped' }]);
+                                        scrollTerm();
+                                    }}
+                                    onTermOutput={(line) => {
+                                        setTermHistory(prev => [...prev, line]);
+                                        scrollTerm();
+                                    }}
                                 />
                             </div>
                         )}

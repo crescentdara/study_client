@@ -15,6 +15,7 @@ interface LobbyProps {
     onJoin: (roomId: string) => void;
     lobbyError: string;
     onClearLobbyError: () => void;
+    wordRainOn?: boolean;
 }
 
 function Lobby({
@@ -28,6 +29,7 @@ function Lobby({
     onJoin,
     lobbyError,
     onClearLobbyError,
+    wordRainOn,
 }: LobbyProps) {
     const [error, setError] = useState('');
     const [showCreate, setShowCreate] = useState(false);
@@ -120,6 +122,28 @@ function Lobby({
 
             {/* 스크롤 가능한 에디터 콘텐츠 */}
             <div style={{ flex: 1, overflow: 'auto' }}>
+
+                {/* ── 워드레인 실행 중: symbol-resolver 설명 블록 ── */}
+                {wordRainOn && (
+                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid #2a2a2a' }}>
+                        {L(<><span className="cmt">{'// config/symbol-resolver.ts'}</span></>)}
+                        {L(<><span className="kw">import </span><span className="pct">{'{ '}</span><span className="typ">Resolver</span><span className="pct">{', '}</span><span className="typ">DaemonConfig</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">"@study/daemon"</span></>)}
+                        {L(<></>)}
+                        {L(<><span className="cmt">{'/**'}</span></>)}
+                        {L(<><span className="cmt">{' * Symbol Resolver — JS identifier trainer'}</span></>)}
+                        {L(<><span className="cmt">{' *'}</span></>)}
+                        {L(<><span className="cmt">{' * @usage  identifier + Enter  →  resolve a falling symbol'}</span></>)}
+                        {L(<><span className="cmt">{' * @usage  ESC               →  hide overlay  (game pauses)'}</span></>)}
+                        {L(<><span className="cmt">{' * @usage  wordrain stop     →  terminate daemon'}</span></>)}
+                        {L(<><span className="cmt">{' */'}</span></>)}
+                        {L(<><span className="kw">export function </span><span className="fn">useSymbolResolver</span><span className="pct">{'(cfg: '}</span><span className="typ">DaemonConfig</span><span className="pct">{'): '}</span><span className="typ">Resolver</span><span className="pct">{' {'}</span></>)}
+                        {L(<><span className="kw">const </span><span className="var">daemon</span><span className="pct"> = </span><span className="kw">new </span><span className="typ">Resolver</span><span className="pct">{'(cfg)'}</span></>, 1)}
+                        {L(<><span className="var">daemon</span><span className="pct">{'.'}</span><span className="fn">start</span><span className="pct">{'()'}</span><span className="cmt">{'  // begins emitting identifiers'}</span></>, 1)}
+                        {L(<><span className="kw">return </span><span className="var">daemon</span></>, 1)}
+                        {L(<><span className="pct">{'}'}</span></>)}
+                        {L(<></>)}
+                    </div>
+                )}
 
                 {/* ── 방 목록 뷰 ── */}
                 {!showCreate && (
