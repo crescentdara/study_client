@@ -296,7 +296,7 @@ function App() {
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
                 {/* ── ACTIVITY BAR ── */}
-                <div style={{ width: '36px', flexShrink: 0, background: '#333333', borderRight: '1px solid #252526', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '6px', gap: '4px' }}>
+                <div style={{ width: '36px', flexShrink: 0, background: '#333333', borderRight: '1px solid #252526', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '6px', gap: '15px', marginBottom: '5px' }}>
                     {(['explorer', 'profile'] as const).map((panel) => (
                         <div
                             key={panel}
@@ -304,9 +304,16 @@ function App() {
                             onClick={() => { setActivePanel(panel); setShowPuyo(false); }}
                             style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: activePanel === panel && !showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}
                         >
-                            {panel === 'explorer' ? '📁' : '👤'}
+                            {panel === 'explorer' ? <img src="/src/assets/images/side_icon1.png" style={{ width: 18, }} /> : <img src="/src/assets/images/side_icon2.png" style={{ width: 18,  }} />}
                         </div>
                     ))}
+                    <ul style={{ width: "100%", display: 'flex', alignItems: 'center', jutifyContent: 'center', flexDirection: 'column', gap: '15px', listStyle: 'none', margin: 0, padding: 0 }}>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon3.png" style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon4.png" style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon5.png" style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon6.png" style={{ width: 18,  }} /></li>
+                    </ul>
+                    
                     {/* 뿌요뿌요 버튼 */}
                     {currentRoom === null && (
                         <div
