@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { StudyStateResponse, StudyMoveRequest, ChatMessage } from '../types';
+import { StudyStateResponse, StudyMoveRequest, ChatAttachment, ChatMessage } from '../types';
 
 interface UseWebSocketOptions {
   roomId: string;
@@ -62,10 +62,16 @@ export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptio
    * @param sessionId 발신자 세션 ID
    * @param emoji     발신자가 선택한 이모지 (서버가 ChatMessage에 포함해 브로드캐스트)
    */
-  const sendChat = useCallback((text: string, sessionId: string, emoji = '') => {
+  const sendChat = useCallback((text: string, sessionId: string, emoji = '', attachment?: ChatAttachment) => {
     const c = clientRef.current;
     if (!c?.connected) { console.warn('[WS] sendChat: not connected'); return; }
-    const body = JSON.stringify({ moveType: 'CHAT', data: text.trim(), sessionId, emoji });
+    const body = JSON.stringify({
+      moveType: 'CHAT',
+      data: text.trim(),
+      sessionId,
+      emoji,
+      ...(attachment ?? { type: 'TEXT' }),
+    });
     console.log('[WS] sendChat →', body);
     c.publish({ destination: `/app/study/${roomId}/chat`, body });
   }, [roomId]);

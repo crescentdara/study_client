@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { ChatMessage } from '../types';
+import { ChatAttachment, ChatMessage } from '../types';
 
 interface UsLobbyChatOptions {
   onMessage: (msg: ChatMessage) => void;
@@ -31,12 +31,19 @@ export function useLobbyChat({ onMessage }: UsLobbyChatOptions) {
     return () => { client.deactivate(); };
   }, []);
 
-  const sendChat = useCallback((text: string, nickname: string, emoji: string, sessionId: string) => {
+  const sendChat = useCallback((text: string, nickname: string, emoji: string, sessionId: string, attachment?: ChatAttachment) => {
     const c = clientRef.current;
     if (!c?.connected) return;
     c.publish({
       destination: '/app/study/lobby/chat',
-      body: JSON.stringify({ moveType: 'CHAT', data: text.trim(), nickname, emoji, sessionId }),
+      body: JSON.stringify({
+        moveType: 'CHAT',
+        data: text.trim(),
+        nickname,
+        emoji,
+        sessionId,
+        ...(attachment ?? { type: 'TEXT' }),
+      }),
     });
   }, []);
 

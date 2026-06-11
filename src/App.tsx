@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest } from './types';
+import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import PuyoPuyo from './components/games/PuyoPuyo';
@@ -54,8 +54,8 @@ function App() {
     }, []);
     const { sendChat: sendLobbyChat } = useLobbyChat({ onMessage: handleLobbyMessage });
     const handleLobbyChatSend = useCallback(
-        (text: string, _sid: string) => {
-            sendLobbyChat(text, nickname, emoji, sessionId);
+        (text: string, _sid: string, attachment?: ChatAttachment) => {
+            sendLobbyChat(text, nickname, emoji, sessionId, attachment);
         },
         [sendLobbyChat, nickname, emoji, sessionId],
     );

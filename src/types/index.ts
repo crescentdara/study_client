@@ -53,6 +53,10 @@ export interface StudyMoveRequest {
   sessionId: string;
   payload?: unknown;
   emoji?: string;
+  type?: 'TEXT' | 'IMAGE';
+  imageUrl?: string;
+  fileName?: string;
+  fileSize?: number;
 }
 
 export interface StudyStateResponse {
@@ -212,4 +216,15 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   emoji: string;
+  type?: 'TEXT' | 'IMAGE';
+  imageUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+}
+
+export interface ChatAttachment {
+  type: 'IMAGE';
+  imageUrl: string;
+  fileName: string;
+  fileSize: number;
 }
