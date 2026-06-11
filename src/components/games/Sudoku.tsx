@@ -112,6 +112,11 @@ export default function Sudoku({ onClose }: Props) {
     const [time, setTime] = useState(0);
     const [isComplete, setIsComplete] = useState(false);
     const [generating, setGenerating] = useState(true);
+    const [opacity, setOpacity] = useState<number>(() => {
+        const raw = parseFloat(localStorage.getItem('study.sudokuOpacity') ?? '100');
+        return Math.max(20, Math.min(100, raw <= 1 ? Math.round(raw * 100) : raw));
+    });
+    const [showOpacity, setShowOpacity] = useState(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const startNew = useCallback((diff: Difficulty) => {
@@ -205,7 +210,7 @@ export default function Sudoku({ onClose }: Props) {
     const selBoxC = selected ? Math.floor(selC / 3) : -1;
 
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#1e1e1e', overflow: 'hidden', userSelect: 'none' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#1e1e1e', overflow: 'hidden', userSelect: 'none', opacity: opacity / 100, transition: 'opacity 0.2s' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 14px', borderBottom: '1px solid #3e3e42', flexShrink: 0 }}>
                 <span style={{ color: '#569cd6', fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em' }}>SUDOKU</span>
@@ -220,11 +225,24 @@ export default function Sudoku({ onClose }: Props) {
                     style={{ background: 'transparent', border: '1px solid #3e3e42', color: '#9cdcfe', borderRadius: '3px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer' }}>
                     new
                 </button>
+                <button onClick={() => setShowOpacity(v => !v)}
+                    style={{ background: showOpacity ? 'rgba(78,201,176,0.2)' : 'transparent', border: showOpacity ? '1px solid #4ec9b0' : '1px solid transparent', color: showOpacity ? '#4ec9b0' : '#6a9955', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '0 4px', borderRadius: '3px', transition: 'all 0.15s' }}>
+                    +
+                </button>
                 <button onClick={onClose}
                     style={{ background: 'transparent', border: 'none', color: '#858585', fontSize: '14px', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>
                     ✕
                 </button>
             </div>
+            {showOpacity && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderBottom: '1px solid #3e3e42', background: '#252526', flexShrink: 0 }}>
+                    <span style={{ color: '#6a9955', fontSize: '10px', whiteSpace: 'nowrap' }}>opacity</span>
+                    <input type="range" min={20} max={100} value={opacity}
+                        onChange={e => { const v = Number(e.target.value); setOpacity(v); localStorage.setItem('study.sudokuOpacity', String(v)); }}
+                        style={{ flex: 1, accentColor: '#4ec9b0', cursor: 'pointer' }} />
+                    <span style={{ color: '#858585', fontSize: '10px', width: '28px', textAlign: 'right' }}>{opacity}%</span>
+                </div>
+            )}
 
             {/* Content */}
             {generating ? (
