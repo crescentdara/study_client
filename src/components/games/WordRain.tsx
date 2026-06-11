@@ -306,11 +306,13 @@ export default function WordRain({ visible, registerHandler, onClose, onRestart,
     useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
     useEffect(() => { onRestartRef.current = onRestart; }, [onRestart]);
 
-    // 숨김/표시 시 게임 루프 일시정지·재개
+    // 숨김/표시 시 게임 루프 일시정지·재개 (초기 마운트는 건너뜀)
+    const visibleInitRef = useRef(true);
     useEffect(() => {
+        if (visibleInitRef.current) { visibleInitRef.current = false; return; }
         pausedRef.current = !visible;
         if (visible && !gameOverRef.current) {
-            lastTimeRef.current = null; // dt 점프 방지
+            lastTimeRef.current = null;
             if (tickFnRef.current) rafRef.current = requestAnimationFrame(tickFnRef.current);
             if (spawnFnRef.current) spawnRef.current = setTimeout(spawnFnRef.current, 300);
         } else if (!visible) {
@@ -329,12 +331,12 @@ export default function WordRain({ visible, registerHandler, onClose, onRestart,
                 text,
                 x: 8 + Math.random() * 76,
                 y: -3,
-                speed: 1.2 + levelRef.current * 0.25 + Math.random() * 0.8,
+                speed: 1.2 + levelRef.current * 0.15 + Math.random() * 0.8,
                 color,
             };
             wordsRef.current = [...wordsRef.current, word];
             setWords([...wordsRef.current]);
-            const delay = Math.max(3500, 14000 - levelRef.current * 150 - Math.random() * 500);
+            const delay = Math.max(5000, 20000 - levelRef.current * 200 - Math.random() * 500);
             spawnRef.current = setTimeout(spawnWord, delay);
         };
         spawnFnRef.current = spawnWord;
@@ -394,7 +396,7 @@ export default function WordRain({ visible, registerHandler, onClose, onRestart,
                 setScore(scoreRef.current);
                 const desc = DESC[word] ? `  // ${DESC[word]}` : '';
                 onTermOutputRef.current({ type: 'out', text: `info: "${word}" resolved (+${pts})${desc}` });
-                const newLevel = Math.floor(scoreRef.current / 100) + 1;
+                const newLevel = Math.floor(scoreRef.current / 250) + 1;
                 if (newLevel !== levelRef.current) {
                     levelRef.current = newLevel;
                     setLevel(newLevel);
