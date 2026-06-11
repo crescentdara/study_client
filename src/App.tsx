@@ -65,8 +65,9 @@ function App() {
     // ── 뿌요뿌요 / 스도쿠 / 워드레인 ──────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
     const [showSudoku, setShowSudoku] = useState(false);
-    const [wordRainOn, setWordRainOn] = useState(false);       // 게임 실행 중 (컴포넌트 마운트)
-    const [wordRainVisible, setWordRainVisible] = useState(true); // 오버레이 표시 여부
+    const [wordRainOn, setWordRainOn] = useState(false);
+    const [wordRainVisible, setWordRainVisible] = useState(true);
+    const [wordRainKey, setWordRainKey] = useState(0);
     const wordRainHandlerRef = useRef<((word: string) => void) | null>(null);
 
     // ── 사이드바 상태 ──────────────────────────────────────────────────────────
@@ -571,12 +572,18 @@ function App() {
                         {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && (
                             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5, display: wordRainVisible ? 'block' : 'none' }}>
                                 <WordRain
+                                    key={wordRainKey}
                                     visible={wordRainVisible}
                                     registerHandler={(fn) => { wordRainHandlerRef.current = fn; }}
                                     onClose={() => {
                                         setWordRainOn(false);
                                         setWordRainVisible(true);
                                         setTermHistory(prev => [...prev, { type: 'out', text: 'info: symbol-resolver daemon stopped' }]);
+                                        scrollTerm();
+                                    }}
+                                    onRestart={() => {
+                                        setWordRainKey(k => k + 1);
+                                        setTermHistory(prev => [...prev, { type: 'out', text: 'info: symbol-resolver daemon restarted' }]);
                                         scrollTerm();
                                     }}
                                     onTermOutput={(line) => {
