@@ -274,12 +274,13 @@ interface Props {
     visible: boolean;
     registerHandler: (fn: ((word: string) => void) | null) => void;
     onClose: () => void;
+    onRestart: () => void;
     onTermOutput: (line: { type: 'out' | 'err'; text: string }) => void;
 }
 
 let _nextId = 0;
 
-export default function WordRain({ visible, registerHandler, onClose, onTermOutput }: Props) {
+export default function WordRain({ visible, registerHandler, onClose, onRestart, onTermOutput }: Props) {
     const [words, setWords] = useState<Word[]>([]);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
@@ -299,9 +300,11 @@ export default function WordRain({ visible, registerHandler, onClose, onTermOutp
     const spawnFnRef = useRef<(() => void) | null>(null);
     const onTermOutputRef = useRef(onTermOutput);
     const onCloseRef = useRef(onClose);
+    const onRestartRef = useRef(onRestart);
 
     useEffect(() => { onTermOutputRef.current = onTermOutput; }, [onTermOutput]);
     useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+    useEffect(() => { onRestartRef.current = onRestart; }, [onRestart]);
 
     // 숨김/표시 시 게임 루프 일시정지·재개
     useEffect(() => {
@@ -326,12 +329,12 @@ export default function WordRain({ visible, registerHandler, onClose, onTermOutp
                 text,
                 x: 8 + Math.random() * 76,
                 y: -3,
-                speed: 2.5 + levelRef.current * 0.4 + Math.random() * 1.5,
+                speed: 1.2 + levelRef.current * 0.25 + Math.random() * 0.8,
                 color,
             };
             wordsRef.current = [...wordsRef.current, word];
             setWords([...wordsRef.current]);
-            const delay = Math.max(2500, 9000 - levelRef.current * 120 - Math.random() * 500);
+            const delay = Math.max(3500, 14000 - levelRef.current * 150 - Math.random() * 500);
             spawnRef.current = setTimeout(spawnWord, delay);
         };
         spawnFnRef.current = spawnWord;
@@ -376,6 +379,8 @@ export default function WordRain({ visible, registerHandler, onClose, onTermOutp
             if (gameOverRef.current) {
                 if (word === 'q' || word === 'quit' || word === 'exit') {
                     onCloseRef.current();
+                } else if (word === 'restart' || word === 'r') {
+                    onRestartRef.current();
                 }
                 return;
             }
@@ -389,7 +394,7 @@ export default function WordRain({ visible, registerHandler, onClose, onTermOutp
                 setScore(scoreRef.current);
                 const desc = DESC[word] ? `  // ${DESC[word]}` : '';
                 onTermOutputRef.current({ type: 'out', text: `info: "${word}" resolved (+${pts})${desc}` });
-                const newLevel = Math.floor(scoreRef.current / 350) + 1;
+                const newLevel = Math.floor(scoreRef.current / 100) + 1;
                 if (newLevel !== levelRef.current) {
                     levelRef.current = newLevel;
                     setLevel(newLevel);
@@ -470,7 +475,7 @@ export default function WordRain({ visible, registerHandler, onClose, onTermOutp
                         level: <span style={{ color: '#b5cea8' }}>{level}</span>
                     </div>
                     <div style={{ color: '#3e3e42', marginTop: '6px' }}>
-                        terminal: <span style={{ color: '#569cd6' }}>q</span> + Enter to dismiss
+                        <span style={{ color: '#569cd6' }}>restart</span> to play again  ·  <span style={{ color: '#569cd6' }}>q</span> to quit
                     </div>
                 </div>
             )}
