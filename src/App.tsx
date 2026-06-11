@@ -321,7 +321,7 @@ function App() {
                             <div title="Puyo Puyo"
                                 onClick={() => { setShowPuyo(v => !v); setShowSudoku(false); }}
                                 style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}>
-                                🫧
+                                🩵
                             </div>
                             <div title="Sudoku"
                                 onClick={() => { setShowSudoku(v => !v); setShowPuyo(false); }}

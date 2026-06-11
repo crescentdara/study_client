@@ -18,6 +18,11 @@ export default function PuyoPuyo({ onClose }: Props) {
     const [chain, setChain] = useState(0);
     const [gameOver, setGameOver] = useState(false);
     const [chainFlash, setChainFlash] = useState('');
+    const [opacity, setOpacity] = useState<number>(() => {
+        const raw = parseFloat(localStorage.getItem('study.puyoOpacity') ?? '100');
+        return Math.max(20, Math.min(100, raw <= 1 ? Math.round(raw * 100) : raw));
+    });
+    const [showOpacity, setShowOpacity] = useState(false);
 
     useEffect(() => {
         const canvas = canvasRef.current!;
@@ -264,7 +269,7 @@ export default function PuyoPuyo({ onClose }: Props) {
     }, []);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1e1e1e', fontFamily: "'Consolas','Courier New',monospace" }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1e1e1e', fontFamily: "'Consolas','Courier New',monospace", opacity: opacity / 100, transition: 'opacity 0.2s' }}>
 
             {/* 헤더 */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', background: '#252526', borderBottom: '1px solid #3e3e42', flexShrink: 0, height: '35px', gap: '8px' }}>
@@ -276,13 +281,28 @@ export default function PuyoPuyo({ onClose }: Props) {
                     <span><span style={{ color: '#6a9955', fontSize: '11px' }}>chain </span><span style={{ color: '#ce9178', fontSize: '16px', fontWeight: 600 }}>{chain}</span></span>
                 </div>
                 <button
+                    onClick={() => setShowOpacity(v => !v)}
+                    style={{ marginLeft: '16px', background: showOpacity ? 'rgba(78,201,176,0.2)' : 'transparent', border: showOpacity ? '1px solid #4ec9b0' : '1px solid transparent', color: showOpacity ? '#4ec9b0' : '#6a9955', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '0 4px', borderRadius: '3px', transition: 'all 0.15s' }}
+                >
+                    +
+                </button>
+                <button
                     className="btn-secondary"
-                    style={{ marginLeft: '16px', fontSize: '11px', padding: '2px 10px' }}
+                    style={{ fontSize: '11px', padding: '2px 10px' }}
                     onClick={onClose}
                 >
                     ✕ close
                 </button>
             </div>
+            {showOpacity && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderBottom: '1px solid #3e3e42', background: '#252526', flexShrink: 0 }}>
+                    <span style={{ color: '#6a9955', fontSize: '10px', whiteSpace: 'nowrap' }}>opacity</span>
+                    <input type="range" min={20} max={100} value={opacity}
+                        onChange={e => { const v = Number(e.target.value); setOpacity(v); localStorage.setItem('study.puyoOpacity', String(v)); }}
+                        style={{ flex: 1, accentColor: '#4ec9b0', cursor: 'pointer' }} />
+                    <span style={{ color: '#858585', fontSize: '10px', width: '28px', textAlign: 'right' }}>{opacity}%</span>
+                </div>
+            )}
 
             {/* 게임 영역 */}
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', overflow: 'auto', padding: '16px' }}>
