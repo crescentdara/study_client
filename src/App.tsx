@@ -61,7 +61,7 @@ function App() {
     );
 
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
-    const [chatWidth, setChatWidth] = useState(240);
+    const [chatWidth, setChatWidth] = useState(() => Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))));
 
     // ── 뿌요뿌요 ──────────────────────────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
@@ -560,8 +560,9 @@ function App() {
                             const startX = e.clientX;
                             const startW = chatWidth;
                             const onMove = (ev: MouseEvent) => {
-                                const next = startW - (ev.clientX - startX);
-                                setChatWidth(Math.max(240, Math.min(500, next)));
+                                const next = Math.max(240, Math.min(500, startW - (ev.clientX - startX)));
+                                setChatWidth(next);
+                                localStorage.setItem('study.chatWidth', String(next));
                             };
                             const onUp = () => {
                                 window.removeEventListener('mousemove', onMove);
