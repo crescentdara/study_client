@@ -69,8 +69,8 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
       setUploadError("Only image files can be uploaded.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Image must be 5MB or smaller.");
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Image must be 10MB or smaller.");
       return;
     }
 
