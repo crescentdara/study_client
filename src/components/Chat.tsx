@@ -113,6 +113,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
     <div
       onPaste={handlePaste}
       style={{
+        width: "100%",
         display: "flex",
         flexDirection: "column",
         background: "#1e1e1e",

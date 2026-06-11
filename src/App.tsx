@@ -60,6 +60,9 @@ function App() {
         [sendLobbyChat, nickname, emoji, sessionId],
     );
 
+    // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
+    const [chatWidth, setChatWidth] = useState(240);
+
     // ── 뿌요뿌요 ──────────────────────────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
 
@@ -550,7 +553,24 @@ function App() {
                 </div>
 
                 {/* ── 전역 채팅 패널 ──────────────────────────────────── */}
-                <div style={{ width: '240px', flexShrink: 0, borderLeft: '1px solid #3e3e42', position: 'relative' }}>
+                <div style={{ width: chatWidth, flexShrink: 0, borderLeft: '1px solid #3e3e42', position: 'relative', display: 'flex' }}>
+                    <div
+                        style={{ width: '4px', flexShrink: 0, cursor: 'ew-resize', position: 'absolute', left: -2, top: 0, bottom: 0, zIndex: 2 }}
+                        onMouseDown={(e) => {
+                            const startX = e.clientX;
+                            const startW = chatWidth;
+                            const onMove = (ev: MouseEvent) => {
+                                const next = startW - (ev.clientX - startX);
+                                setChatWidth(Math.max(240, Math.min(500, next)));
+                            };
+                            const onUp = () => {
+                                window.removeEventListener('mousemove', onMove);
+                                window.removeEventListener('mouseup', onUp);
+                            };
+                            window.addEventListener('mousemove', onMove);
+                            window.addEventListener('mouseup', onUp);
+                        }}
+                    />
                     {!nickname.trim() && (
                         <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(30,30,30,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#858585', fontFamily: 'monospace', pointerEvents: 'none' }}>
                             <span style={{ color: '#569cd6' }}>// 채팅하려면</span>
