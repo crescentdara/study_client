@@ -8,18 +8,15 @@ import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
-    { id: '🐱', src: null, label: '🐱' },
-    { id: '🐶', src: null, label: '🐶' },
-    { id: '🦊', src: null, label: '🦊' },
-    { id: '🐼', src: null, label: '🐼' },
-    { id: '🐨', src: null, label: '🐨' },
-    { id: '💀', src: null, label: '💀' },
     { id: 'ch1', src: '/src/assets/images/ch1.png', label: '😀' },
     { id: 'ch2', src: '/src/assets/images/ch2.png', label: '😁' },
     { id: 'ch3', src: '/src/assets/images/ch3.png', label: '👻' },
-    { id: 'ch4', src: '/src/assets/images/ch4.png', label: '👽' },
     { id: 'pig', src: '/src/assets/images/dalbit.png', label: '🐷' },
     { id: 'ggobuk', src: '/src/assets/images/ggobuk.png', label: '🐢' },
+    { id: 'ch4', src: '/src/assets/images/ch4.png', label: '👽' },
+    { id: 'ch5', src: '/src/assets/images/ch5.png', label: '👽' },
+    { id: 'ch6', src: '/src/assets/images/ch6.png', label: '👽' },
+    { id: 'ch7', src: '/src/assets/images/ch7.png', label: '👽' },
 ];
 
 const GAME_ICONS: Partial<Record<StudyType, string>> = {
@@ -409,7 +406,7 @@ function App() {
                     {activePanel === 'profile' && (
                         <div style={{ flex: 1, overflow: 'auto', padding: '0 0 8px' }}>
                             <div style={{ padding: '4px 12px', fontSize: '10px', color: '#6a9955' }}>// select avatar</div>
-                            <div style={{ padding: '0 10px 8px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                            <div style={{ padding: '0 10px 8px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
                                 {PLAYER_AVATARS.map((a) => {
                                     const isSel = draftEmoji === a.id;
                                     return (
