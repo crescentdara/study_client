@@ -3,6 +3,7 @@ import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, Chat
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import PuyoPuyo from './components/games/PuyoPuyo';
+import Sudoku from './components/games/Sudoku';
 import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
 
@@ -63,8 +64,9 @@ function App() {
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
     const [chatWidth, setChatWidth] = useState(() => Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))));
 
-    // ── 뿌요뿌요 ──────────────────────────────────────────────────────────────
+    // ── 뿌요뿌요 / 스도쿠 ─────────────────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
+    const [showSudoku, setShowSudoku] = useState(false);
 
     // ── 사이드바 상태 ──────────────────────────────────────────────────────────
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -241,6 +243,8 @@ function App() {
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
     const tabLabel = showPuyo && !currentRoom
         ? 'puyo_puyo.ts'
+        : showSudoku && !currentRoom
+        ? 'sudoku.ts'
         : currentRoom
         ? `${currentRoom.roomName}.${
               currentRoom.studyType === 'BASEBALL'
@@ -314,14 +318,19 @@ function App() {
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon6.png" style={{ width: 18,  }} /></li>
                     </ul>
                     
-                    {/* 뿌요뿌요 버튼 */}
+                    {/* 게임 버튼 */}
                     {currentRoom === null && (
-                        <div
-                            title="Puyo Puyo"
-                            onClick={() => setShowPuyo((v) => !v)}
-                            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s', marginTop: 'auto', marginBottom: '8px' }}
-                        >
-                            🫧
+                        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                            <div title="Puyo Puyo"
+                                onClick={() => { setShowPuyo(v => !v); setShowSudoku(false); }}
+                                style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}>
+                                🫧
+                            </div>
+                            <div title="Sudoku"
+                                onClick={() => { setShowSudoku(v => !v); setShowPuyo(false); }}
+                                style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showSudoku ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showSudoku ? '2px solid #ccc' : '2px solid transparent', opacity: showSudoku ? 1 : 0.45, transition: 'all 0.12s' }}>
+                                🔢
+                            </div>
                         </div>
                     )}
                 </div>
@@ -462,6 +471,8 @@ function App() {
                     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         {currentRoom === null && showPuyo ? (
                             <PuyoPuyo onClose={() => setShowPuyo(false)} />
+                        ) : currentRoom === null && showSudoku ? (
+                            <Sudoku onClose={() => setShowSudoku(false)} />
                         ) : currentRoom === null ? (
                             <Lobby
                                 nickname={nickname}
