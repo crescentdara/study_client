@@ -10,18 +10,15 @@ interface ChatProps {
 }
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
-  { id: "😀", src: null, label: "😀" },
-  { id: "😁", src: null, label: "😁" },
-  { id: "👻", src: null, label: "👻" },
-  { id: "👽", src: null, label: "👽" },
-  { id: "🐷", src: null, label: "🐷" },
-  { id: "🐢", src: null, label: "🐢" },
   { id: "ch1", src: "/src/assets/images/ch1.png", label: "😀" },
   { id: "ch2", src: "/src/assets/images/ch2.png", label: "😁" },
   { id: "ch3", src: "/src/assets/images/ch3.png", label: "👻" },
-  { id: "ch4", src: "/src/assets/images/ch4.png", label: "👽" },
   { id: "pig", src: "/src/assets/images/dalbit.png", label: "🐷" },
   { id: "ggobuk", src: "/src/assets/images/ggobuk.png", label: "🐢" },
+  { id: "ch4", src: "/src/assets/images/ch4.png", label: "👽" },
+  { id: "ch5", src: "/src/assets/images/ch5.png", label: "🎉" },
+  { id: "ch6", src: "/src/assets/images/ch6.png", label: "😊" },
+  { id: "ch7", src: "/src/assets/images/ch7.png", label: "💖" },
 ];
 
 const renderAvatar = (emojiId: string, size = 16) => {
@@ -103,9 +100,7 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
 
     event.preventDefault();
     const ext = file.type.split("/")[1] || "png";
-    const namedFile = file.name
-      ? file
-      : new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+    const namedFile = file.name ? file : new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
     void uploadAndSendImage(namedFile);
   };
 
@@ -336,7 +331,9 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
                 transition: "all 0.15s",
               }}
             >
-              <svg style={{width: "16px", fill: "#888"}}  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M96 128C78.3 128 64 142.3 64 160C64 177.7 78.3 192 96 192L182.7 192C195 220.3 223.2 240 256 240C288.8 240 317 220.3 329.3 192L544 192C561.7 192 576 177.7 576 160C576 142.3 561.7 128 544 128L329.3 128C317 99.7 288.8 80 256 80C223.2 80 195 99.7 182.7 128L96 128zM96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L342.7 352C355 380.3 383.2 400 416 400C448.8 400 477 380.3 489.3 352L544 352C561.7 352 576 337.7 576 320C576 302.3 561.7 288 544 288L489.3 288C477 259.7 448.8 240 416 240C383.2 240 355 259.7 342.7 288L96 288zM96 448C78.3 448 64 462.3 64 480C64 497.7 78.3 512 96 512L150.7 512C163 540.3 191.2 560 224 560C256.8 560 285 540.3 297.3 512L544 512C561.7 512 576 497.7 576 480C576 462.3 561.7 448 544 448L297.3 448C285 419.7 256.8 400 224 400C191.2 400 163 419.7 150.7 448L96 448z"/></svg>
+              <svg style={{ width: "16px", fill: "#888" }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+                <path d="M96 128C78.3 128 64 142.3 64 160C64 177.7 78.3 192 96 192L182.7 192C195 220.3 223.2 240 256 240C288.8 240 317 220.3 329.3 192L544 192C561.7 192 576 177.7 576 160C576 142.3 561.7 128 544 128L329.3 128C317 99.7 288.8 80 256 80C223.2 80 195 99.7 182.7 128L96 128zM96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L342.7 352C355 380.3 383.2 400 416 400C448.8 400 477 380.3 489.3 352L544 352C561.7 352 576 337.7 576 320C576 302.3 561.7 288 544 288L489.3 288C477 259.7 448.8 240 416 240C383.2 240 355 259.7 342.7 288L96 288zM96 448C78.3 448 64 462.3 64 480C64 497.7 78.3 512 96 512L150.7 512C163 540.3 191.2 560 224 560C256.8 560 285 540.3 297.3 512L544 512C561.7 512 576 497.7 576 480C576 462.3 561.7 448 544 448L297.3 448C285 419.7 256.8 400 224 400C191.2 400 163 419.7 150.7 448L96 448z" />
+              </svg>
             </button>
 
             <button
@@ -357,7 +354,13 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
                 justifyContent: "center",
               }}
             >
-              {uploading ? "..." : <svg style={{width: "16px", fill: "#888"}}  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 160C544 124.7 515.3 96 480 96L160 96zM224 176C250.5 176 272 197.5 272 224C272 250.5 250.5 272 224 272C197.5 272 176 250.5 176 224C176 197.5 197.5 176 224 176zM368 288C376.4 288 384.1 292.4 388.5 299.5L476.5 443.5C481 450.9 481.2 460.2 477 467.8C472.8 475.4 464.7 480 456 480L184 480C175.1 480 166.8 475 162.7 467.1C158.6 459.2 159.2 449.6 164.3 442.3L220.3 362.3C224.8 355.9 232.1 352.1 240 352.1C247.9 352.1 255.2 355.9 259.7 362.3L286.1 400.1L347.5 299.6C351.9 292.5 359.6 288.1 368 288.1z"/></svg>}
+              {uploading ? (
+                "..."
+              ) : (
+                <svg style={{ width: "16px", fill: "#888" }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+                  <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 160C544 124.7 515.3 96 480 96L160 96zM224 176C250.5 176 272 197.5 272 224C272 250.5 250.5 272 224 272C197.5 272 176 250.5 176 224C176 197.5 197.5 176 224 176zM368 288C376.4 288 384.1 292.4 388.5 299.5L476.5 443.5C481 450.9 481.2 460.2 477 467.8C472.8 475.4 464.7 480 456 480L184 480C175.1 480 166.8 475 162.7 467.1C158.6 459.2 159.2 449.6 164.3 442.3L220.3 362.3C224.8 355.9 232.1 352.1 240 352.1C247.9 352.1 255.2 355.9 259.7 362.3L286.1 400.1L347.5 299.6C351.9 292.5 359.6 288.1 368 288.1z" />
+                </svg>
+              )}
             </button>
             <input
               ref={fileInputRef}
