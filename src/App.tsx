@@ -307,7 +307,7 @@ function App() {
                             {panel === 'explorer' ? <img src="/src/assets/images/side_icon1.png" style={{ width: 18, }} /> : <img src="/src/assets/images/side_icon2.png" style={{ width: 18,  }} />}
                         </div>
                     ))}
-                    <ul style={{ width: "100%", display: 'flex', alignItems: 'center', jutifyContent: 'center', flexDirection: 'column', gap: '15px', listStyle: 'none', margin: 0, padding: 0 }}>
+                    <ul style={{ width: "100%", display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '15px', listStyle: 'none', margin: 0, padding: 0 }}>
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon3.png" style={{ width: 18,  }} /></li>
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon4.png" style={{ width: 18,  }} /></li>
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon5.png" style={{ width: 18,  }} /></li>
