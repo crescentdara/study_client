@@ -9,6 +9,7 @@ import Tetris from './games/Tetris';
 import IncidentAvoid from './games/IncidentAvoid';
 import Breakout from './games/Breakout';
 import CatchMind from './games/CatchMind';
+import WordChainRoom from './games/WordChainRoom';
 
 interface StudyRoomProps {
     room: Room;
@@ -49,6 +50,7 @@ export default function StudyRoom({
     const isIncidentAvoid = room.studyType === 'INCIDENT_AVOID';
     const isBreakout = room.studyType === 'BREAKOUT';
     const isCatchMind = room.studyType === 'CATCHMIND';
+    const isWordChain = room.studyType === 'WORD_CHAIN';
     const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
@@ -275,6 +277,13 @@ export default function StudyRoom({
                         <CatchMind
                             studyState={studyState}
                             secretState={secretState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isWordChain ? (
+                        <WordChainRoom
+                            studyState={studyState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}

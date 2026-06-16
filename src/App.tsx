@@ -26,6 +26,7 @@ const GAME_ICONS: Partial<Record<StudyType, string>> = {
     OMOK: '⬛',
     TETRIS: '🟦',
     OLDMAID: '🃏',
+    WORD_CHAIN: '💬',
 };
 const GAME_EXT: Record<StudyType, string> = {
     BASEBALL: '.bs',
@@ -36,6 +37,7 @@ const GAME_EXT: Record<StudyType, string> = {
     INCIDENT_AVOID: '.risk',
     BREAKOUT: '.flow',
     CATCHMIND: '.draw',
+    WORD_CHAIN: '.chain',
 };
 
 function App() {

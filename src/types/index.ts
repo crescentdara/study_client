@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -53,6 +53,8 @@ export interface StudyMoveRequest {
     | 'DISCARD_PAIR'
     | 'SHUFFLE_HAND'
     | 'END_TURN'
+    | 'WORD_CHAIN_SUBMIT'
+    | 'WORD_CHAIN_TIMEOUT'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -72,7 +74,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | null;
 
   playerNames: string[];
 }
@@ -260,4 +262,14 @@ export interface ChatAttachment {
   imageUrl: string;
   fileName: string;
   fileSize: number;
+}
+
+export interface WordChainGameData {
+  lastWord: string;
+  usedWords: string[];
+  eliminated: boolean[];
+  timeLimit: number;
+  numPlayers: number;
+  currentTurn: number;
+  winner: number;
 }

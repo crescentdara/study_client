@@ -31,6 +31,11 @@ export default function CatchMind({ studyState, secretState, sessionId, myPlayer
   const [eraserOn, setEraserOn] = useState(false);
   const [guess, setGuess] = useState('');
   const [wordInput, setWordInput] = useState('');
+  const [opacity, setOpacity] = useState<number>(() => {
+    const raw = parseFloat(localStorage.getItem('study.catchmindOpacity') ?? '100');
+    return Math.max(20, Math.min(100, raw <= 1 ? Math.round(raw * 100) : raw));
+  });
+  const [showOpacity, setShowOpacity] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,6 +119,23 @@ export default function CatchMind({ studyState, secretState, sessionId, myPlayer
   }
 
   return (
+    <div style={{ opacity: opacity / 100, transition: 'opacity 0.2s' }}>
+      {/* opacity 컨트롤 바 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginBottom: '8px' }}>
+        <button onClick={() => setShowOpacity(v => !v)}
+          style={{ background: showOpacity ? 'rgba(78,201,176,0.2)' : 'transparent', border: showOpacity ? '1px solid #4ec9b0' : '1px solid transparent', color: showOpacity ? '#4ec9b0' : '#6a9955', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '0 6px', borderRadius: '3px', transition: 'all 0.15s' }}>
+          +
+        </button>
+        {showOpacity && (
+          <>
+            <span style={{ color: '#6a9955', fontSize: '10px', whiteSpace: 'nowrap' }}>opacity</span>
+            <input type="range" min={20} max={100} value={opacity}
+              onChange={e => { const v = Number(e.target.value); setOpacity(v); localStorage.setItem('study.catchmindOpacity', String(v)); }}
+              style={{ width: '100px', accentColor: '#4ec9b0', cursor: 'pointer' }} />
+            <span style={{ color: '#858585', fontSize: '10px', width: '28px' }}>{opacity}%</span>
+          </>
+        )}
+      </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', gap: 12, alignItems: 'start' }}>
       <div className="code-block" style={{ minWidth: 0 }}>
         <CL ln={1}>
@@ -299,6 +321,7 @@ export default function CatchMind({ studyState, secretState, sessionId, myPlayer
         </div>
         <CL ln={10}><span className="pct">]</span></CL>
       </div>
+    </div>
     </div>
   );
 }

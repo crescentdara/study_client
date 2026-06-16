@@ -186,6 +186,8 @@ function Lobby({
                                           ? '420x520'
                                           : room.studyType === 'CATCHMIND'
                                             ? `${room.maxPlayers}p`
+                                          : room.studyType === 'WORD_CHAIN'
+                                            ? `${room.digits}초`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -346,7 +348,7 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -355,6 +357,7 @@ function Lobby({
                                             if (t === 'OMOK') { setMaxPlayers(2); setBoardSize(19); }
                                             else if (t === 'TETRIS' || t === 'INCIDENT_AVOID' || t === 'BREAKOUT') { setMaxPlayers(3); setBoardSize(20); }
                                             else if (t === 'OLDMAID') { setMaxPlayers(4); setBoardSize(0); }
+                                            else if (t === 'WORD_CHAIN') { setMaxPlayers(4); setDigits(7); }
                                         }}
                                         style={{ fontSize: '11px' }}
                                     >
@@ -425,6 +428,20 @@ function Lobby({
 
                         {studyType === 'CATCHMIND' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">rounds</span><span className="pct"> = </span><span className="str">"players x 2"</span><span className="cmt"> // drawing and guessing</span></span>, 1)}
+
+                        {studyType === 'WORD_CHAIN' &&
+                            L(
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span className="kw">const </span><span className="var">timeLimit</span><span className="pct"> = </span>
+                                    {[5, 7, 10, 15, 20].map((s) => (
+                                        <button key={s} className={`btn-opt ${digits === s ? 'on' : ''}`} onClick={() => setDigits(s)} style={{ fontSize: '11px', padding: '3px 8px' }}>
+                                            <span className="num">{s}s</span>
+                                        </button>
+                                    ))}
+                                    <span className="cmt"> // seconds per turn</span>
+                                </span>,
+                                1,
+                            )}
 
                         {studyType === 'OMOK' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">boardSize</span><span className="pct"> = </span><span className="num">19</span><span className="cmt"> // fixed 19×19, P1 3-3 banned</span></span>, 1)}

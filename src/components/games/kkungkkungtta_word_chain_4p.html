@@ -1,0 +1,357 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+#wrap { display: flex; flex-direction: column; align-items: center; padding: 1rem 0; gap: 16px; }
+#setup-card, #game-card {
+  width: 100%; max-width: 460px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 1.25rem;
+}
+.field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+.field-label { font-size: 14px; color: var(--color-text-secondary); }
+.players-grid { display: grid; gap: 10px; width: 100%; }
+.players-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.players-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.players-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.player-slot {
+  border-radius: var(--border-radius-md);
+  padding: 10px 6px;
+  text-align: center;
+  position: relative;
+}
+.player-slot.active { border: 2px solid var(--color-border-info); }
+.player-slot.eliminated { opacity: 0.35; }
+.p-name { font-size: 12px; font-weight: 500; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-status { font-size: 10px; color: var(--color-text-secondary); }
+#timer-zone { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 1.25rem 0 1rem; }
+#timer-num { font-size: 40px; font-weight: 500; line-height: 1; }
+#timer-bar-track { width: 100%; height: 6px; background: var(--color-background-secondary); border-radius: 999px; overflow: hidden; }
+#timer-bar-fill { height: 100%; border-radius: 999px; transition: width 0.1s linear, background-color 0.2s; }
+#word-display { text-align: center; margin-bottom: 10px; }
+#last-word { font-size: 22px; font-weight: 500; }
+#chain-syllable { font-size: 13px; color: var(--color-text-secondary); margin-top: 2px; }
+#word-input { width: 100%; text-align: center; font-size: 18px; height: 44px; }
+#word-history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; max-height: 90px; overflow-y: auto; }
+.history-chip { font-size: 12px; padding: 4px 10px; border-radius: var(--border-radius-md); background: var(--color-background-secondary); color: var(--color-text-secondary); }
+#feedback { min-height: 20px; font-size: 13px; text-align: center; margin-top: 8px; }
+#btn-start, #btn-restart { width: 100%; padding: 10px; font-size: 15px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); cursor: pointer; background: var(--color-background-secondary); color: var(--color-text-primary); }
+#btn-start:hover, #btn-restart:hover { background: var(--color-background-primary); }
+input[type="text"].name-input { width: 100%; text-align: center; font-size: 12px; height: 32px; margin-top: 4px; }
+#overlay { display: none; text-align: center; padding: 1rem 0; }
+#overlay-title { font-size: 20px; font-weight: 500; margin-bottom: 8px; }
+#overlay-sub { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 16px; }
+#count-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.count-btn {
+  flex: 1; padding: 8px; font-size: 14px; border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary); cursor: pointer;
+  background: var(--color-background-secondary); color: var(--color-text-primary);
+}
+.count-btn.selected { border: 2px solid var(--color-border-info); background: var(--color-background-info); color: var(--color-text-info); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+</style>
+
+<h2 class="sr-only">최대 4인용 쿵쿵따 끝말잇기 게임, 두음법칙 적용, 제한시간 설정 가능, 한 명이라도 시간을 넘기면 게임 종료</h2>
+<div id="wrap">
+
+<div id="setup-card">
+  <div class="field-row">
+    <span class="field-label">제한시간 (초)</span>
+    <div style="display:flex; align-items:center; gap:10px; flex:1; max-width:220px;">
+      <input type="range" id="time-limit" min="3" max="20" step="1" value="7" style="flex:1;">
+      <span id="time-limit-out" style="font-size:14px; font-weight:500; min-width:30px;">7초</span>
+    </div>
+  </div>
+  <div class="field-row" style="margin-bottom:8px;">
+    <span class="field-label">참가자 수</span>
+  </div>
+  <div id="count-row">
+    <button class="count-btn" data-count="2">2명</button>
+    <button class="count-btn" data-count="3">3명</button>
+    <button class="count-btn selected" data-count="4">4명</button>
+  </div>
+  <div class="players-grid cols-4" id="setup-players-grid" style="margin-bottom: 6px;"></div>
+  <div style="margin-top:16px;">
+    <button id="btn-start">게임 시작</button>
+  </div>
+</div>
+
+<div id="game-card" style="display:none;">
+  <div class="players-grid" id="players-grid"></div>
+
+  <div id="timer-zone">
+    <div id="timer-num">7</div>
+    <div id="timer-bar-track"><div id="timer-bar-fill"></div></div>
+  </div>
+
+  <div id="word-display">
+    <div id="last-word">시작 단어를 입력하세요</div>
+    <div id="chain-syllable"></div>
+  </div>
+
+  <input type="text" id="word-input" placeholder="단어를 입력하고 enter" autocomplete="off">
+  <div id="feedback"></div>
+
+  <div id="word-history"></div>
+
+  <div id="overlay">
+    <div id="overlay-title"></div>
+    <div id="overlay-sub"></div>
+    <button id="btn-restart">다시 설정하기</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const DUEUM_MAP = {
+  '라':'나','락':'낙','란':'난','람':'남','랑':'낭','래':'내','량':'양','려':'여','력':'역','련':'연',
+  '렬':'열','렵':'엽','령':'영','례':'예','로':'노','록':'녹','론':'논','롱':'농','뢰':'뇌','료':'요',
+  '룡':'용','루':'누','류':'유','륙':'육','륜':'윤','률':'율','륭':'융','릉':'능','리':'이','린':'인',
+  '림':'임','립':'입',
+  '냐':'야','녀':'여','뇨':'요','뉴':'유','니':'이',
+  '낙':'낙'
+};
+function dueumVariants(syllable) {
+  const variants = new Set([syllable]);
+  if (DUEUM_MAP[syllable]) variants.add(DUEUM_MAP[syllable]);
+  for (const [k, v] of Object.entries(DUEUM_MAP)) {
+    if (v === syllable) variants.add(k);
+  }
+  return Array.from(variants);
+}
+
+const timeLimitInput = document.getElementById('time-limit');
+const timeLimitOut = document.getElementById('time-limit-out');
+timeLimitInput.addEventListener('input', () => {
+  timeLimitOut.textContent = timeLimitInput.value + '초';
+});
+
+let playerCount = 4;
+const countBtns = document.querySelectorAll('.count-btn');
+const setupPlayersGrid = document.getElementById('setup-players-grid');
+
+function renderSetupPlayers() {
+  setupPlayersGrid.className = 'players-grid cols-' + playerCount;
+  setupPlayersGrid.innerHTML = '';
+  for (let i = 0; i < playerCount; i++) {
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <div style="font-size:11px; color:var(--color-text-secondary); text-align:center;">플레이어 ${i+1}</div>
+      <input class="name-input" id="name-${i}" type="text" value="플레이어 ${i+1}" maxlength="8">
+    `;
+    setupPlayersGrid.appendChild(div);
+  }
+}
+renderSetupPlayers();
+
+countBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    countBtns.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    playerCount = parseInt(btn.dataset.count, 10);
+    renderSetupPlayers();
+  });
+});
+
+let players = [];
+let currentIdx = 0;
+let timeLimit = 7;
+let timeLeft = 7;
+let timerInterval = null;
+let lastWord = '';
+let usedWords = new Set();
+let gameActive = false;
+let tickMs = 50;
+const colorRamps = ['purple', 'teal', 'coral', 'pink'];
+
+const setupCard = document.getElementById('setup-card');
+const gameCard = document.getElementById('game-card');
+const playersGrid = document.getElementById('players-grid');
+const timerNum = document.getElementById('timer-num');
+const timerBarFill = document.getElementById('timer-bar-fill');
+const lastWordEl = document.getElementById('last-word');
+const chainSyllableEl = document.getElementById('chain-syllable');
+const wordInput = document.getElementById('word-input');
+const feedbackEl = document.getElementById('feedback');
+const historyEl = document.getElementById('word-history');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlaySub = document.getElementById('overlay-sub');
+
+function getLastSyllable(word) {
+  return word[word.length - 1];
+}
+
+function renderPlayers() {
+  playersGrid.className = 'players-grid cols-' + players.length;
+  playersGrid.innerHTML = '';
+  players.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'player-slot c-' + colorRamps[i % colorRamps.length];
+    if (i === currentIdx && gameActive && !p.eliminated) div.classList.add('active');
+    if (p.eliminated) div.classList.add('eliminated');
+    div.innerHTML = `
+      <div class="p-name">${p.name}</div>
+      <div class="p-status">${p.eliminated ? '탈락' : (i === currentIdx && gameActive ? '차례' : '대기')}</div>
+    `;
+    playersGrid.appendChild(div);
+  });
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timeLeft = timeLimit;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft -= tickMs / 1000;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateTimerDisplay();
+      clearInterval(timerInterval);
+      handleTimeout();
+    } else {
+      updateTimerDisplay();
+    }
+  }, tickMs);
+}
+
+function updateTimerDisplay() {
+  timerNum.textContent = Math.ceil(timeLeft);
+  const pct = Math.max(0, (timeLeft / timeLimit) * 100);
+  timerBarFill.style.width = pct + '%';
+  let color;
+  if (pct > 50) color = '#1D9E75';
+  else if (pct > 20) color = '#BA7517';
+  else color = '#E24B4A';
+  timerBarFill.style.background = color;
+  timerNum.style.color = pct <= 20 ? '#E24B4A' : 'var(--color-text-primary)';
+}
+
+function handleTimeout() {
+  if (!gameActive) return;
+  players[currentIdx].eliminated = true;
+  feedbackEl.textContent = `${players[currentIdx].name}: 시간 초과! 게임 종료`;
+  feedbackEl.style.color = '#E24B4A';
+  endGame(null, players[currentIdx]);
+}
+
+function endGame(winner, timeoutPlayer) {
+  gameActive = false;
+  clearInterval(timerInterval);
+  renderPlayers();
+  wordInput.disabled = true;
+  overlay.style.display = 'block';
+  if (timeoutPlayer) {
+    overlayTitle.textContent = '게임 종료';
+    overlaySub.textContent = `${timeoutPlayer.name}님이 시간 안에 답하지 못했습니다`;
+  } else if (winner) {
+    overlayTitle.textContent = `${winner.name} 승리!`;
+    overlaySub.textContent = '끝까지 살아남았습니다';
+  } else {
+    overlayTitle.textContent = '게임 종료';
+    overlaySub.textContent = '';
+  }
+}
+
+function addHistoryChip(word) {
+  const chip = document.createElement('div');
+  chip.className = 'history-chip';
+  chip.textContent = word;
+  historyEl.appendChild(chip);
+  historyEl.scrollTop = historyEl.scrollHeight;
+}
+
+function isValidNextStart(word, prevWord) {
+  if (!prevWord) return true;
+  const lastSyl = getLastSyllable(prevWord);
+  const validStarts = dueumVariants(lastSyl);
+  return validStarts.includes(word[0]);
+}
+
+function submitWord() {
+  if (!gameActive) return;
+  const word = wordInput.value.trim();
+  if (!word) return;
+
+  if (word.length < 2) {
+    feedbackEl.textContent = '두 글자 이상 입력하세요';
+    feedbackEl.style.color = '#E24B4A';
+    return;
+  }
+  if (!isValidNextStart(word, lastWord)) {
+    const lastSyl = getLastSyllable(lastWord);
+    const variants = dueumVariants(lastSyl);
+    const variantStr = variants.join("' / '");
+    feedbackEl.textContent = `'${variantStr}'로 시작하는 단어를 입력하세요`;
+    feedbackEl.style.color = '#E24B4A';
+    return;
+  }
+  if (usedWords.has(word)) {
+    feedbackEl.textContent = '이미 사용된 단어입니다';
+    feedbackEl.style.color = '#E24B4A';
+    return;
+  }
+
+  usedWords.add(word);
+  lastWord = word;
+  addHistoryChip(word);
+  lastWordEl.textContent = word;
+  const lastSyl = getLastSyllable(word);
+  const variants = dueumVariants(lastSyl);
+  chainSyllableEl.textContent = variants.length > 1
+    ? `다음 단어는 '${variants.join("' / '")}'로 시작할 수 있습니다`
+    : `다음 단어는 '${lastSyl}'로 시작해야 합니다`;
+  feedbackEl.textContent = '';
+  wordInput.value = '';
+
+  currentIdx = (currentIdx + 1) % players.length;
+  renderPlayers();
+  startTimer();
+  wordInput.focus();
+}
+
+wordInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitWord();
+  }
+});
+
+document.getElementById('btn-start').addEventListener('click', () => {
+  timeLimit = parseInt(timeLimitInput.value, 10);
+  players = [];
+  for (let i = 0; i < playerCount; i++) {
+    const nameInput = document.getElementById('name-' + i);
+    players.push({
+      name: (nameInput ? nameInput.value.trim() : '') || `플레이어 ${i+1}`,
+      eliminated: false
+    });
+  }
+  currentIdx = 0;
+  lastWord = '';
+  usedWords = new Set();
+  gameActive = true;
+
+  setupCard.style.display = 'none';
+  gameCard.style.display = 'block';
+  overlay.style.display = 'none';
+  wordInput.disabled = false;
+  lastWordEl.textContent = '시작 단어를 입력하세요';
+  chainSyllableEl.textContent = '';
+  feedbackEl.textContent = '';
+  historyEl.innerHTML = '';
+  wordInput.value = '';
+
+  renderPlayers();
+  startTimer();
+  wordInput.focus();
+});
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+  clearInterval(timerInterval);
+  setupCard.style.display = 'block';
+  gameCard.style.display = 'none';
+});
+</script>
