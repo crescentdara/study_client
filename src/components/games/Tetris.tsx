@@ -262,8 +262,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (event.key === 'ArrowLeft') startHorizontalHold(-1);
     if (event.key === 'ArrowRight') startHorizontalHold(1);
     if (event.key === 'ArrowDown') move(1, 0);
-    if (event.key === 'ArrowUp') hardDrop();
-    if (event.key === ' ') rotate();
+    if (event.key === 'ArrowUp') rotate();
+    if (event.key === ' ') hardDrop();
     if (event.key.toLowerCase() === 'c') hold();
     if (event.key.toLowerCase() === 'p') setRunning((prev) => !prev);
     if (event.key.toLowerCase() === 'r') reset();
