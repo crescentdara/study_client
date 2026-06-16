@@ -184,6 +184,8 @@ function Lobby({
                                         ? '360x520'
                                         : room.studyType === 'BREAKOUT'
                                           ? '420x520'
+                                          : room.studyType === 'CATCHMIND'
+                                            ? `${room.maxPlayers}p`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -344,7 +346,7 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'OLDMAID'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -420,6 +422,9 @@ function Lobby({
                                 </span>,
                                 1,
                             )}
+
+                        {studyType === 'CATCHMIND' &&
+                            L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">rounds</span><span className="pct"> = </span><span className="str">"players x 2"</span><span className="cmt"> // drawing and guessing</span></span>, 1)}
 
                         {studyType === 'OMOK' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">boardSize</span><span className="pct"> = </span><span className="num">19</span><span className="cmt"> // fixed 19×19, P1 3-3 banned</span></span>, 1)}

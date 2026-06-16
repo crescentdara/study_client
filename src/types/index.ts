@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -43,6 +43,11 @@ export interface StudyMoveRequest {
     | 'TETRIS_SYNC'
     | 'INCIDENT_SYNC'
     | 'BREAKOUT_SYNC'
+    | 'CATCHMIND_SET_WORD'
+    | 'CATCHMIND_DRAW'
+    | 'CATCHMIND_CLEAR'
+    | 'CATCHMIND_GUESS'
+    | 'CATCHMIND_NEXT'
     | 'DEAL_CARD'
     | 'DRAW_CARD'
     | 'DISCARD_PAIR'
@@ -67,7 +72,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | null;
 
   playerNames: string[];
 }
@@ -203,6 +208,34 @@ export interface BreakoutPlayerState {
   cleared: boolean;
   bricks: number[];
   updatedAt: number;
+}
+
+export interface CatchMindStroke {
+  color: string;
+  width: number;
+  points: Array<[number, number]>;
+}
+
+export interface CatchMindGameData {
+  numPlayers: number;
+  round: number;
+  maxRounds: number;
+  currentTurn: number;
+  maskedWord: string;
+  wordLength: number;
+  scores: number[];
+  strokes: CatchMindStroke[];
+  recentGuesses: string[];
+  roundSolved: boolean;
+  solvedBy: number;
+  revealedWord: string;
+  wordReady: boolean;
+}
+
+export interface CatchMindSecretData {
+  secretWord: string;
+  round: number;
+  currentTurn: number;
 }
 
 

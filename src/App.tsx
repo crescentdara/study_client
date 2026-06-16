@@ -35,6 +35,7 @@ const GAME_EXT: Record<StudyType, string> = {
     OLDMAID: '.cards',
     INCIDENT_AVOID: '.risk',
     BREAKOUT: '.flow',
+    CATCHMIND: '.draw',
 };
 
 function App() {
@@ -322,6 +323,8 @@ function App() {
                           ? 'risk'
                           : currentRoom.studyType === 'BREAKOUT'
                             ? 'flow'
+                            : currentRoom.studyType === 'CATCHMIND'
+                              ? 'draw'
                             : 'bg'
           }`
         : 'lobby.ts';
@@ -711,6 +714,8 @@ function App() {
                                 ? 'TETRIS · 20×10'
                                 : currentRoom.studyType === 'BREAKOUT'
                                   ? 'BREAKOUT - 420x520'
+                                  : currentRoom.studyType === 'CATCHMIND'
+                                    ? 'CATCHMIND - drawing quiz'
                                   : currentRoom.studyType === 'INCIDENT_AVOID'
                                     ? 'INCIDENT_AVOID - 360x520'
                                     : currentRoom.studyType === 'OLDMAID'
