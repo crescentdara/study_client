@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Room, StudyStateResponse } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
@@ -8,6 +8,7 @@ import OldMaid from './games/OldMaid';
 import Tetris from './games/Tetris';
 import IncidentAvoid from './games/IncidentAvoid';
 import Breakout from './games/Breakout';
+import CatchMind from './games/CatchMind';
 
 interface StudyRoomProps {
     room: Room;
@@ -31,10 +32,12 @@ export default function StudyRoom({
     onLeave,
     leaveRef,
 }: StudyRoomProps) {
+    const [secretState, setSecretState] = useState<StudyStateResponse | null>(null);
     const { connected, sendMove } = useWebSocket({
         roomId: room.roomId,
         onStudyState,
         onChat: () => {},
+        onSecretState: setSecretState,
     });
 
     const playerNames = studyState?.playerNames ?? room.playerNames;
@@ -45,6 +48,7 @@ export default function StudyRoom({
     const isTetris = room.studyType === 'TETRIS';
     const isIncidentAvoid = room.studyType === 'INCIDENT_AVOID';
     const isBreakout = room.studyType === 'BREAKOUT';
+    const isCatchMind = room.studyType === 'CATCHMIND';
     const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
@@ -123,6 +127,8 @@ export default function StudyRoom({
                                     ? '360×520'
                                     : isBreakout
                                       ? '420x520'
+                                      : isCatchMind
+                                        ? `${maxPlayers}p`
                                       : isOldMaid
                                       ? '🃏 Old Maid'
                                       : `${room.boardSize}×${room.boardSize}`}
@@ -261,6 +267,14 @@ export default function StudyRoom({
                     ) : isBreakout ? (
                         <Breakout
                             studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isCatchMind ? (
+                        <CatchMind
+                            studyState={studyState}
+                            secretState={secretState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}

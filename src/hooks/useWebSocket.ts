@@ -7,16 +7,19 @@ interface UseWebSocketOptions {
   roomId: string;
   onStudyState: (state: StudyStateResponse) => void;
   onChat: (msg: ChatMessage) => void;
+  onSecretState?: (state: StudyStateResponse) => void;
 }
 
-export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptions) {
+export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: UseWebSocketOptions) {
   const clientRef       = useRef<Client | null>(null);
   const onStudyStateRef = useRef(onStudyState);
   const onChatRef       = useRef(onChat);
+  const onSecretStateRef = useRef(onSecretState);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => { onStudyStateRef.current = onStudyState; }, [onStudyState]);
   useEffect(() => { onChatRef.current = onChat; }, [onChat]);
+  useEffect(() => { onSecretStateRef.current = onSecretState; }, [onSecretState]);
 
   useEffect(() => {
     const client = new Client({
@@ -35,6 +38,11 @@ export function useWebSocket({ roomId, onStudyState, onChat }: UseWebSocketOptio
         });
 
         const sessionId = sessionStorage.getItem('sessionId') ?? '';
+        if (sessionId) {
+          client.subscribe(`/topic/study/${roomId}/secret/${sessionId}`, (m: IMessage) => {
+            onSecretStateRef.current?.(JSON.parse(m.body));
+          });
+        }
         client.publish({
           destination: `/app/study/${roomId}/enter`,
           body: JSON.stringify({ sessionId, moveType: 'ENTER', data: '' }),
