@@ -533,7 +533,7 @@ function App() {
                     {/* 콘텐츠 영역 */}
                     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
                         {/* 내기조건 */}
-                        <div style={{position: 'absolute', top: 0, right: 0, border: '1px solid #fff', zIndex: 1000, boxSizing: 'border-box' }}>
+                        <div style={{position: 'absolute', top: 0, right: 0, border: '1px solid #ffffff18', zIndex: 1000, boxSizing: 'border-box' }}>
                             <p style={{ marginBottom: '10px' , }}>★ 내기 게임 룰 ★</p>
                             <img src="/src/assets/images/ez.png" />
                         </div>
