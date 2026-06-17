@@ -592,6 +592,7 @@ select option { background: var(--bg-sidebar); }
 .t-Z { background: #8a4d4d; }
 .t-J { background: #365f8c; }
 .t-L { background: #8a643a; }
+.t-G { background: #555b61; }
 
 .tetris-preview-row {
   display: grid;
