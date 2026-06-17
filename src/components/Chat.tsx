@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ChatAttachment, ChatMessage } from "../types";
 
 interface ChatProps {
@@ -35,7 +35,7 @@ const renderAvatar = (emojiId: string, size = 16) => {
   );
 };
 
-export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [showOpacity, setShowOpacity] = useState(false);
@@ -397,3 +397,5 @@ export default function Chat({ messages, myNickname, myEmoji, sessionId, onSend 
     </div>
   );
 }
+
+export default memo(Chat);

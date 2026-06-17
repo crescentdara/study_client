@@ -4,6 +4,7 @@ import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAtta
 
 const ROWS = 20;
 const COLS = 10;
+const SYNC_INTERVAL_MS = 700;
 
 const SHAPES: Record<string, number[][]> = {
   I: [[1, 1, 1, 1]],
@@ -277,7 +278,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       ackAttackIdsRef.current = [];
     };
     sync();
-    const timer = window.setInterval(sync, 300);
+    const timer = window.setInterval(sync, SYNC_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [gameOver, myPlayerIndex, sendMove, sessionId, studyState?.status]);
 
