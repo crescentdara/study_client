@@ -560,11 +560,7 @@ select option { background: var(--bg-sidebar); }
   grid-template-rows: repeat(20, 18px);
   gap: 1px;
   padding: 8px;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    #1b1f23;
-  background-size: 19px 19px;
+  background: #1b1f23;
 }
 
 .tetris-cell {

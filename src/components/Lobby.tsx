@@ -105,6 +105,7 @@ function Lobby({
                 height: '100%',
                 background: '#1e1e1e',
                 fontFamily: "'Consolas','Courier New',monospace",
+                position: 'relative',
             }}
         >
             {/* 오류 바 */}
