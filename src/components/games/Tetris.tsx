@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { StudyMoveRequest, StudyStateResponse, TetrisGameData } from '../../types';
+import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAttack } from '../../types';
 
 const ROWS = 20;
 const COLS = 10;
@@ -72,6 +72,17 @@ const clearLines = (board: Board) => {
   return { board: [...blank, ...kept], cleared };
 };
 
+const addGarbageLines = (board: Board, count: number) => {
+  const safeCount = Math.max(0, Math.min(8, count));
+  if (safeCount === 0) return board;
+  const kept = board.slice(safeCount).map((row) => [...row]);
+  const garbage = Array.from({ length: safeCount }, () => {
+    const hole = Math.floor(Math.random() * COLS);
+    return Array.from({ length: COLS }, (_, col) => (col === hole ? '' : 'G'));
+  });
+  return [...kept, ...garbage];
+};
+
 export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove }: Props) {
   const data = studyState?.gameData as TetrisGameData | null;
   const [board, setBoard] = useState<Board>(() => emptyBoard());
@@ -89,6 +100,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const horizontalDelayRef = useRef<number | null>(null);
   const moveRef = useRef<(dr: number, dc: number) => boolean>(() => false);
   const syncPayloadRef = useRef<object>({});
+  const attackSeqRef = useRef(0);
+  const lastAttackRef = useRef<{ lastCleared: number; attackKey: string }>({ lastCleared: 0, attackKey: '' });
+  const appliedAttacksRef = useRef<Set<string>>(new Set());
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
@@ -121,6 +135,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setCycle(1);
     setRunning(true);
     setGameOver(false);
+    lastAttackRef.current = { lastCleared: 0, attackKey: '' };
+    appliedAttacksRef.current.clear();
   }, []);
 
   const lockPiece = useCallback((targetPiece = piece) => {
@@ -128,6 +144,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     const result = clearLines(merged);
     const gained = [0, 120, 320, 520, 820][result.cleared] ?? 0;
     const spawned = { ...nextPiece, row: 0, col: Math.floor((COLS - nextPiece.shape[0].length) / 2) };
+    attackSeqRef.current += 1;
+    lastAttackRef.current = {
+      lastCleared: result.cleared,
+      attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
+    };
 
     setBoard(result.board);
     setScore((prev) => prev + gained + 8);
@@ -145,6 +166,24 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setGameOver(true);
     }
   }, [board, nextPiece, piece, sendMove, sessionId]);
+
+  useEffect(() => {
+    const attacks = data?.garbageQueues?.[String(myPlayerIndex)] ?? [];
+    if (!attacks.length || gameOver) return;
+    const pending = attacks.filter((attack: TetrisGarbageAttack) => !appliedAttacksRef.current.has(attack.attackId));
+    if (!pending.length) return;
+    pending.forEach((attack) => appliedAttacksRef.current.add(attack.attackId));
+    const totalLines = pending.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0);
+    if (totalLines <= 0) return;
+    setBoard((prev) => {
+      const attacked = addGarbageLines(prev, totalLines);
+      if (attacked[0].some(Boolean)) {
+        setRunning(false);
+        setGameOver(true);
+      }
+      return attacked;
+    });
+  }, [data?.garbageQueues, gameOver, myPlayerIndex]);
 
   const move = useCallback((dr: number, dc: number) => {
     if (!running || gameOver) return false;
@@ -207,6 +246,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       cycle,
       running,
       gameOver,
+      lastCleared: lastAttackRef.current.lastCleared,
+      attackKey: lastAttackRef.current.attackKey,
     };
   }, [cycle, gameOver, lines, projectedBoard, running, score]);
 
