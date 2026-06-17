@@ -39,6 +39,7 @@ const GAME_EXT: Record<StudyType, string> = {
     CATCHMIND: '.draw',
     WORD_CHAIN: '.chain',
 };
+const MAX_CHAT_MESSAGES = 200;
 
 function App() {
     // ── 기본 상태 ──────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ function App() {
     // ── 로비 채팅 ──────────────────────────────────────────────────────────────
     const [lobbyMessages, setLobbyMessages] = useState<ChatMessage[]>([]);
     const handleLobbyMessage = useCallback((msg: ChatMessage) => {
-        setLobbyMessages((prev) => [...prev, msg]);
+        setLobbyMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
     }, []);
     const { sendChat: sendLobbyChat } = useLobbyChat({ onMessage: handleLobbyMessage });
     const handleLobbyChatSend = useCallback(
