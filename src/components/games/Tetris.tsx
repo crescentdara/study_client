@@ -103,6 +103,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const attackSeqRef = useRef(0);
   const lastAttackRef = useRef<{ lastCleared: number; attackKey: string }>({ lastCleared: 0, attackKey: '' });
   const appliedAttacksRef = useRef<Set<string>>(new Set());
+  const ackAttackIdsRef = useRef<string[]>([]);
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
@@ -137,6 +138,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setGameOver(false);
     lastAttackRef.current = { lastCleared: 0, attackKey: '' };
     appliedAttacksRef.current.clear();
+    ackAttackIdsRef.current = [];
   }, []);
 
   const lockPiece = useCallback((targetPiece = piece) => {
@@ -175,9 +177,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     pending.forEach((attack) => appliedAttacksRef.current.add(attack.attackId));
     const totalLines = pending.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0);
     if (totalLines <= 0) return;
+    ackAttackIdsRef.current = [...ackAttackIdsRef.current, ...pending.map((attack) => attack.attackId)];
     setBoard((prev) => {
+      const overflow = prev.slice(0, Math.min(ROWS, totalLines)).some((row) => row.some(Boolean));
       const attacked = addGarbageLines(prev, totalLines);
-      if (attacked[0].some(Boolean)) {
+      if (overflow) {
         setRunning(false);
         setGameOver(true);
       }
@@ -239,7 +243,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [gameOver, move, running, speed]);
 
   useEffect(() => {
-    syncPayloadRef.current = {
+    const ackAttackIds = ackAttackIdsRef.current;
+    const payload = {
       board: projectedBoard,
       score,
       lines,
@@ -248,18 +253,28 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       gameOver,
       lastCleared: lastAttackRef.current.lastCleared,
       attackKey: lastAttackRef.current.attackKey,
+      ackAttackIds,
     };
+    syncPayloadRef.current = payload;
   }, [cycle, gameOver, lines, projectedBoard, running, score]);
 
   useEffect(() => {
     if (studyState?.status !== 'PLAYING' || myPlayerIndex < 0) return undefined;
     const sync = () => {
+      const payload = {
+        ...(syncPayloadRef.current as object),
+        lastCleared: lastAttackRef.current.lastCleared,
+        attackKey: lastAttackRef.current.attackKey,
+        ackAttackIds: ackAttackIdsRef.current,
+      };
       sendMove({
         moveType: 'TETRIS_SYNC',
         data: gameOver ? 'queue_overflow' : 'sync',
         sessionId,
-        payload: syncPayloadRef.current,
+        payload,
       });
+      lastAttackRef.current = { lastCleared: 0, attackKey: '' };
+      ackAttackIdsRef.current = [];
     };
     sync();
     const timer = window.setInterval(sync, 300);
