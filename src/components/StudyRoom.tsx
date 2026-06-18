@@ -10,6 +10,8 @@ import IncidentAvoid from './games/IncidentAvoid';
 import Breakout from './games/Breakout';
 import CatchMind from './games/CatchMind';
 import WordChainRoom from './games/WordChainRoom';
+import Rummikub from './games/Rummikub';
+import DaVinci from './games/DaVinci';
 
 interface StudyRoomProps {
     room: Room;
@@ -51,6 +53,8 @@ export default function StudyRoom({
     const isBreakout = room.studyType === 'BREAKOUT';
     const isCatchMind = room.studyType === 'CATCHMIND';
     const isWordChain = room.studyType === 'WORD_CHAIN';
+    const isRummikub = room.studyType === 'RUMMIKUB';
+    const isDaVinci = room.studyType === 'DAVINCI_CODE';
     const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
@@ -283,6 +287,20 @@ export default function StudyRoom({
                         />
                     ) : isWordChain ? (
                         <WordChainRoom
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isRummikub ? (
+                        <Rummikub
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isDaVinci ? (
+                        <DaVinci
                             studyState={studyState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}

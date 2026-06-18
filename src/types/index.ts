@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -55,6 +55,12 @@ export interface StudyMoveRequest {
     | 'END_TURN'
     | 'WORD_CHAIN_SUBMIT'
     | 'WORD_CHAIN_TIMEOUT'
+    | 'RUMMY_DRAW'
+    | 'RUMMY_PLACE'
+    | 'DAVINCI_DRAW'
+    | 'DAVINCI_PLACE'
+    | 'DAVINCI_GUESS'
+    | 'DAVINCI_PASS'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -74,7 +80,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | null;
 
   playerNames: string[];
 }
@@ -272,6 +278,30 @@ export interface ChatAttachment {
   imageUrl: string;
   fileName: string;
   fileSize: number;
+}
+
+export interface DaVinciGameData {
+  numPlayers: number;
+  currentTurn: number;
+  winner: number;
+  poolSize: number;
+  playerTiles: number[][];
+  revealed: boolean[][];
+  pendingTileId: number;     // drawn but not yet placed (-1 if none)
+  drawnTileId: number;       // placed this turn (-1 if none)
+  drawnRevealed: boolean;
+  correctGuessesThisTurn: number;
+}
+
+export interface RummikubGameData {
+  hands: number[][];
+  table: number[][];
+  poolSize: number;
+  initialMeld: boolean[];
+  numPlayers: number;
+  currentTurn: number;
+  winner: number;
+  hasDrawnThisTurn: boolean;
 }
 
 export interface WordChainGameData {

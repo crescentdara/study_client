@@ -189,6 +189,10 @@ function Lobby({
                                             ? `${room.maxPlayers}p`
                                           : room.studyType === 'WORD_CHAIN'
                                             ? `${room.digits}초`
+                                          : room.studyType === 'RUMMIKUB'
+                                            ? `${room.maxPlayers}p`
+                                          : room.studyType === 'DAVINCI_CODE'
+                                            ? `${room.maxPlayers}p`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -349,7 +353,7 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -359,6 +363,8 @@ function Lobby({
                                             else if (t === 'TETRIS' || t === 'INCIDENT_AVOID' || t === 'BREAKOUT') { setMaxPlayers(3); setBoardSize(20); }
                                             else if (t === 'OLDMAID') { setMaxPlayers(4); setBoardSize(0); }
                                             else if (t === 'WORD_CHAIN') { setMaxPlayers(4); setDigits(7); }
+                                            else if (t === 'RUMMIKUB') { setMaxPlayers(4); setBoardSize(0); }
+                                            else if (t === 'DAVINCI_CODE') { setMaxPlayers(4); setBoardSize(0); }
                                         }}
                                         style={{ fontSize: '11px' }}
                                     >

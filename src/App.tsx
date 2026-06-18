@@ -27,6 +27,8 @@ const GAME_ICONS: Partial<Record<StudyType, string>> = {
     TETRIS: '🟦',
     OLDMAID: '🃏',
     WORD_CHAIN: '💬',
+    RUMMIKUB: '🀄',
+    DAVINCI_CODE: '🔍',
 };
 const GAME_EXT: Record<StudyType, string> = {
     BASEBALL: '.bs',
@@ -38,6 +40,8 @@ const GAME_EXT: Record<StudyType, string> = {
     BREAKOUT: '.flow',
     CATCHMIND: '.draw',
     WORD_CHAIN: '.chain',
+    RUMMIKUB: '.rummy',
+    DAVINCI_CODE: '.dvcode',
 };
 const MAX_CHAT_MESSAGES = 200;
 
