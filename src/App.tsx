@@ -334,16 +334,47 @@ function App() {
 
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
+    const [showByebye, setShowByebye] = useState(false);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div style={{ background: '#323233', borderBottom: '1px solid #3e3e42', padding: '2px 12px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '32px', flexShrink: 0, position: 'relative' }}>
-                <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
-                    {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'].map((m) => (
-                        <li key={m} style={{ color: '#888', fontSize: '12px' }}>{m}</li>
-                    ))}
-                </ul>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#888' }}>
+                    <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
+                        {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'].map((m) => (
+                            <li key={m} style={{ color: '#888', fontSize: '12px' }}>{m}</li>
+                        ))}
+                    </ul>
+                    {/* 퇴사축하 팝업 */}
+                    <div style={{ position: 'relative' }}>
+                        <span
+                            style={{ color: '#888', fontSize: '12px', cursor: 'pointer' }}
+                            onClick={() => setShowByebye(v => !v)}
+                        >
+                            Byebye
+                        </span>
+                        {showByebye && (
+                            <div style={{
+                                background: '#3f3f3f', color: '#888', fontSize: '12px',
+                                padding: '3px 8px', width: '500px', borderRadius: '6px',
+                                position: 'absolute', left: '50%', top: '32px',
+                                transform: 'translateX(-50%)', zIndex: 1000
+                            }}>
+                                <button
+                                    className="btn-primary"
+                                    style={{ fontSize: '9px', padding: '1px 5px', position: 'absolute', right: '8px', top: '3px' }}
+                                    onClick={() => setShowByebye(false)}
+                                >
+                                    Close
+                                </button>
+                                <img src="/src/assets/images/image.png" style={{ width: '100%' }} />
+                            </div>
+                        )}
+                    </div>
+                    {/* 퇴사축하 팝업 */}
+                </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
                     <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0 }}>
                         <li style={{ color: '#888', fontSize: '12px' }}>←</li>
