@@ -41,6 +41,7 @@ export interface StudyMoveRequest {
     | 'PLACE_STONE'
     | 'OMOK_RPS'
     | 'TETRIS_SYNC'
+    | 'TETRIS_PAUSE'
     | 'INCIDENT_SYNC'
     | 'BREAKOUT_SYNC'
     | 'CATCHMIND_SET_WORD'
@@ -169,6 +170,7 @@ export interface TetrisGameData {
   playerStates: Record<string, TetrisPlayerState>;
   garbageQueues?: Record<string, TetrisGarbageAttack[]>;
   comboCounts?: Record<string, number>;
+  paused?: boolean;
 }
 
 export interface TetrisGarbageAttack {
