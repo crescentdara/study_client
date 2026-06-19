@@ -516,8 +516,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       clearLockDelay();
       toggleGlobalPause();
     }
-    if (event.key.toLowerCase() === 'r') requestGlobalRestart();
-  }, [hardDrop, hold, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
+    if (event.key.toLowerCase() === 'r' && isHost) requestGlobalRestart();
+  }, [hardDrop, hold, isHost, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -743,6 +743,9 @@ function BoardShell({
         <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
       </div>
       <div className="tetris-board" style={style}>
+        {isMe && status === 'paused' && (
+          <div className="tetris-countdown tetris-paused-title">PAUSED</div>
+        )}
         {isMe && /^\d+$/.test(status) && (
           <div className="tetris-countdown">{status}</div>
         )}
