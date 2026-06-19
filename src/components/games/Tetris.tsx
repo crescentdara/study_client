@@ -63,7 +63,7 @@ const refillQueue = (queue: Piece[], size = NEXT_QUEUE_SIZE) => {
   while (next.length < size) {
     next.push(...createBag().map(createPiece));
   }
-  return next;
+  return next.slice(0, size);
 };
 
 const rotateShape = (shape: number[][]) =>
@@ -158,7 +158,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const pieceRef = useRef<Piece>(piece);
   const boardRef = useRef<Board>(board);
 
-  const active = running && !gameOver && countdown <= 0;
+  const globalPaused = Boolean(data?.paused);
+  const active = running && !gameOver && !globalPaused && countdown <= 0;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
@@ -199,10 +200,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [attackNotice]);
 
   useEffect(() => {
-    if (studyState?.status !== 'PLAYING' || countdown <= 0 || gameOver) return undefined;
+    if (studyState?.status !== 'PLAYING' || countdown <= 0 || gameOver || globalPaused) return undefined;
     const timer = window.setTimeout(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearTimeout(timer);
-  }, [countdown, gameOver, studyState?.status]);
+  }, [countdown, gameOver, globalPaused, studyState?.status]);
 
   const setQueue = useCallback((queue: Piece[]) => {
     const filled = refillQueue(queue);
@@ -224,6 +225,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       lockDelayRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (globalPaused) clearLockDelay();
+  }, [clearLockDelay, globalPaused]);
 
   const reset = useCallback(() => {
     clearLockDelay();
@@ -247,6 +252,16 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
   }, [clearLockDelay, setQueue]);
+
+  const toggleGlobalPause = useCallback(() => {
+    clearLockDelay();
+    sendMove({
+      moveType: 'TETRIS_PAUSE',
+      data: globalPaused ? 'resume' : 'pause',
+      sessionId,
+      payload: { paused: !globalPaused },
+    });
+  }, [clearLockDelay, globalPaused, sendMove, sessionId]);
 
   const lockPiece = useCallback((targetPiece = piece) => {
     clearLockDelay();
@@ -479,10 +494,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (event.key.toLowerCase() === 'c') hold();
     if (event.key.toLowerCase() === 'p') {
       clearLockDelay();
-      setRunning((prev) => !prev);
+      toggleGlobalPause();
     }
     if (event.key.toLowerCase() === 'r') reset();
-  }, [clearLockDelay, hardDrop, hold, move, reset, rotate, startHorizontalHold]);
+  }, [hardDrop, hold, move, reset, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -525,9 +540,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               score={isMe ? score : state?.score ?? 0}
               lines={isMe ? lines : state?.lines ?? 0}
               cycle={isMe ? cycle : state?.cycle ?? 1}
-              status={isMe ? (gameOver ? 'overflow' : countdown > 0 ? `${countdown}` : running ? 'running' : 'paused') : state?.gameOver ? 'overflow' : state ? 'running' : 'waiting'}
+              status={isMe ? (gameOver ? 'overflow' : countdown > 0 ? `${countdown}` : globalPaused ? 'paused' : running ? 'running' : 'stopped') : state?.gameOver ? 'overflow' : globalPaused ? 'paused' : state ? 'running' : 'waiting'}
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
-              attackNotice={isMe ? attackNotice : ''}
               winner={studyState?.winner === index}
               isMe={isMe}
               style={isMe ? boardStyle : undefined}
@@ -539,7 +553,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   piece={piece}
                   nextQueue={nextQueue}
                   holdPiece={holdPiece}
-                  running={running}
+                  paused={globalPaused}
                   countdown={countdown}
                   pendingGarbage={pendingGarbage}
                   clearCombo={clearCombo}
@@ -550,10 +564,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   onCellAlpha={setCellAlpha}
                   onDasDelay={setDasDelay}
                   onArrInterval={setArrInterval}
-                  onRunning={() => {
-                    clearLockDelay();
-                    setRunning((prev) => !prev);
-                  }}
+                  onPause={toggleGlobalPause}
                   onReset={reset}
                 />
               )}
@@ -586,13 +597,13 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <Preview title="hold" piece={holdPiece} />
         </div>
         <div className="tetris-actions">
-          <button className="btn-secondary" onClick={() => setRunning((prev) => !prev)}>
-            {running ? 'pause()' : 'resume()'}
+          <button className="btn-secondary" onClick={toggleGlobalPause}>
+            {globalPaused ? 'resumeAll()' : 'pauseAll()'}
           </button>
           <button className="btn-primary" onClick={reset}>restart()</button>
         </div>
         <div className="tetris-note">
-          <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause'}</span>
+          <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
         </div>
       </div>
     </div>
@@ -600,15 +611,15 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 }
 
 function MetricsPanel({
-  name, score, piece, nextQueue, holdPiece, running, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
-  cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onRunning, onReset,
+  name, score, piece, nextQueue, holdPiece, paused, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
+  cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onReset,
 }: {
   name: string;
   score: number;
   piece: Piece;
   nextQueue: Piece[];
   holdPiece: Piece | null;
-  running: boolean;
+  paused: boolean;
   countdown: number;
   pendingGarbage: number;
   clearCombo: number;
@@ -619,7 +630,7 @@ function MetricsPanel({
   onCellAlpha: (value: number) => void;
   onDasDelay: (value: number) => void;
   onArrInterval: (value: number) => void;
-  onRunning: () => void;
+  onPause: () => void;
   onReset: () => void;
 }) {
   return (
@@ -675,20 +686,20 @@ function MetricsPanel({
         <Preview title="hold" piece={holdPiece} />
       </div>
       <div className="tetris-actions">
-        <button className="btn-secondary" onClick={onRunning}>
-          {running ? 'pause()' : 'resume()'}
+        <button className="btn-secondary" onClick={onPause}>
+          {paused ? 'resumeAll()' : 'pauseAll()'}
         </button>
         <button className="btn-primary" onClick={onReset}>restart()</button>
       </div>
       <div className="tetris-note">
-        <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause'}</span>
+        <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
       </div>
     </div>
   );
 }
 
 function BoardShell({
-  name, board, score, lines, cycle, status, pending, attackNotice, winner, isMe, style,
+  name, board, score, lines, cycle, status, pending, winner, isMe, style,
 }: {
   name: string;
   board: Board;
@@ -697,7 +708,6 @@ function BoardShell({
   cycle: number;
   status: string;
   pending: number;
-  attackNotice: string;
   winner: boolean;
   isMe: boolean;
   style?: CSSProperties;
@@ -734,11 +744,6 @@ function BoardShell({
         <span><span className="var">score</span><span className="pct">: </span><span className="num">{score}</span></span>
         <span><span className="var">lines</span><span className="pct">: </span><span className="num">{lines}</span></span>
         <span><span className="var">incoming</span><span className="pct">: </span><span className={pending > 0 ? 'str' : 'num'}>{pending}</span></span>
-        {isMe && attackNotice && (
-          <span className={`tetris-attack-status ${attackNotice.startsWith('cancel') ? 'cancel' : attackNotice.startsWith('send') ? 'send' : 'incoming'}`}>
-            {attackNotice}
-          </span>
-        )}
       </div>
     </div>
   );
