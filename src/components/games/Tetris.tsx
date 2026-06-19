@@ -714,11 +714,6 @@ function BoardShell({
         {isMe && /^\d+$/.test(status) && (
           <div className="tetris-countdown">{status}</div>
         )}
-        {isMe && attackNotice && !/^\d+$/.test(status) && (
-          <div className={`tetris-attack-flash ${attackNotice.startsWith('cancel') ? 'cancel' : attackNotice.startsWith('send') ? 'send' : 'incoming'}`}>
-            {attackNotice}
-          </div>
-        )}
         {pending > 0 && (
           <div className="tetris-garbage-gauge" title={`incoming ${pending}`}>
             <span className="tetris-garbage-label">{pending}</span>
@@ -739,6 +734,11 @@ function BoardShell({
         <span><span className="var">score</span><span className="pct">: </span><span className="num">{score}</span></span>
         <span><span className="var">lines</span><span className="pct">: </span><span className="num">{lines}</span></span>
         <span><span className="var">incoming</span><span className="pct">: </span><span className={pending > 0 ? 'str' : 'num'}>{pending}</span></span>
+        {isMe && attackNotice && (
+          <span className={`tetris-attack-status ${attackNotice.startsWith('cancel') ? 'cancel' : attackNotice.startsWith('send') ? 'send' : 'incoming'}`}>
+            {attackNotice}
+          </span>
+        )}
       </div>
     </div>
   );
