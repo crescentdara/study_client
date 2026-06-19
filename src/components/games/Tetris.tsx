@@ -5,7 +5,7 @@ import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAtta
 const ROWS = 20;
 const COLS = 10;
 const SYNC_INTERVAL_MS = 700;
-const NEXT_QUEUE_SIZE = 3;
+const NEXT_QUEUE_SIZE = 1;
 const LOCK_DELAY_MS = 420;
 const DAS_DELAY_MS = 130;
 const ARR_INTERVAL_MS = 42;
@@ -117,6 +117,13 @@ const baseAttackLines = (cleared: number) => {
   return 0;
 };
 
+const attackPower = (cleared: number, combo: number) => {
+  if (cleared <= 0) return 0;
+  const base = baseAttackLines(cleared);
+  const comboBonus = combo >= 2 ? Math.min(4, combo - 1) : 0;
+  return base + comboBonus;
+};
+
 export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove }: Props) {
   const data = studyState?.gameData as TetrisGameData | null;
   const initialQueue = useMemo(() => createPieceQueue(NEXT_QUEUE_SIZE + 1), []);
@@ -134,6 +141,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [cellAlpha, setCellAlpha] = useState(58);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [pendingGarbage, setPendingGarbage] = useState(0);
+  const [clearCombo, setClearCombo] = useState(0);
+  const [attackNotice, setAttackNotice] = useState('');
   const [dasDelay, setDasDelay] = useState(DAS_DELAY_MS);
   const [arrInterval, setArrInterval] = useState(ARR_INTERVAL_MS);
   const horizontalHoldRef = useRef<number | null>(null);
@@ -184,6 +193,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [pendingGarbage]);
 
   useEffect(() => {
+    if (!attackNotice) return undefined;
+    const timer = window.setTimeout(() => setAttackNotice(''), 900);
+    return () => window.clearTimeout(timer);
+  }, [attackNotice]);
+
+  useEffect(() => {
     if (studyState?.status !== 'PLAYING' || countdown <= 0 || gameOver) return undefined;
     const timer = window.setTimeout(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearTimeout(timer);
@@ -226,6 +241,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setCountdown(COUNTDOWN_SECONDS);
     pendingGarbageRef.current = 0;
     setPendingGarbage(0);
+    setClearCombo(0);
+    setAttackNotice('');
     lastAttackRef.current = { lastCleared: 0, attackKey: '' };
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
@@ -235,22 +252,31 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     clearLockDelay();
     const merged = mergePiece(boardRef.current, targetPiece);
     const result = clearLines(merged);
-    const cancelPower = result.cleared > 0 ? Math.max(1, baseAttackLines(result.cleared)) : 0;
+    const nextCombo = result.cleared > 0 ? clearCombo + 1 : 0;
+    const outgoingPower = attackPower(result.cleared, nextCombo);
+    const cancelPower = result.cleared > 0 ? Math.max(1, outgoingPower) : 0;
     const queuedGarbage = pendingGarbageRef.current;
     let nextPendingGarbage = queuedGarbage;
     let nextBoard = result.board;
     let outgoingCleared = result.cleared;
     let overflow = false;
+    let notice = '';
 
     if (cancelPower > 0 && queuedGarbage > 0) {
       const canceled = Math.min(queuedGarbage, cancelPower);
       nextPendingGarbage = queuedGarbage - canceled;
       outgoingCleared = 0;
+      notice = `cancel -${canceled}`;
     } else if (result.cleared === 0 && queuedGarbage > 0) {
       const applyCount = Math.min(8, queuedGarbage);
       overflow = result.board.slice(0, applyCount).some((row) => row.some(Boolean));
       nextBoard = addGarbageLines(result.board, applyCount);
       nextPendingGarbage = queuedGarbage - applyCount;
+      notice = `garbage +${applyCount}`;
+    } else if (outgoingPower > 0) {
+      notice = `send +${outgoingPower}`;
+    } else if (result.cleared > 0) {
+      notice = `clear x${result.cleared}`;
     }
 
     const gained = [0, 120, 320, 520, 820][result.cleared] ?? 0;
@@ -263,6 +289,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
     pendingGarbageRef.current = nextPendingGarbage;
     setPendingGarbage(nextPendingGarbage);
+    setClearCombo(nextCombo);
+    setAttackNotice(notice);
     setBoard(nextBoard);
     setScore((prev) => prev + gained + 8);
     setLines((prev) => {
@@ -277,7 +305,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setRunning(false);
       setGameOver(true);
     }
-  }, [clearLockDelay, piece, sessionId, takeNextPiece]);
+  }, [clearCombo, clearLockDelay, piece, sessionId, takeNextPiece]);
 
   const scheduleLock = useCallback(() => {
     if (lockDelayRef.current !== null) return;
@@ -301,6 +329,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ackAttackIdsRef.current = [...ackAttackIdsRef.current, ...pending.map((attack) => attack.attackId)];
     pendingGarbageRef.current += totalLines;
     setPendingGarbage(pendingGarbageRef.current);
+    setAttackNotice(`incoming +${totalLines}`);
   }, [data?.garbageQueues, gameOver, myPlayerIndex]);
 
   const move = useCallback((dr: number, dc: number) => {
@@ -498,6 +527,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               cycle={isMe ? cycle : state?.cycle ?? 1}
               status={isMe ? (gameOver ? 'overflow' : countdown > 0 ? `${countdown}` : running ? 'running' : 'paused') : state?.gameOver ? 'overflow' : state ? 'running' : 'waiting'}
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
+              attackNotice={isMe ? attackNotice : ''}
               winner={studyState?.winner === index}
               isMe={isMe}
               style={isMe ? boardStyle : undefined}
@@ -512,6 +542,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   running={running}
                   countdown={countdown}
                   pendingGarbage={pendingGarbage}
+                  clearCombo={clearCombo}
+                  attackNotice={attackNotice}
                   dasDelay={dasDelay}
                   arrInterval={arrInterval}
                   cellAlpha={cellAlpha}
@@ -568,7 +600,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 }
 
 function MetricsPanel({
-  name, score, piece, nextQueue, holdPiece, running, countdown, pendingGarbage, dasDelay, arrInterval,
+  name, score, piece, nextQueue, holdPiece, running, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
   cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onRunning, onReset,
 }: {
   name: string;
@@ -579,6 +611,8 @@ function MetricsPanel({
   running: boolean;
   countdown: number;
   pendingGarbage: number;
+  clearCombo: number;
+  attackNotice: string;
   dasDelay: number;
   arrInterval: number;
   cellAlpha: number;
@@ -598,7 +632,9 @@ function MetricsPanel({
       <Metric ln={6} name="pinnedTask" value={holdPiece?.type ?? 'null'} string />
       <Metric ln={7} name="incoming" value={pendingGarbage} />
       <Metric ln={8} name="countdown" value={countdown > 0 ? countdown : 'go'} string={countdown <= 0} />
-      <CL ln={9}>
+      <Metric ln={9} name="combo" value={clearCombo} />
+      <Metric ln={10} name="attack" value={attackNotice || 'idle'} string />
+      <CL ln={11}>
         <span className="var">visibility</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -610,7 +646,7 @@ function MetricsPanel({
         />
         <span className="num"> {cellAlpha}%</span>
       </CL>
-      <CL ln={10}>
+      <CL ln={12}>
         <span className="var">DAS</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -622,7 +658,7 @@ function MetricsPanel({
         />
         <span className="num"> {dasDelay}ms</span>
       </CL>
-      <CL ln={11}>
+      <CL ln={13}>
         <span className="var">ARR</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -652,7 +688,7 @@ function MetricsPanel({
 }
 
 function BoardShell({
-  name, board, score, lines, cycle, status, pending, winner, isMe, style,
+  name, board, score, lines, cycle, status, pending, attackNotice, winner, isMe, style,
 }: {
   name: string;
   board: Board;
@@ -661,10 +697,12 @@ function BoardShell({
   cycle: number;
   status: string;
   pending: number;
+  attackNotice: string;
   winner: boolean;
   isMe: boolean;
   style?: CSSProperties;
 }) {
+  const gaugeCount = Math.min(12, pending);
   return (
     <div className={`tetris-shell ${isMe ? 'mine' : 'peer'}`}>
       <div className="tetris-head">
@@ -675,6 +713,19 @@ function BoardShell({
       <div className="tetris-board" style={style}>
         {isMe && /^\d+$/.test(status) && (
           <div className="tetris-countdown">{status}</div>
+        )}
+        {isMe && attackNotice && !/^\d+$/.test(status) && (
+          <div className={`tetris-attack-flash ${attackNotice.startsWith('cancel') ? 'cancel' : attackNotice.startsWith('send') ? 'send' : 'incoming'}`}>
+            {attackNotice}
+          </div>
+        )}
+        {pending > 0 && (
+          <div className="tetris-garbage-gauge" title={`incoming ${pending}`}>
+            <span className="tetris-garbage-label">{pending}</span>
+            {Array.from({ length: gaugeCount }, (_, i) => (
+              <i key={i} />
+            ))}
+          </div>
         )}
         {board.map((row, r) => row.map((cell, c) => (
           <div
