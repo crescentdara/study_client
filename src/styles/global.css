@@ -555,12 +555,28 @@ select option { background: var(--bg-sidebar); }
 }
 
 .tetris-board {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(10, 18px);
   grid-template-rows: repeat(20, 18px);
   gap: 1px;
   padding: 8px;
   background: #1b1f23;
+}
+
+.tetris-countdown {
+  position: absolute;
+  inset: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(27, 31, 35, 0.55);
+  color: #dcdcaa;
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .tetris-cell {
