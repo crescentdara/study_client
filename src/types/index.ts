@@ -167,6 +167,7 @@ export interface TetrisGameData {
   rows: number;
   cols: number;
   numPlayers: number;
+  instanceId?: string;
   playerStates: Record<string, TetrisPlayerState>;
   garbageQueues?: Record<string, TetrisGarbageAttack[]>;
   comboCounts?: Record<string, number>;
