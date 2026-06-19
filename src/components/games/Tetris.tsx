@@ -157,8 +157,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const pendingGarbageRef = useRef(0);
   const pieceRef = useRef<Piece>(piece);
   const boardRef = useRef<Board>(board);
+  const gameInstanceRef = useRef('');
 
   const globalPaused = Boolean(data?.paused);
+  const gameInstanceId = data?.instanceId ?? '';
+  const isHost = myPlayerIndex === 0;
   const active = running && !gameOver && !globalPaused && countdown <= 0;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
@@ -262,6 +265,23 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       payload: { paused: !globalPaused },
     });
   }, [clearLockDelay, globalPaused, sendMove, sessionId]);
+
+  const requestGlobalRestart = useCallback(() => {
+    clearLockDelay();
+    sendMove({
+      moveType: 'RESTART',
+      data: '',
+      sessionId,
+    });
+  }, [clearLockDelay, sendMove, sessionId]);
+
+  useEffect(() => {
+    if (!gameInstanceId) return;
+    if (gameInstanceRef.current && gameInstanceRef.current !== gameInstanceId) {
+      reset();
+    }
+    gameInstanceRef.current = gameInstanceId;
+  }, [gameInstanceId, reset]);
 
   const lockPiece = useCallback((targetPiece = piece) => {
     clearLockDelay();
@@ -496,8 +516,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       clearLockDelay();
       toggleGlobalPause();
     }
-    if (event.key.toLowerCase() === 'r') reset();
-  }, [hardDrop, hold, move, reset, rotate, startHorizontalHold, toggleGlobalPause]);
+    if (event.key.toLowerCase() === 'r') requestGlobalRestart();
+  }, [hardDrop, hold, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -565,7 +585,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   onDasDelay={setDasDelay}
                   onArrInterval={setArrInterval}
                   onPause={toggleGlobalPause}
-                  onReset={reset}
+                  onRestart={requestGlobalRestart}
+                  canRestart={isHost}
                 />
               )}
             </div>
@@ -600,7 +621,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <button className="btn-secondary" onClick={toggleGlobalPause}>
             {globalPaused ? 'resumeAll()' : 'pauseAll()'}
           </button>
-          <button className="btn-primary" onClick={reset}>restart()</button>
+          <button className="btn-primary" onClick={requestGlobalRestart} disabled={!isHost}>restartAll()</button>
         </div>
         <div className="tetris-note">
           <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
@@ -612,7 +633,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
 function MetricsPanel({
   name, score, piece, nextQueue, holdPiece, paused, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
-  cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onReset,
+  cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
 }: {
   name: string;
   score: number;
@@ -631,7 +652,8 @@ function MetricsPanel({
   onDasDelay: (value: number) => void;
   onArrInterval: (value: number) => void;
   onPause: () => void;
-  onReset: () => void;
+  onRestart: () => void;
+  canRestart: boolean;
 }) {
   return (
     <div className="code-block tetris-side">
@@ -689,7 +711,7 @@ function MetricsPanel({
         <button className="btn-secondary" onClick={onPause}>
           {paused ? 'resumeAll()' : 'pauseAll()'}
         </button>
-        <button className="btn-primary" onClick={onReset}>restart()</button>
+        <button className="btn-primary" onClick={onRestart} disabled={!canRestart}>restartAll()</button>
       </div>
       <div className="tetris-note">
         <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
