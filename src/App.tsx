@@ -357,7 +357,7 @@ function App() {
                             style={{ color: '#888', fontSize: '12px', cursor: 'pointer' }}
                             onClick={() => setShowByebye(v => !v)}
                         >
-                            Byebye
+                            dalbit
                         </span>
                         {showByebye && (
                             <div style={{
