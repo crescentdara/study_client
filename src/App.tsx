@@ -29,6 +29,7 @@ const GAME_ICONS: Partial<Record<StudyType, string>> = {
     WORD_CHAIN: '💬',
     RUMMIKUB: '🀄',
     DAVINCI_CODE: '🔍',
+    RUSH_HOUR: '🚗',
 };
 const GAME_EXT: Record<StudyType, string> = {
     BASEBALL: '.bs',
@@ -42,6 +43,8 @@ const GAME_EXT: Record<StudyType, string> = {
     WORD_CHAIN: '.chain',
     RUMMIKUB: '.rummy',
     DAVINCI_CODE: '.dvcode',
+    RUSH_HOUR: '.rush',
+    UBONGO: '.ubongo',
 };
 const MAX_CHAT_MESSAGES = 200;
 

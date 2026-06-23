@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE' | 'RUSH_HOUR' | 'UBONGO';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -62,6 +62,9 @@ export interface StudyMoveRequest {
     | 'DAVINCI_PLACE'
     | 'DAVINCI_GUESS'
     | 'DAVINCI_PASS'
+    | 'RUSH_MOVE'
+    | 'UBONGO_PLACE'
+    | 'UBONGO_REMOVE'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -81,7 +84,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | RushHourGameData | UbongoGameData | null;
 
   playerNames: string[];
 }
@@ -296,6 +299,30 @@ export interface DaVinciGameData {
   correctGuessesThisTurn: number;
 }
 
+export interface RushHourVehicle {
+  id: number;
+  row: number;
+  col: number;
+  length: number;
+  horizontal: boolean;
+  color: string;
+}
+
+export interface RushHourPlayerState {
+  vehicles: RushHourVehicle[];
+  moves: number;
+  solved: boolean;
+  solveTimeMs: number;
+}
+
+export interface RushHourGameData {
+  numPlayers: number;
+  puzzleIndex: number;
+  winner: number;
+  startTime: number;
+  playerStates: RushHourPlayerState[];
+}
+
 export interface RummikubGameData {
   hands: number[][];
   table: number[][];
@@ -314,5 +341,38 @@ export interface WordChainGameData {
   timeLimit: number;
   numPlayers: number;
   currentTurn: number;
+  winner: number;
+}
+
+// ── Ubongo ──────────────────────────────────────────────────────────────────
+
+export interface UbongoPieceInfo {
+  id: string;
+  color: string;
+  size: number;
+  /** Each orientation: array of [row, col] cell offsets from (0,0). */
+  orientations: number[][][];
+}
+
+export interface UbongoPuzzle {
+  blocked: boolean[][];   // 5x5
+  pieces: UbongoPieceInfo[];
+}
+
+export interface UbongoPlacement {
+  row: number;
+  col: number;
+  orientationIndex: number;
+}
+
+export interface UbongoPlayerState {
+  placements: Record<string, UbongoPlacement>; // pieceId → placement
+  solved: boolean;
+  solveTimeMs: number;
+}
+
+export interface UbongoGameData {
+  puzzle: UbongoPuzzle;
+  playerStates: UbongoPlayerState[];
   winner: number;
 }

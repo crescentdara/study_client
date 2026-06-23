@@ -12,6 +12,8 @@ import CatchMind from './games/CatchMind';
 import WordChainRoom from './games/WordChainRoom';
 import Rummikub from './games/Rummikub';
 import DaVinci from './games/DaVinci';
+import RushHour from './games/RushHour';
+import Ubongo from './games/Ubongo';
 
 interface StudyRoomProps {
     room: Room;
@@ -55,6 +57,8 @@ export default function StudyRoom({
     const isWordChain = room.studyType === 'WORD_CHAIN';
     const isRummikub = room.studyType === 'RUMMIKUB';
     const isDaVinci = room.studyType === 'DAVINCI_CODE';
+    const isRushHour = room.studyType === 'RUSH_HOUR';
+    const isUbongo   = room.studyType === 'UBONGO';
     const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
@@ -212,7 +216,7 @@ export default function StudyRoom({
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
                                             disabled={
-                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && playerNames.length < 2
+                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isRushHour && !isUbongo && playerNames.length < 2
                                             }
                                         >
                                             ▶ startGame()
@@ -301,6 +305,20 @@ export default function StudyRoom({
                         />
                     ) : isDaVinci ? (
                         <DaVinci
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isRushHour ? (
+                        <RushHour
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isUbongo ? (
+                        <Ubongo
                             studyState={studyState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}

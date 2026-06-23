@@ -193,6 +193,8 @@ function Lobby({
                                             ? `${room.maxPlayers}p`
                                           : room.studyType === 'DAVINCI_CODE'
                                             ? `${room.maxPlayers}p`
+                                          : room.studyType === 'RUSH_HOUR'
+                                            ? `${room.maxPlayers}p`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -353,7 +355,7 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
@@ -365,6 +367,8 @@ function Lobby({
                                             else if (t === 'WORD_CHAIN') { setMaxPlayers(4); setDigits(7); }
                                             else if (t === 'RUMMIKUB') { setMaxPlayers(4); setBoardSize(0); }
                                             else if (t === 'DAVINCI_CODE') { setMaxPlayers(4); setBoardSize(0); }
+                                            else if (t === 'RUSH_HOUR') { setMaxPlayers(1); setBoardSize(0); }
+                                            else if (t === 'UBONGO') { setMaxPlayers(1); setBoardSize(0); }
                                         }}
                                         style={{ fontSize: '11px' }}
                                     >
@@ -392,7 +396,19 @@ function Lobby({
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">3</span><span className="cmt"> // fixed</span></span>, 1)}
                         {studyType === 'OMOK' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">2</span><span className="cmt"> // 1v1 only</span></span>, 1)}
-                        {studyType !== 'OLDMAID' && studyType !== 'TETRIS' && studyType !== 'INCIDENT_AVOID' && studyType !== 'BREAKOUT' && studyType !== 'OMOK' &&
+                        {(studyType === 'RUSH_HOUR' || studyType === 'UBONGO') &&
+                            L(
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span>
+                                    {[1, 2, 3].map((n) => (
+                                        <button key={n} className={`btn-opt ${maxPlayers === n ? 'on' : ''}`} onClick={() => setMaxPlayers(n)} style={{ fontSize: '11px', padding: '3px 8px' }}>
+                                            <span className="num">{n}</span>
+                                        </button>
+                                    ))}
+                                </span>,
+                                1,
+                            )}
+                        {studyType !== 'OLDMAID' && studyType !== 'TETRIS' && studyType !== 'INCIDENT_AVOID' && studyType !== 'BREAKOUT' && studyType !== 'OMOK' && studyType !== 'RUSH_HOUR' && studyType !== 'UBONGO' &&
                             L(
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span>
