@@ -9,8 +9,8 @@ interface Props {
 }
 
 const OPACITY_KEY = 'ubongo_opacity';
-const CELL  = 60;   // board cell px
-const MINI  = 16;   // tray mini cell px
+const CELL  = 58;
+const MINI  = 14;   // mini board cell px
 const BOARD = 5;
 
 const panel: React.CSSProperties = {
@@ -49,7 +49,6 @@ function PieceMini({ piece, orientIdx, cellSize = MINI }: {
   );
 }
 
-// Build board occupancy map
 function buildBoardPieces(
   placements: Record<string, { row: number; col: number; orientationIndex: number }>,
   pieces: UbongoPieceInfo[],
@@ -67,15 +66,9 @@ function buildBoardPieces(
   return board;
 }
 
-// Check if piece placement would be valid
 function isValidPlacement(
-  pieceId: string,
-  row: number,
-  col: number,
-  orientIdx: number,
-  pieces: UbongoPieceInfo[],
-  blocked: boolean[][],
-  boardPieces: (string | null)[][],
+  pieceId: string, row: number, col: number, orientIdx: number,
+  pieces: UbongoPieceInfo[], blocked: boolean[][], boardPieces: (string | null)[][],
 ): boolean {
   const piece = pieces.find(p => p.id === pieceId);
   if (!piece) return false;
@@ -89,13 +82,8 @@ function isValidPlacement(
   return true;
 }
 
-// Get cells occupied by a placed piece
 function getOccupiedCells(
-  pieceId: string,
-  row: number,
-  col: number,
-  orientIdx: number,
-  pieces: UbongoPieceInfo[],
+  pieceId: string, row: number, col: number, orientIdx: number, pieces: UbongoPieceInfo[],
 ): [number, number][] {
   const piece = pieces.find(p => p.id === pieceId);
   if (!piece) return [];
@@ -103,62 +91,107 @@ function getOccupiedCells(
   return orient.map(([dr, dc]) => [row + dr, col + dc] as [number, number]);
 }
 
+// ── Mini read-only board for opponents ────────────────────────────────────
+
+function MiniBoard({
+  placements, pieces, blocked, solved,
+}: {
+  placements: Record<string, { row: number; col: number; orientationIndex: number }>;
+  pieces: UbongoPieceInfo[];
+  blocked: boolean[][];
+  solved: boolean;
+}) {
+  const bp = buildBoardPieces(placements, pieces);
+  const cs = 11; // cell size px
+  return (
+    <div style={{
+      display: 'inline-grid',
+      gridTemplateColumns: `repeat(${BOARD}, ${cs}px)`,
+      gap: 1.5,
+      background: solved ? '#1a2e2b' : '#1a1a1c',
+      padding: 3,
+      borderRadius: 4,
+      border: `1px solid ${solved ? '#4ec9b0' : '#3e3e42'}`,
+    }}>
+      {Array.from({ length: BOARD }, (_, r) =>
+        Array.from({ length: BOARD }, (_, c) => {
+          const isBlocked = blocked[r][c];
+          const pid = bp[r][c];
+          const piece = pid ? pieces.find(p => p.id === pid) : null;
+          return (
+            <div key={`${r}-${c}`} style={{
+              width: cs, height: cs,
+              background: isBlocked ? '#0f0f10' : piece ? piece.color : '#2d2d30',
+              borderRadius: 2,
+              opacity: isBlocked ? 0.5 : 1,
+            }} />
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove }: Props) {
+
   // ── Opacity ──────────────────────────────────────────────────────────────
   const [opacity, setOpacityState] = useState<number>(() => {
     const s = localStorage.getItem(OPACITY_KEY);
     return s ? parseFloat(s) : 1;
   });
-  const setOpacity = (v: number) => {
-    setOpacityState(v);
-    localStorage.setItem(OPACITY_KEY, String(v));
-  };
+  const setOpacity = (v: number) => { setOpacityState(v); localStorage.setItem(OPACITY_KEY, String(v)); };
 
   // ── Drag state ───────────────────────────────────────────────────────────
   const [drag, setDrag] = useState<{
-    pieceId: string;
-    x: number;
-    y: number;
-    targetCell: [number, number] | null;
+    pieceId: string; x: number; y: number; targetCell: [number, number] | null;
   } | null>(null);
 
-  // ── Selected piece (click-to-select, rotate, then drag) ──────────────────
+  // ── Selected piece ────────────────────────────────────────────────────────
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
   // ── Orientation ──────────────────────────────────────────────────────────
   const [orientIdx, setOrientIdx] = useState(0);
 
-  // Track mouse-down position to distinguish click vs drag
-  const dragStartRef = useRef<{ pieceId: string; startX: number; startY: number } | null>(null);
+  // ── Elapsed timer (local) ────────────────────────────────────────────────
+  const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Refs for stable event handler access
+  const dragStartRef   = useRef<{ pieceId: string; startX: number; startY: number } | null>(null);
+  const justDroppedRef = useRef(false); // suppress click-to-remove right after drag-drop
   const orientRef      = useRef(orientIdx);
-  const sessionRef     = useRef(sessionId);
-  const sendRef        = useRef(sendMove);
-  const gameDataRef    = useRef<UbongoGameData | null>(null);
-  const disabledRef    = useRef(false);
-  const selectedRef    = useRef(selectedPieceId);
+  const sessionRef    = useRef(sessionId);
+  const sendRef       = useRef(sendMove);
+  const gameDataRef   = useRef<UbongoGameData | null>(null);
+  const disabledRef   = useRef(false);
+  const selectedRef   = useRef(selectedPieceId);
 
   orientRef.current   = orientIdx;
   sessionRef.current  = sessionId;
   sendRef.current     = sendMove;
   selectedRef.current = selectedPieceId;
 
-  const gameData = studyState?.gameData as UbongoGameData | null;
+  const gameData   = studyState?.gameData as UbongoGameData | null;
   gameDataRef.current = gameData;
 
-  const myState   = gameData?.playerStates[myPlayerIndex] ?? { placements: {}, solved: false, solveTimeMs: 0 };
+  const myState    = gameData?.playerStates[myPlayerIndex] ?? { placements: {}, solved: false, solveTimeMs: 0 };
   const isFinished = studyState?.status === 'FINISHED';
   const winner     = gameData?.winner ?? -1;
-  const disabled   = myState.solved || isFinished;
+  const disabled   = myState.solved; // each player plays independently until they solve
   disabledRef.current = disabled;
 
-  // Reset orientation + selection when puzzle changes (new game)
+  // Reset when new puzzle loads
   useEffect(() => { setOrientIdx(0); setSelectedPieceId(null); }, [gameData?.puzzle]);
 
-  // Keyboard: R = rotate, Esc = cancel drag/selection
+  // Running timer
+  useEffect(() => {
+    if (!gameData?.startTime || myState.solved) return;
+    const origin = gameData.startTime;
+    const id = setInterval(() => setElapsedMs(Date.now() - origin), 500);
+    return () => clearInterval(id);
+  }, [gameData?.startTime, isFinished, myState.solved]);
+
+  // Keyboard
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'r' || e.key === 'R') setOrientIdx(i => i + 1);
     if (e.key === 'Escape') { setDrag(null); setSelectedPieceId(null); dragStartRef.current = null; }
@@ -168,43 +201,28 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
     return () => window.removeEventListener('keydown', handleKey);
   }, [handleKey]);
 
-  // Global mouse handlers (always active to detect drag start + drag movement)
+  // Global mouse handlers
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      // Detect drag start from a pending mousedown
       if (dragStartRef.current && !drag) {
         const { pieceId, startX, startY } = dragStartRef.current;
         const dx = e.clientX - startX, dy = e.clientY - startY;
-        if (dx * dx + dy * dy > 25) { // 5px threshold
+        if (dx * dx + dy * dy > 25) {
           dragStartRef.current = null;
           setDrag({ pieceId, x: e.clientX, y: e.clientY, targetCell: null });
         }
         return;
       }
-
       if (!drag) return;
-
-      // Find board cell under cursor (floating preview has pointer-events:none)
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const cellEl = el?.closest('[data-ubongo-cell]') as HTMLElement | null;
       const row = cellEl ? parseInt(cellEl.dataset.row!) : -1;
       const col = cellEl ? parseInt(cellEl.dataset.col!) : -1;
-
-      setDrag(prev => prev ? {
-        ...prev,
-        x: e.clientX,
-        y: e.clientY,
-        targetCell: row >= 0 ? [row, col] : null,
-      } : null);
+      setDrag(prev => prev ? { ...prev, x: e.clientX, y: e.clientY, targetCell: row >= 0 ? [row, col] : null } : null);
     };
 
-    const onUp = (e: MouseEvent) => {
-      // If pending drag start but mouse didn't move → it was a click (select only)
-      if (dragStartRef.current) {
-        dragStartRef.current = null;
-        return; // piece is already selected via onMouseDown
-      }
-
+    const onUp = () => {
+      if (dragStartRef.current) { dragStartRef.current = null; return; }
       setDrag(prev => {
         if (!prev) return null;
         const gd = gameDataRef.current;
@@ -213,10 +231,11 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
           const piece = gd.puzzle.pieces.find(p => p.id === prev.pieceId);
           if (piece) {
             const oi = orientRef.current % piece.orientations.length;
-            sendRef.current({
-              moveType: 'UBONGO_PLACE', data: '', sessionId: sessionRef.current,
-              payload: { pieceId: prev.pieceId, row: r, col: c, orientationIndex: oi },
-            });
+            sendRef.current({ moveType: 'UBONGO_PLACE', data: '', sessionId: sessionRef.current,
+              payload: { pieceId: prev.pieceId, row: r, col: c, orientationIndex: oi } });
+            // prevent the board cell's onClick from immediately removing the piece we just dropped
+            justDroppedRef.current = true;
+            setTimeout(() => { justDroppedRef.current = false; }, 200);
           }
         }
         return null;
@@ -236,46 +255,55 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
   if (!gameData) return <div style={{ color: '#888', padding: 24 }}>퍼즐 로딩 중...</div>;
 
   const { puzzle, playerStates } = gameData;
-  const boardPieces = buildBoardPieces(myState.placements, puzzle.pieces);
-  const placedIds   = new Set(Object.keys(myState.placements));
-  const unplaced    = puzzle.pieces.filter(p => !placedIds.has(p.id));
+  const boardPieces  = buildBoardPieces(myState.placements, puzzle.pieces);
+  const placedIds    = new Set(Object.keys(myState.placements));
+  const unplaced     = puzzle.pieces.filter(p => !placedIds.has(p.id));
+  const playerNames  = studyState?.playerNames ?? [];
 
-  // Find which piece and orient is being dragged
-  // Active piece = being dragged, or selected (click without drag)
   const activePieceId = drag?.pieceId ?? selectedPieceId;
-  const dragPiece  = activePieceId ? puzzle.pieces.find(p => p.id === activePieceId) ?? null : null;
-  const dragOrient = dragPiece ? orientIdx % dragPiece.orientations.length : 0;
+  const dragPiece     = activePieceId ? puzzle.pieces.find(p => p.id === activePieceId) ?? null : null;
+  const dragOrient    = dragPiece ? orientIdx % dragPiece.orientations.length : 0;
 
-  // Preview cells while dragging over board (only during actual drag, not just selection)
   const previewCells = new Set<string>();
   let previewValid = false;
   if (drag?.targetCell && dragPiece) {
     const [hr, hc] = drag.targetCell;
     previewValid = isValidPlacement(dragPiece.id, hr, hc, dragOrient, puzzle.pieces, puzzle.blocked, boardPieces);
-    const cells = getOccupiedCells(dragPiece.id, hr, hc, dragOrient, puzzle.pieces);
-    cells.forEach(([r, c]) => previewCells.add(`${r},${c}`));
+    getOccupiedCells(dragPiece.id, hr, hc, dragOrient, puzzle.pieces)
+      .forEach(([r, c]) => previewCells.add(`${r},${c}`));
   }
-
-  const playerNames = studyState?.playerNames ?? [];
 
   const handleRemove = (pieceId: string) => {
     if (disabled) return;
     sendMove({ moveType: 'UBONGO_REMOVE', data: '', sessionId, payload: { pieceId } });
   };
 
+  const myName = playerNames[myPlayerIndex] ?? `Player ${myPlayerIndex + 1}`;
+  const isSolved = myState.solved;
+  const displayTime = isSolved ? myState.solveTimeMs : elapsedMs;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 12, gap: 10, userSelect: 'none', opacity }}>
 
-      {/* Header */}
-      <div style={{ ...panel, width: '100%', maxWidth: 600, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ ...panel, width: '100%', maxWidth: 700, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ color: '#569cd6', fontWeight: 700, fontSize: 15 }}>🧩 Ubongo</span>
         <span style={{ color: '#6a9955', fontSize: 12 }}>
           {puzzle.pieces.length}개 조각 · {puzzle.pieces.reduce((s, p) => s + p.size, 0)}칸
         </span>
-        <span style={{ color: '#555', fontSize: 11 }}>클릭 선택 → R키 회전 → 드래그 배치 · 배치된 조각 클릭 제거</span>
+        <span style={{
+          background: '#1e1e1e', border: '1px solid #555',
+          borderRadius: 4, padding: '2px 10px',
+          color: isSolved ? '#4ec9b0' : '#d4d4d4',
+          fontFamily: 'monospace', fontSize: 14, fontWeight: 700,
+        }}>
+          ⏱ {formatTime(displayTime)}
+          {isSolved && ' ✓'}
+        </span>
+
         {isFinished && winner >= 0 && (
           <span style={{ color: '#4ec9b0', fontWeight: 700 }}>
-            🎉 {playerNames[winner] ?? `Player ${winner + 1}`} 클리어!
+            🏆 {playerNames[winner] ?? `Player ${winner + 1}`} 우승!
           </span>
         )}
 
@@ -286,62 +314,101 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
           border: '1px solid #3e3e42', opacity: 1,
         }}>
           <span style={{ fontSize: 11, color: '#888' }}>투명도</span>
-          <input
-            type="range" min={0.2} max={1} step={0.05}
-            value={opacity}
+          <input type="range" min={0.2} max={1} step={0.05} value={opacity}
             onChange={e => setOpacity(parseFloat(e.target.value))}
-            style={{ width: 80, accentColor: '#569cd6', cursor: 'pointer' }}
-          />
+            style={{ width: 80, accentColor: '#569cd6', cursor: 'pointer' }} />
           <span style={{ fontSize: 11, color: '#888', width: 30 }}>{Math.round(opacity * 100)}%</span>
         </div>
       </div>
 
+      {/* ── Opponents row ────────────────────────────────────────────────── */}
+      {playerStates.length > 1 && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {playerStates.map((ps, i) => {
+            if (i === myPlayerIndex) return null;
+            const name   = playerNames[i] ?? `Player ${i + 1}`;
+            const placed = Object.keys(ps.placements).length;
+            const total  = puzzle.pieces.length;
+            const isWin  = winner === i;
+            return (
+              <div key={i} style={{
+                ...panel, marginBottom: 0,
+                borderColor: isWin ? '#4ec9b0' : '#3e3e42',
+                background: isWin ? '#1a2e2b' : '#1e1e1e',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                padding: '8px 12px',
+              }}>
+                <div style={{ color: isWin ? '#4ec9b0' : '#9cdcfe', fontSize: 12, fontWeight: 700 }}>
+                  {name}{isWin && ' 🏆'}
+                </div>
+                <MiniBoard placements={ps.placements} pieces={puzzle.pieces} blocked={puzzle.blocked} solved={ps.solved} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                  <div style={{ flex: 1, background: '#1e1e1e', borderRadius: 3, height: 4, overflow: 'hidden', border: '1px solid #333' }}>
+                    <div style={{
+                      width: `${total ? (placed / total) * 100 : 0}%`, height: '100%',
+                      background: ps.solved ? '#4ec9b0' : '#555', transition: 'width 0.2s',
+                    }} />
+                  </div>
+                  <span style={{ color: '#888', fontSize: 10 }}>{placed}/{total}</span>
+                </div>
+                {ps.solved && (
+                  <div style={{ color: '#4ec9b0', fontSize: 10 }}>✓ {formatTime(ps.solveTimeMs)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
 
-        {/* ── Board ──────────────────────────────────────────────── */}
+        {/* ── My Board ───────────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0 }}>
-          {/* Rotate button above board */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8, justifyContent: 'center' }}>
+          {/* Board header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, justifyContent: 'center' }}>
+            <span style={{
+              color: isSolved ? '#4ec9b0' : '#9cdcfe',
+              fontWeight: 700, fontSize: 13,
+            }}>
+              {isSolved ? '✓ ' : '▶ '}{myName}의 보드
+            </span>
             <button
               onClick={() => setOrientIdx(i => i + 1)}
+              disabled={!activePieceId}
               style={{
-                background: '#3e3e42', color: '#d4d4d4',
+                background: activePieceId ? '#3e3e42' : '#2a2a2d',
+                color: activePieceId ? '#d4d4d4' : '#555',
                 border: '1px solid #555', borderRadius: 4,
-                padding: '4px 14px', cursor: 'pointer', fontSize: 12,
+                padding: '3px 12px', cursor: activePieceId ? 'pointer' : 'default', fontSize: 12,
               }}
-            >
-              ↻ 회전 (R)
-            </button>
+            >↻ 회전 (R)</button>
             {activePieceId && dragPiece && (
-              <span style={{ color: '#569cd6', fontSize: 12, lineHeight: '26px' }}>
-                {drag ? '드래그 중' : '선택됨'}: <span style={{ color: dragPiece.color }}>{activePieceId}</span>
-                {' '} 방향 {dragOrient + 1}/{dragPiece.orientations.length}
+              <span style={{ color: dragPiece.color, fontSize: 11 }}>
+                {drag ? '드래그 중' : '선택됨'} · 방향 {dragOrient + 1}/{dragPiece.orientations.length}
               </span>
             )}
           </div>
 
+          {/* Board grid */}
           <div style={{
             display: 'inline-grid',
             gridTemplateColumns: `repeat(${BOARD}, ${CELL}px)`,
-            gap: 3,
-            background: '#1a1a1c',
-            padding: 6,
-            borderRadius: 8,
-            border: '1px solid #3e3e42',
+            gap: 3, background: '#1a1a1c', padding: 6, borderRadius: 8,
+            border: `2px solid ${isSolved ? '#4ec9b0' : '#569cd680'}`,
           }}>
             {Array.from({ length: BOARD }, (_, r) =>
               Array.from({ length: BOARD }, (_, c) => {
-                const blocked   = puzzle.blocked[r][c];
+                const isBlocked = puzzle.blocked[r][c];
                 const occupied  = boardPieces[r][c];
                 const isPreview = previewCells.has(`${r},${c}`);
                 const piece     = occupied ? puzzle.pieces.find(p => p.id === occupied) : null;
 
                 let bg = '#2d2d30';
-                if (blocked)       bg = '#0f0f10';
-                else if (piece)    bg = piece.color;
-                else if (isPreview) bg = dragPiece!.color + '80';
+                if (isBlocked)   bg = '#0f0f10';
+                else if (piece)  bg = piece.color;
+                else if (isPreview) bg = dragPiece!.color + '70';
 
-                const border = blocked
+                const border = isBlocked
                   ? '1.5px solid #111'
                   : occupied
                     ? `1.5px solid ${piece?.color}cc`
@@ -355,19 +422,17 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
                     data-ubongo-cell="1"
                     data-row={r}
                     data-col={c}
-                    onClick={() => occupied && handleRemove(occupied)}
+                    onClick={() => { if (!justDroppedRef.current) occupied && !disabled && handleRemove(occupied); }}
                     style={{
-                      width: CELL, height: CELL,
-                      background: bg, border, borderRadius: 4,
-                      cursor: blocked ? 'not-allowed' : occupied && !disabled ? 'pointer' : 'default',
+                      width: CELL, height: CELL, background: bg, border, borderRadius: 4,
+                      cursor: isBlocked ? 'not-allowed' : occupied && !disabled ? 'pointer' : 'default',
                       transition: 'background 0.08s, border-color 0.08s',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, color: '#ffffff66',
                     }}
-                    title={occupied ? `${occupied} – 클릭하면 제거` : blocked ? '막힌 칸' : ''}
+                    title={occupied ? `${occupied} – 클릭하면 제거` : isBlocked ? '막힌 칸' : ''}
                   >
-                    {blocked && <div style={{ width: '45%', height: '45%', background: '#1e1e20', borderRadius: 2 }} />}
-                    {occupied && !blocked && (
+                    {isBlocked && <div style={{ width: '40%', height: '40%', background: '#1e1e20', borderRadius: 2 }} />}
+                    {occupied && !isBlocked && (
                       <span style={{ fontSize: 9, color: '#fff6', pointerEvents: 'none' }}>{occupied}</span>
                     )}
                   </div>
@@ -377,8 +442,8 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
           </div>
         </div>
 
-        {/* ── Piece tray ─────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 170 }}>
+        {/* ── Piece tray ─────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 165 }}>
           <div style={{ ...panel, padding: '8px 10px' }}>
             <div style={{ color: '#9cdcfe', fontSize: 11, marginBottom: 8 }}>
               미배치 조각 ({unplaced.length}/{puzzle.pieces.length})
@@ -387,14 +452,12 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
               {unplaced.map(piece => {
                 const isActive = activePieceId === piece.id;
                 const oi = isActive ? dragOrient : 0;
-
                 return (
                   <div
                     key={piece.id}
                     onMouseDown={e => {
                       e.preventDefault();
                       if (disabled) return;
-                      // Select piece (may become drag if mouse moves)
                       if (activePieceId !== piece.id) setOrientIdx(0);
                       setSelectedPieceId(piece.id);
                       dragStartRef.current = { pieceId: piece.id, startX: e.clientX, startY: e.clientY };
@@ -418,14 +481,12 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
                 );
               })}
               {unplaced.length === 0 && (
-                <div style={{ color: '#4ec9b0', fontSize: 12, textAlign: 'center', padding: '4px 0' }}>
-                  ✓ 모두 배치!
-                </div>
+                <div style={{ color: '#4ec9b0', fontSize: 12, textAlign: 'center', padding: '4px 0' }}>✓ 모두 배치!</div>
               )}
             </div>
           </div>
 
-          {/* Placed pieces (click-to-remove list) */}
+          {/* Placed pieces */}
           {placedIds.size > 0 && (
             <div style={{ ...panel, padding: '8px 10px' }}>
               <div style={{ color: '#9cdcfe', fontSize: 11, marginBottom: 6 }}>배치됨 (클릭: 되돌리기)</div>
@@ -433,17 +494,11 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
                 {[...placedIds].map(pid => {
                   const p = puzzle.pieces.find(x => x.id === pid);
                   return (
-                    <div
-                      key={pid}
-                      onClick={() => handleRemove(pid)}
-                      style={{
-                        background: p?.color + '22',
-                        border: `1px solid ${p?.color ?? '#555'}`,
-                        borderRadius: 4, padding: '2px 8px',
-                        color: p?.color, fontSize: 11,
-                        cursor: disabled ? 'default' : 'pointer',
-                      }}
-                    >
+                    <div key={pid} onClick={() => handleRemove(pid)} style={{
+                      background: p?.color + '22', border: `1px solid ${p?.color ?? '#555'}`,
+                      borderRadius: 4, padding: '2px 8px', color: p?.color, fontSize: 11,
+                      cursor: disabled ? 'default' : 'pointer',
+                    }}>
                       {pid} ✕
                     </div>
                   );
@@ -451,62 +506,45 @@ export default function Ubongo({ studyState, sessionId, myPlayerIndex, sendMove 
               </div>
             </div>
           )}
+
+          {/* My progress summary */}
+          <div style={{ ...panel, padding: '8px 10px', marginBottom: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ color: '#888', fontSize: 11 }}>내 진행도</span>
+              <span style={{ color: '#d4d4d4', fontSize: 11 }}>{placedIds.size}/{puzzle.pieces.length}</span>
+            </div>
+            <div style={{ background: '#1e1e1e', borderRadius: 3, height: 6, overflow: 'hidden' }}>
+              <div style={{
+                width: `${puzzle.pieces.length ? (placedIds.size / puzzle.pieces.length) * 100 : 0}%`,
+                height: '100%',
+                background: isSolved ? '#4ec9b0' : '#569cd6',
+                transition: 'width 0.2s',
+              }} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Player cards ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {playerStates.map((ps, i) => {
-          const name   = playerNames[i] ?? `Player ${i + 1}`;
-          const placed = Object.keys(ps.placements).length;
-          const total  = puzzle.pieces.length;
-          const isMe   = i === myPlayerIndex;
-          const isWin  = winner === i;
-          return (
-            <div key={i} style={{
-              ...panel, marginBottom: 0, minWidth: 140,
-              borderColor: isWin ? '#4ec9b0' : isMe ? '#569cd6' : '#3e3e42',
-              background: isWin ? '#1a2e2b' : isMe ? '#1e2533' : '#252526',
-            }}>
-              <div style={{ color: isWin ? '#4ec9b0' : isMe ? '#9cdcfe' : '#888', fontWeight: 700, fontSize: 13 }}>
-                {isMe ? '▶ ' : ''}{name}{isWin && ' 🏆'}
-              </div>
-              <div style={{ color: '#d4d4d4', fontSize: 12, marginTop: 4 }}>
-                {placed}/{total} 조각
-              </div>
-              {ps.solved && (
-                <div style={{ color: '#4ec9b0', fontSize: 11, marginTop: 2 }}>✓ {formatTime(ps.solveTimeMs)}</div>
-              )}
-              <div style={{ background: '#1e1e1e', borderRadius: 3, height: 4, marginTop: 6, overflow: 'hidden' }}>
-                <div style={{
-                  width: `${total ? (placed / total) * 100 : 0}%`, height: '100%',
-                  background: ps.solved ? '#4ec9b0' : isMe ? '#569cd6' : '#555',
-                  transition: 'width 0.2s',
-                }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {myState.solved && (
-        <div style={{ ...panel, background: '#1a2e2b', borderColor: '#4ec9b0', textAlign: 'center', fontSize: 16, color: '#4ec9b0', fontWeight: 700 }}>
-          🎉 클리어! {formatTime(myState.solveTimeMs)}
+      {/* ── Solve message ────────────────────────────────────────────────── */}
+      {isSolved && (
+        <div style={{ ...panel, background: winner === myPlayerIndex ? '#1a2e2b' : '#1e2533',
+          borderColor: winner === myPlayerIndex ? '#4ec9b0' : '#569cd6',
+          textAlign: 'center', fontSize: 15, fontWeight: 700,
+          color: winner === myPlayerIndex ? '#4ec9b0' : '#9cdcfe',
+        }}>
+          {winner === myPlayerIndex ? '🏆 우승! ' : '✓ 완료! '}
+          {formatTime(myState.solveTimeMs)}
         </div>
       )}
 
-      {/* ── Floating piece preview during drag ─────────────────────────────── */}
+      {/* ── Floating piece preview during drag ─────────────────────────── */}
       {drag && dragPiece && (
         <div style={{
-          position: 'fixed',
-          left: drag.x + 12,
-          top: drag.y - 12,
-          pointerEvents: 'none',
-          zIndex: 9999,
-          opacity: 0.85,
-          filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
+          position: 'fixed', left: drag.x + 12, top: drag.y - 12,
+          pointerEvents: 'none', zIndex: 9999,
+          opacity: 0.85, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
         }}>
-          <PieceMini piece={dragPiece} orientIdx={dragOrient} cellSize={MINI * 1.8} />
+          <PieceMini piece={dragPiece} orientIdx={dragOrient} cellSize={MINI * 2} />
         </div>
       )}
     </div>

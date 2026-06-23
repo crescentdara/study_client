@@ -375,4 +375,5 @@ export interface UbongoGameData {
   puzzle: UbongoPuzzle;
   playerStates: UbongoPlayerState[];
   winner: number;
+  startTime: number;
 }
