@@ -8,17 +8,33 @@ import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
 import { ToastContainer, useToast } from './components/Toast';
+import imgImage from './assets/images/image.png';
+import imgSideIcon1 from './assets/images/side_icon1.png';
+import imgSideIcon2 from './assets/images/side_icon2.png';
+import imgSideIcon3 from './assets/images/side_icon3.png';
+import imgSideIcon4 from './assets/images/side_icon4.png';
+import imgSideIcon5 from './assets/images/side_icon5.png';
+import imgSideIcon6 from './assets/images/side_icon6.png';
+import imgCh1 from './assets/images/ch1.png';
+import imgCh2 from './assets/images/ch2.png';
+import imgCh3 from './assets/images/ch3.png';
+import imgCh4 from './assets/images/ch4.png';
+import imgCh5 from './assets/images/ch5.png';
+import imgCh6 from './assets/images/ch6.png';
+import imgCh7 from './assets/images/ch7.png';
+import imgDalbit from './assets/images/dalbit.png';
+import imgGgobuk from './assets/images/ggobuk.png';
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
-    { id: 'ch1', src: '/src/assets/images/ch1.png', label: '😀' },
-    { id: 'ch2', src: '/src/assets/images/ch2.png', label: '😁' },
-    { id: 'ch3', src: '/src/assets/images/ch3.png', label: '👻' },
-    { id: 'pig', src: '/src/assets/images/dalbit.png', label: '🐷' },
-    { id: 'ggobuk', src: '/src/assets/images/ggobuk.png', label: '🐢' },
-    { id: 'ch4', src: '/src/assets/images/ch4.png', label: '👽' },
-    { id: 'ch5', src: '/src/assets/images/ch5.png', label: '🎉' },
-    { id: 'ch6', src: '/src/assets/images/ch6.png', label: '😊' },
-    { id: 'ch7', src: '/src/assets/images/ch7.png', label: '💖' },
+    { id: 'ch1', src: imgCh1, label: '😀' },
+    { id: 'ch2', src: imgCh2, label: '😁' },
+    { id: 'ch3', src: imgCh3, label: '👻' },
+    { id: 'pig', src: imgDalbit, label: '🐷' },
+    { id: 'ggobuk', src: imgGgobuk, label: '🐢' },
+    { id: 'ch4', src: imgCh4, label: '👽' },
+    { id: 'ch5', src: imgCh5, label: '🎉' },
+    { id: 'ch6', src: imgCh6, label: '😊' },
+    { id: 'ch7', src: imgCh7, label: '💖' },
 ];
 
 const GAME_ICONS: Partial<Record<StudyType, string>> = {
@@ -392,7 +408,7 @@ function App() {
                                 >
                                     Close
                                 </button>
-                                <img src="/src/assets/images/image.png" style={{ width: '100%' }} />
+                                <img src={imgImage} style={{ width: '100%' }} />
                             </div>
                         )}
                     </div>
@@ -431,14 +447,14 @@ function App() {
                             onClick={() => { setActivePanel(panel); setShowPuyo(false); }}
                             style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: activePanel === panel && !showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}
                         >
-                            {panel === 'explorer' ? <img src="/src/assets/images/side_icon1.png" style={{ width: 18, }} /> : <img src="/src/assets/images/side_icon2.png" style={{ width: 18,  }} />}
+                            {panel === 'explorer' ? <img src={imgSideIcon1} style={{ width: 18, }} /> : <img src={imgSideIcon2} style={{ width: 18,  }} />}
                         </div>
                     ))}
                     <ul style={{ width: "100%", display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '15px', listStyle: 'none', margin: 0, padding: 0 }}>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon3.png" style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon4.png" style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon5.png" style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src="/src/assets/images/side_icon6.png" style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon3} style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon4} style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon5} style={{ width: 18,  }} /></li>
+                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon6} style={{ width: 18,  }} /></li>
                     </ul>
                     
                     {/* 게임 버튼 */}

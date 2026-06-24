@@ -1,5 +1,14 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { ChatAttachment, ChatMessage } from "../types";
+import imgCh1 from '../assets/images/ch1.png';
+import imgCh2 from '../assets/images/ch2.png';
+import imgCh3 from '../assets/images/ch3.png';
+import imgCh4 from '../assets/images/ch4.png';
+import imgCh5 from '../assets/images/ch5.png';
+import imgCh6 from '../assets/images/ch6.png';
+import imgCh7 from '../assets/images/ch7.png';
+import imgDalbit from '../assets/images/dalbit.png';
+import imgGgobuk from '../assets/images/ggobuk.png';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -11,15 +20,15 @@ interface ChatProps {
 }
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
-  { id: "ch1", src: "/src/assets/images/ch1.png", label: "😀" },
-  { id: "ch2", src: "/src/assets/images/ch2.png", label: "😁" },
-  { id: "ch3", src: "/src/assets/images/ch3.png", label: "👻" },
-  { id: "pig", src: "/src/assets/images/dalbit.png", label: "🐷" },
-  { id: "ggobuk", src: "/src/assets/images/ggobuk.png", label: "🐢" },
-  { id: "ch4", src: "/src/assets/images/ch4.png", label: "👽" },
-  { id: "ch5", src: "/src/assets/images/ch5.png", label: "🎉" },
-  { id: "ch6", src: "/src/assets/images/ch6.png", label: "😊" },
-  { id: "ch7", src: "/src/assets/images/ch7.png", label: "💖" },
+  { id: "ch1", src: imgCh1, label: "😀" },
+  { id: "ch2", src: imgCh2, label: "😁" },
+  { id: "ch3", src: imgCh3, label: "👻" },
+  { id: "pig", src: imgDalbit, label: "🐷" },
+  { id: "ggobuk", src: imgGgobuk, label: "🐢" },
+  { id: "ch4", src: imgCh4, label: "👽" },
+  { id: "ch5", src: imgCh5, label: "🎉" },
+  { id: "ch6", src: imgCh6, label: "😊" },
+  { id: "ch7", src: imgCh7, label: "💖" },
 ];
 
 const renderAvatar = (emojiId: string, size = 16) => {
