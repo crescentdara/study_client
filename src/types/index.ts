@@ -277,6 +277,7 @@ export interface ChatMessage {
   imageUrl?: string;
   fileName?: string;
   fileSize?: number;
+  mentionedNickname?: string;
 }
 
 export interface ChatAttachment {

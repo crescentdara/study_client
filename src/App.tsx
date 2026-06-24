@@ -7,6 +7,7 @@ import Sudoku from './components/games/Sudoku';
 import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import { useLobbyChat } from './hooks/useLobbyChat';
+import { ToastContainer, useToast } from './components/Toast';
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
     { id: 'ch1', src: '/src/assets/images/ch1.png', label: '😀' },
@@ -57,11 +58,25 @@ function App() {
     const leaveRef = useRef<(() => void) | null>(null);
     const [studyState, setStudyState] = useState<StudyStateResponse | null>(null);
 
+    // ── 토스트 ─────────────────────────────────────────────────────────────────
+    const { toasts, addToast, dismiss } = useToast();
+    const nicknameRef = useRef(nickname);
+    nicknameRef.current = nickname;
+
+    const checkMention = useCallback((msg: ChatMessage) => {
+        if (msg.mentionedNickname && msg.mentionedNickname === nicknameRef.current) {
+            const spaceIdx = msg.text.indexOf(' ');
+            const content = spaceIdx > 0 ? msg.text.slice(spaceIdx + 1) : msg.text;
+            addToast(msg.emoji || '💬', msg.nickname, content);
+        }
+    }, [addToast]);
+
     // ── 로비 채팅 ──────────────────────────────────────────────────────────────
     const [lobbyMessages, setLobbyMessages] = useState<ChatMessage[]>([]);
     const handleLobbyMessage = useCallback((msg: ChatMessage) => {
         setLobbyMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
-    }, []);
+        checkMention(msg);
+    }, [checkMention]);
     const { sendChat: sendLobbyChat } = useLobbyChat({ onMessage: handleLobbyMessage });
     const handleLobbyChatSend = useCallback(
         (text: string, _sid: string, attachment?: ChatAttachment) => {
@@ -345,6 +360,7 @@ function App() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            <ToastContainer toasts={toasts} onDismiss={dismiss} />
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div style={{ background: '#323233', borderBottom: '1px solid #3e3e42', padding: '2px 12px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '32px', flexShrink: 0, position: 'relative' }}>
@@ -390,7 +406,7 @@ function App() {
                     </ul>
                     <div style={{ background: '#3f3f3f', color: '#888', fontSize: '12px', padding: '3px 8px', width: '500px', borderRadius: '6px' }}>study-platform</div>
                 </div>
-                <ul style={{ display: 'flex', gap: '30px', listStyle: 'none', margin: 0, padding: 0, fontSize: '14px', color: '#888' }}>
+                <ul style={{ display: 'flex', gap: '30px', listStyle: 'none', margin: 0, padding: 0, fontSize: '14px', color: '#888', alignItems: 'center' }}>
                     <li style={{ width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ background: '#888', width: '16px', display: 'block', height: '2px', borderRadius: '2px' }}></span>
                     </li>
@@ -607,6 +623,7 @@ function App() {
                                     studyState={studyState}
                                     onStudyState={handleStudyState}
                                     onLeave={handleLeaveRoom}
+                                    onChatMessage={checkMention}
                                     leaveRef={leaveRef}
                                 />
                             </div>
@@ -730,7 +747,13 @@ function App() {
                             <span>닉네임을 먼저 입력해주세요</span>
                         </div>
                     )}
-                    <Chat messages={lobbyMessages} myNickname={nickname} myEmoji={emoji} sessionId={sessionId} onSend={nickname.trim() ? handleLobbyChatSend : () => {}} />
+                    <Chat messages={lobbyMessages} myNickname={nickname} myEmoji={emoji} sessionId={sessionId} onSend={nickname.trim() ? handleLobbyChatSend : () => {}}
+                        playerNames={
+                          (currentRoom
+                            ? (currentRoom.playerNames ?? [])
+                            : rooms.flatMap(r => r.playerNames ?? [])
+                          ).filter((n, i, a) => n !== nickname && a.indexOf(n) === i)
+                        } />
                 </div>
 
             </div>

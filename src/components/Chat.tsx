@@ -7,6 +7,7 @@ interface ChatProps {
   myEmoji: string;
   sessionId: string;
   onSend: (text: string, sessionId: string, attachment?: ChatAttachment) => void;
+  playerNames?: string[];
 }
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
@@ -35,7 +36,27 @@ const renderAvatar = (emojiId: string, size = 16) => {
   );
 };
 
-function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
+// Render text with @mention highlighted
+function renderWithMentions(text: string, myNickname: string) {
+  const parts = text.split(/(@\S+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("@")) {
+      const name = part.slice(1);
+      const isMe = name === myNickname;
+      return (
+        <span key={i} style={{
+          color: isMe ? "#ff9e3b" : "#569cd6",
+          fontWeight: 700,
+          background: isMe ? "rgba(255,158,59,0.12)" : "rgba(86,156,214,0.12)",
+          borderRadius: 3, padding: "0 2px",
+        }}>{part}</span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = [] }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [showOpacity, setShowOpacity] = useState(false);
@@ -46,9 +67,17 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
     return Math.max(20, Math.min(100, value));
   });
+  // @mention autocomplete
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionAt, setMentionAt] = useState(0); // index of '@' in input
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const mentionCandidates = mentionQuery !== null
+    ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+    : [];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,6 +88,31 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
     if (!text) return;
     onSend(text, sessionId);
     setInput("");
+    setMentionQuery(null);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    // detect @mention typing
+    const cursor = e.target.selectionStart ?? val.length;
+    const before = val.slice(0, cursor);
+    const match = before.match(/@(\S*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+      setMentionAt(before.lastIndexOf("@"));
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const applyMention = (name: string) => {
+    const before = input.slice(0, mentionAt);
+    const after = input.slice(mentionAt + 1 + (mentionQuery?.length ?? 0));
+    const newVal = `${before}@${name} ${after}`;
+    setInput(newVal);
+    setMentionQuery(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const uploadAndSendImage = async (file: File) => {
@@ -177,6 +231,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
                 })
               : null;
             const isGrouped = !!prev && prev.nickname === message.nickname && prevTime === time;
+            const mentionsMe = message.mentionedNickname === myNickname;
             const next = messages[index + 1];
             const nextTime = next
               ? new Date(next.timestamp).toLocaleTimeString("en-US", {
@@ -228,13 +283,20 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
                   <div
                     style={{
                       maxWidth: "80%",
-                      background: isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
-                      border: `1px solid ${isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
+                      background: mentionsMe
+                        ? "rgba(255,158,59,0.12)"
+                        : isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
+                      border: `1px solid ${mentionsMe ? "rgba(255,158,59,0.5)" : isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
                       padding: "5px 10px",
                       borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",
                       wordBreak: "break-word",
                     }}
                   >
+                    {mentionsMe && (
+                      <div style={{ color: "#ff9e3b", fontSize: "9px", marginBottom: 2, fontWeight: 700 }}>
+                        📣 나를 멘션
+                      </div>
+                    )}
                     {message.type === "IMAGE" && message.imageUrl ? (
                       <a href={message.imageUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
                         <img
@@ -255,7 +317,9 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
                         )}
                       </a>
                     ) : (
-                      <span style={{ color: "#d4d4d4" }}>{message.text}</span>
+                      <span style={{ color: "#d4d4d4" }}>
+                        {renderWithMentions(message.text, myNickname)}
+                      </span>
                     )}
                   </div>
 
@@ -373,15 +437,46 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend }: ChatProps) {
               }}
             />
 
-            <input
-              style={{ flex: 1, fontSize: "12px", padding: "4px 6px", minWidth: 0 }}
-              placeholder={uploading ? "uploading image..." : "type a message..."}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && handleSend()}
-              maxLength={200}
-              disabled={uploading}
-            />
+            <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+              {mentionCandidates.length > 0 && (
+                <div style={{
+                  position: "absolute", bottom: "100%", left: 0, right: 0,
+                  background: "#252526", border: "1px solid #569cd6",
+                  borderRadius: 6, marginBottom: 4, zIndex: 100,
+                  boxShadow: "0 -4px 12px rgba(0,0,0,0.4)",
+                  overflow: "hidden",
+                }}>
+                  {mentionCandidates.map(name => (
+                    <div
+                      key={name}
+                      onMouseDown={e => { e.preventDefault(); applyMention(name); }}
+                      style={{
+                        padding: "6px 12px", cursor: "pointer",
+                        color: "#9cdcfe", fontSize: 12,
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#1e2533")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      📣 @{name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={inputRef}
+                style={{ width: "100%", fontSize: "12px", padding: "4px 6px", boxSizing: "border-box" }}
+                placeholder={uploading ? "uploading image..." : "@닉네임 메시지 또는 일반 채팅..."}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { setMentionQuery(null); return; }
+                  if (event.key === "Enter") handleSend();
+                }}
+                maxLength={200}
+                disabled={uploading}
+              />
+            </div>
 
             <button
               className="btn-primary"
