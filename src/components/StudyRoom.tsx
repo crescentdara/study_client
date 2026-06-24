@@ -151,7 +151,7 @@ export default function StudyRoom({
                         </span>
                     </span>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                        {isHost && status === 'FINISHED' && (
+                        {isHost && (status === 'FINISHED' || (isUbongo && (studyState?.winner ?? -1) >= 0)) && (
                             <button className="btn-primary" style={{ fontSize: '11px' }} onClick={handleRestart}>
                                 ↺ restart()
                             </button>

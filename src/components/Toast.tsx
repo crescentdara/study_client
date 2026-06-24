@@ -132,21 +132,24 @@ function getFaviconLink(): HTMLLinkElement {
 }
 
 function updateFaviconBadge(count: number) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 32; canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  const link = getFaviconLink();
 
-  // Draw base favicon letter
-  ctx.fillStyle = '#1e1e1e';
-  ctx.fillRect(0, 0, 32, 32);
-  ctx.fillStyle = '#569cd6';
-  ctx.font = 'bold 22px monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('S', 16, 17);
+  if (count === 0) {
+    link.href = '/favicon.png';
+    return;
+  }
 
-  if (count > 0) {
+  // Load original favicon, draw badge on top
+  const img = new Image();
+  img.src = '/favicon.png';
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(img, 0, 0, 32, 32);
+
     // Red badge circle
     ctx.fillStyle = '#e74c3c';
     ctx.beginPath();
@@ -157,9 +160,9 @@ function updateFaviconBadge(count: number) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(count > 9 ? '9+' : String(count), 24, 8);
-  }
 
-  getFaviconLink().href = canvas.toDataURL();
+    link.href = canvas.toDataURL();
+  };
 }
 
 // ── Notification sound (no permission needed) ─────────────────────────────
