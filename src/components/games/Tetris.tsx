@@ -743,7 +743,7 @@ function BoardShell({
         <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
       </div>
       <div className="tetris-board" style={style}>
-        {isMe && status === 'paused' && (
+        {status === 'paused' && (
           <div className="tetris-countdown tetris-paused-title">PAUSED</div>
         )}
         {isMe && /^\d+$/.test(status) && (
