@@ -278,6 +278,8 @@ export interface ChatMessage {
   fileName?: string;
   fileSize?: number;
   mentionedNickname?: string;
+  voiceRequested?: boolean;
+  voiceText?: string;
 }
 
 export interface ChatAttachment {

@@ -80,7 +80,7 @@ function App() {
     nicknameRef.current = nickname;
 
     const checkMention = useCallback((msg: ChatMessage) => {
-        if (msg.mentionedNickname && msg.mentionedNickname === nicknameRef.current) {
+        if (msg.nickname !== nicknameRef.current && msg.mentionedNickname && msg.mentionedNickname === nicknameRef.current) {
             const spaceIdx = msg.text.indexOf(' ');
             const content = spaceIdx > 0 ? msg.text.slice(spaceIdx + 1) : msg.text;
             addToast(msg.emoji || '💬', msg.nickname, content);

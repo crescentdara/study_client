@@ -165,7 +165,8 @@ function updateFaviconBadge(count: number) {
   };
 }
 
-// ── Notification sound (no permission needed) ─────────────────────────────
+// Voice notification. Only runs for explicit /voice mentions.
+let _lastVoiceAt = 0;
 
 function playMentionSound() {
   try {
@@ -174,7 +175,6 @@ function playMentionSound() {
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.connect(ctx.destination);
 
-    // Two-tone ping
     [880, 1100].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
@@ -184,7 +184,27 @@ function playMentionSound() {
       osc.stop(ctx.currentTime + i * 0.12 + 0.1);
     });
   } catch {
-    // AudioContext might be blocked before user gesture — silently ignore
+    // Audio can be blocked before user interaction.
+  }
+}
+
+function speakMention(text: string) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const now = Date.now();
+    if (now - _lastVoiceAt < 3000) return;
+    _lastVoiceAt = now;
+    window.speechSynthesis.cancel();
+    const safeText = text.trim().slice(0, 80);
+    if (!safeText) return;
+    const utterance = new SpeechSynthesisUtterance(safeText);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // Speech synthesis can be blocked before user interaction.
   }
 }
 
@@ -202,10 +222,17 @@ let _nextId = 1;
 export function useToast() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = useCallback((senderEmoji: string, senderNickname: string, message: string) => {
+  const addToast = useCallback((senderEmoji: string, senderNickname: string, message: string, voiceText?: string) => {
     const id = _nextId++;
-    setToasts(prev => [...prev, { id, senderEmoji, senderNickname, message }]);
-    playMentionSound();
+    const inlineVoiceText = message.startsWith('/voice') ? message.slice('/voice'.length).trim() : '';
+    const spokenText = voiceText || inlineVoiceText;
+    const displayMessage = inlineVoiceText ? inlineVoiceText : message;
+    setToasts(prev => [...prev, { id, senderEmoji, senderNickname, message: displayMessage }].slice(-5));
+    if (spokenText) {
+      speakMention(spokenText);
+    } else {
+      playMentionSound();
+    }
     if (document.visibilityState !== 'visible') {
       startTitleFlash(senderNickname);
     }

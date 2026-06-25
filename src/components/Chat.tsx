@@ -87,6 +87,10 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const mentionCandidates = mentionQuery !== null
     ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
     : [];
+  const voiceMatch = input.match(/(^|\s)(\/v(?:o(?:i(?:c(?:e)?)?)?)?)$/i);
+  const voiceCompletion = voiceMatch && "/voice".startsWith(voiceMatch[2].toLowerCase())
+    ? "/voice".slice(voiceMatch[2].length)
+    : "";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -122,6 +126,16 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
     setInput(newVal);
     setMentionQuery(null);
     setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const applyVoiceCompletion = () => {
+    const match = input.match(/(^|\s)(\/v(?:o(?:i(?:c(?:e)?)?)?)?)$/i);
+    if (!match || !"/voice".startsWith(match[2].toLowerCase())) return false;
+    const start = input.slice(0, input.length - match[2].length);
+    setInput(`${start}/voice `);
+    setMentionQuery(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
+    return true;
   };
 
   const uploadAndSendImage = async (file: File) => {
@@ -472,14 +486,36 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
                   ))}
                 </div>
               )}
+              {voiceCompletion && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "4px 6px",
+                    boxSizing: "border-box",
+                    fontSize: "12px",
+                    color: "transparent",
+                    pointerEvents: "none",
+                    whiteSpace: "pre",
+                    overflow: "hidden",
+                  }}
+                >
+                  <span>{input}</span>
+                  <span style={{ color: "#6a6a6a" }}>{voiceCompletion}</span>
+                </div>
+              )}
               <input
                 ref={inputRef}
-                style={{ width: "100%", fontSize: "12px", padding: "4px 6px", boxSizing: "border-box" }}
+                style={{ width: "100%", fontSize: "12px", padding: "4px 6px", boxSizing: "border-box", position: "relative", background: "transparent" }}
                 placeholder={uploading ? "uploading image..." : "@닉네임 메시지 또는 일반 채팅..."}
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") { setMentionQuery(null); return; }
+                  if (event.key === "Tab" && applyVoiceCompletion()) { event.preventDefault(); return; }
                   if (event.key === "Enter") handleSend();
                 }}
                 maxLength={200}
