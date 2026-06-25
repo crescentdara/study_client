@@ -10,6 +10,7 @@ const LOCK_DELAY_MS = 420;
 const DAS_DELAY_MS = 130;
 const ARR_INTERVAL_MS = 42;
 const COUNTDOWN_SECONDS = 3;
+const CLEAR_ANIMATION_MS = 170;
 
 const SHAPES: Record<string, number[][]> = {
   I: [[1, 1, 1, 1]],
@@ -99,10 +100,15 @@ const mergePiece = (board: Board, piece: Piece) => {
 };
 
 const clearLines = (board: Board) => {
-  const kept = board.filter((row) => row.some((cell) => !cell));
-  const cleared = ROWS - kept.length;
+  const clearedRows: number[] = [];
+  const kept = board.filter((row, index) => {
+    const shouldClear = row.every(Boolean);
+    if (shouldClear) clearedRows.push(index);
+    return !shouldClear;
+  });
+  const cleared = clearedRows.length;
   const blank = Array.from({ length: cleared }, () => Array(COLS).fill('') as string[]);
-  return { board: [...blank, ...kept], cleared };
+  return { board: [...blank, ...kept], cleared, clearedRows };
 };
 
 const addGarbageLines = (board: Board, count: number, previousHole: number | null) => {
@@ -153,11 +159,14 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [clearCombo, setClearCombo] = useState(0);
   const [attackNotice, setAttackNotice] = useState('');
   const [localAttackLog, setLocalAttackLog] = useState<string[]>([]);
+  const [clearingRows, setClearingRows] = useState<number[]>([]);
+  const [resolvingClear, setResolvingClear] = useState(false);
   const [dasDelay, setDasDelay] = useState(DAS_DELAY_MS);
   const [arrInterval, setArrInterval] = useState(ARR_INTERVAL_MS);
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
   const lockDelayRef = useRef<number | null>(null);
+  const clearAnimationRef = useRef<number | null>(null);
   const moveRef = useRef<(dr: number, dc: number) => boolean>(() => false);
   const syncPayloadRef = useRef<object>({});
   const attackSeqRef = useRef(0);
@@ -173,7 +182,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const globalPaused = Boolean(data?.paused);
   const gameInstanceId = data?.instanceId ?? '';
   const isHost = myPlayerIndex === 0;
-  const active = running && !gameOver && !globalPaused && countdown <= 0;
+  const active = running && !gameOver && !globalPaused && countdown <= 0 && !resolvingClear;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
@@ -258,12 +267,24 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     }
   }, []);
 
+  const clearLineAnimation = useCallback(() => {
+    if (clearAnimationRef.current !== null) {
+      window.clearTimeout(clearAnimationRef.current);
+      clearAnimationRef.current = null;
+    }
+    setClearingRows([]);
+    setResolvingClear(false);
+  }, []);
+
   useEffect(() => {
-    if (globalPaused) clearLockDelay();
+    if (globalPaused) {
+      clearLockDelay();
+    }
   }, [clearLockDelay, globalPaused]);
 
   const reset = useCallback(() => {
     clearLockDelay();
+    clearLineAnimation();
     const queue = createPieceQueue(NEXT_QUEUE_SIZE + 1);
     setBoard(emptyBoard());
     setPiece(queue[0]);
@@ -285,7 +306,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     lastAttackRef.current = { lastCleared: 0, attackKey: '' };
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
-  }, [clearLockDelay, setQueue]);
+  }, [clearLineAnimation, clearLockDelay, setQueue]);
 
   const toggleGlobalPause = useCallback(() => {
     clearLockDelay();
@@ -315,6 +336,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [gameInstanceId, reset]);
 
   const lockPiece = useCallback((targetPiece = piece) => {
+    if (resolvingClear) return;
     clearLockDelay();
     const merged = mergePiece(boardRef.current, targetPiece);
     const result = clearLines(merged);
@@ -347,34 +369,50 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       notice = `clear x${result.cleared}`;
     }
 
-    const gained = [0, 120, 320, 520, 820][result.cleared] ?? 0;
-    const spawned = takeNextPiece();
-    attackSeqRef.current += 1;
-    lastAttackRef.current = {
-      lastCleared: outgoingCleared,
-      attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
+    const commitLock = () => {
+      clearAnimationRef.current = null;
+      setClearingRows([]);
+      setResolvingClear(false);
+
+      const gained = [0, 120, 320, 520, 820][result.cleared] ?? 0;
+      const spawned = takeNextPiece();
+      attackSeqRef.current += 1;
+      lastAttackRef.current = {
+        lastCleared: outgoingCleared,
+        attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
+      };
+
+      pendingGarbageRef.current = nextPendingGarbage;
+      setPendingGarbage(nextPendingGarbage);
+      setClearCombo(nextCombo);
+      setAttackNotice(notice);
+      pushLocalAttackLog(notice);
+      setBoard(nextBoard);
+      setScore((prev) => prev + gained + 8);
+      setLines((prev) => {
+        const total = prev + result.cleared;
+        setCycle(Math.floor(total / 8) + 1);
+        return total;
+      });
+      setPiece(spawned);
+      setCanHold(true);
+
+      if (overflow || collides(nextBoard, spawned)) {
+        setRunning(false);
+        setGameOver(true);
+      }
     };
 
-    pendingGarbageRef.current = nextPendingGarbage;
-    setPendingGarbage(nextPendingGarbage);
-    setClearCombo(nextCombo);
-    setAttackNotice(notice);
-    pushLocalAttackLog(notice);
-    setBoard(nextBoard);
-    setScore((prev) => prev + gained + 8);
-    setLines((prev) => {
-      const total = prev + result.cleared;
-      setCycle(Math.floor(total / 8) + 1);
-      return total;
-    });
-    setPiece(spawned);
-    setCanHold(true);
-
-    if (overflow || collides(nextBoard, spawned)) {
-      setRunning(false);
-      setGameOver(true);
+    if (result.cleared > 0) {
+      setResolvingClear(true);
+      setClearingRows(result.clearedRows);
+      setBoard(merged);
+      clearAnimationRef.current = window.setTimeout(commitLock, CLEAR_ANIMATION_MS);
+      return;
     }
-  }, [clearCombo, clearLockDelay, piece, pushLocalAttackLog, sessionId, takeNextPiece]);
+
+    commitLock();
+  }, [clearCombo, clearLockDelay, piece, pushLocalAttackLog, resolvingClear, sessionId, takeNextPiece]);
 
   const scheduleLock = useCallback(() => {
     if (lockDelayRef.current !== null) return;
@@ -521,6 +559,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
   useEffect(() => stopHorizontalHold, [stopHorizontalHold]);
   useEffect(() => clearLockDelay, [clearLockDelay]);
+  useEffect(() => () => {
+    if (clearAnimationRef.current !== null) {
+      window.clearTimeout(clearAnimationRef.current);
+      clearAnimationRef.current = null;
+    }
+  }, []);
 
   const startHorizontalHold = useCallback((direction: -1 | 1) => {
     if (!active) return;
@@ -600,6 +644,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
               winner={studyState?.winner === index}
               isMe={isMe}
+              clearingRows={isMe ? clearingRows : []}
               style={isMe ? boardStyle : undefined}
             />
               {isMe && (
@@ -705,14 +750,6 @@ function MetricsPanel({
       <Metric ln={8} name="countdown" value={countdown > 0 ? countdown : 'go'} string={countdown <= 0} />
       <Metric ln={9} name="combo" value={clearCombo} />
       <Metric ln={10} name="attack" value={attackNotice || 'idle'} string />
-      <div className={`tetris-combo-banner ${clearCombo >= 2 ? 'active' : ''}`}>
-        <span>{clearCombo >= 2 ? `COMBO x${clearCombo}` : 'COMBO idle'}</span>
-      </div>
-      <div className="tetris-attack-log">
-        {attackLogLines.length > 0 ? attackLogLines.map((line, index) => (
-          <span key={`${line}-${index}`}>{line}</span>
-        )) : <span className="dim">no attacks</span>}
-      </div>
       <CL ln={11}>
         <span className="var">visibility</span><span className="pct">: </span>
         <input
@@ -753,6 +790,14 @@ function MetricsPanel({
         {nextQueue.map((next, index) => <Preview key={`${next.type}-${index}`} title={`next${index + 1}`} piece={next} />)}
         <Preview title="hold" piece={holdPiece} />
       </div>
+      <div className={`tetris-combo-banner ${clearCombo >= 2 ? 'active' : ''}`}>
+        <span>{clearCombo >= 2 ? `COMBO x${clearCombo}` : 'COMBO idle'}</span>
+      </div>
+      <div className="tetris-attack-log">
+        {attackLogLines.length > 0 ? attackLogLines.map((line, index) => (
+          <span key={`${line}-${index}`}>{line}</span>
+        )) : <span className="dim">no attacks</span>}
+      </div>
       <div className="tetris-actions">
         <button className="btn-secondary" onClick={onPause}>
           {paused ? 'resumeAll()' : 'pauseAll()'}
@@ -767,7 +812,7 @@ function MetricsPanel({
 }
 
 function BoardShell({
-  name, board, score, lines, cycle, status, pending, winner, isMe, style,
+  name, board, score, lines, cycle, status, pending, winner, isMe, clearingRows, style,
 }: {
   name: string;
   board: Board;
@@ -778,9 +823,11 @@ function BoardShell({
   pending: number;
   winner: boolean;
   isMe: boolean;
+  clearingRows: number[];
   style?: CSSProperties;
 }) {
   const gaugeCount = Math.min(12, pending);
+  const clearingRowSet = useMemo(() => new Set(clearingRows), [clearingRows]);
   return (
     <div className={`tetris-shell ${isMe ? 'mine' : 'peer'}`}>
       <div className="tetris-head">
@@ -806,7 +853,7 @@ function BoardShell({
         {board.map((row, r) => row.map((cell, c) => (
           <div
             key={`${r}-${c}`}
-            className={`tetris-cell ${cell ? `filled t-${cell}` : ''}`}
+            className={`tetris-cell ${cell ? `filled t-${cell}` : ''} ${clearingRowSet.has(r) ? 'clearing' : ''}`}
             title={`${name} slot ${r + 1}.${c + 1}`}
           />
         )))}
