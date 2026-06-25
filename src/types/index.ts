@@ -174,6 +174,8 @@ export interface TetrisGameData {
   playerStates: Record<string, TetrisPlayerState>;
   garbageQueues?: Record<string, TetrisGarbageAttack[]>;
   comboCounts?: Record<string, number>;
+  lastAttackers?: Record<string, number>;
+  attackLog?: TetrisAttackLogEntry[];
   paused?: boolean;
 }
 
@@ -183,6 +185,11 @@ export interface TetrisGarbageAttack {
   lines: number;
   combo: number;
   cleared: number;
+}
+
+export interface TetrisAttackLogEntry extends TetrisGarbageAttack {
+  to: number;
+  timestamp: number;
 }
 
 export interface TetrisPlayerState {

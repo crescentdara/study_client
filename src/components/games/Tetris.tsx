@@ -58,6 +58,12 @@ const createPieceQueue = (size = NEXT_QUEUE_SIZE) => {
   return bag.slice(0, size).map(createPiece);
 };
 
+const refillPieceTypes = (queue: string[], size: number) => {
+  const next = [...queue];
+  while (next.length < size) next.push(...createBag());
+  return next;
+};
+
 const refillQueue = (queue: Piece[], size = NEXT_QUEUE_SIZE) => {
   const next = queue.map((item) => ({ ...item, shape: item.shape.map((row) => [...row]) }));
   while (next.length < size) {
@@ -99,15 +105,18 @@ const clearLines = (board: Board) => {
   return { board: [...blank, ...kept], cleared };
 };
 
-const addGarbageLines = (board: Board, count: number) => {
+const addGarbageLines = (board: Board, count: number, previousHole: number | null) => {
   const safeCount = Math.max(0, Math.min(8, count));
-  if (safeCount === 0) return board;
+  if (safeCount === 0) return { board, hole: previousHole };
   const kept = board.slice(safeCount).map((row) => [...row]);
-  const garbage = Array.from({ length: safeCount }, () => {
-    const hole = Math.floor(Math.random() * COLS);
+  let hole = previousHole ?? Math.floor(Math.random() * COLS);
+  const garbage = Array.from({ length: safeCount }, (_, index) => {
+    if (index > 0 && Math.random() >= 0.7) {
+      hole = Math.floor(Math.random() * COLS);
+    }
     return Array.from({ length: COLS }, (_, col) => (col === hole ? '' : 'G'));
   });
-  return [...kept, ...garbage];
+  return { board: [...kept, ...garbage], hole };
 };
 
 const baseAttackLines = (cleared: number) => {
@@ -130,7 +139,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [board, setBoard] = useState<Board>(() => emptyBoard());
   const [piece, setPiece] = useState<Piece>(() => initialQueue[0]);
   const [nextQueue, setNextQueue] = useState<Piece[]>(() => refillQueue(initialQueue.slice(1)));
-  const nextQueueRef = useRef<Piece[]>(refillQueue(initialQueue.slice(1)));
+  const pieceTypeQueueRef = useRef<string[]>(refillPieceTypes(initialQueue.slice(1).map((item) => item.type), 7));
   const [holdPiece, setHoldPiece] = useState<Piece | null>(null);
   const [canHold, setCanHold] = useState(true);
   const [score, setScore] = useState(0);
@@ -143,6 +152,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [pendingGarbage, setPendingGarbage] = useState(0);
   const [clearCombo, setClearCombo] = useState(0);
   const [attackNotice, setAttackNotice] = useState('');
+  const [localAttackLog, setLocalAttackLog] = useState<string[]>([]);
   const [dasDelay, setDasDelay] = useState(DAS_DELAY_MS);
   const [arrInterval, setArrInterval] = useState(ARR_INTERVAL_MS);
   const horizontalHoldRef = useRef<number | null>(null);
@@ -155,6 +165,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const appliedAttacksRef = useRef<Set<string>>(new Set());
   const ackAttackIdsRef = useRef<string[]>([]);
   const pendingGarbageRef = useRef(0);
+  const garbageHoleRef = useRef<number | null>(null);
   const pieceRef = useRef<Piece>(piece);
   const boardRef = useRef<Board>(board);
   const gameInstanceRef = useRef('');
@@ -184,6 +195,24 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ...boardViews.filter((view) => !view.isMe).slice(1),
   ];
 
+  const pushLocalAttackLog = useCallback((message: string) => {
+    if (!message) return;
+    setLocalAttackLog((prev) => [message, ...prev].slice(0, 6));
+  }, []);
+
+  const attackLogLines = useMemo(() => {
+    const serverLines = (data?.attackLog ?? [])
+      .slice(-6)
+      .reverse()
+      .map((entry) => {
+        const from = playerNames[entry.from] ?? `P${entry.from + 1}`;
+        const to = playerNames[entry.to] ?? `P${entry.to + 1}`;
+        const combo = entry.combo > 1 ? ` c${entry.combo}` : '';
+        return `${from} -> ${to} +${entry.lines}${combo}`;
+      });
+    return [...localAttackLog, ...serverLines].slice(0, 6);
+  }, [data?.attackLog, localAttackLog, playerNames]);
+
   useEffect(() => {
     pieceRef.current = piece;
   }, [piece]);
@@ -209,18 +238,18 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [countdown, gameOver, globalPaused, studyState?.status]);
 
   const setQueue = useCallback((queue: Piece[]) => {
-    const filled = refillQueue(queue);
-    nextQueueRef.current = filled;
-    setNextQueue(filled);
+    pieceTypeQueueRef.current = refillPieceTypes(queue.map((item) => item.type), 7);
+    setNextQueue(pieceTypeQueueRef.current.slice(0, NEXT_QUEUE_SIZE).map(createPiece));
   }, []);
 
   const takeNextPiece = useCallback(() => {
-    const filled = refillQueue(nextQueueRef.current);
-    const next = filled[0];
+    const filled = refillPieceTypes(pieceTypeQueueRef.current, 7);
+    const next = createPiece(filled[0]);
     const spawned = { ...next, row: 0, col: Math.floor((COLS - next.shape[0].length) / 2) };
-    setQueue(filled.slice(1));
+    pieceTypeQueueRef.current = refillPieceTypes(filled.slice(1), 7);
+    setNextQueue(pieceTypeQueueRef.current.slice(0, NEXT_QUEUE_SIZE).map(createPiece));
     return spawned;
-  }, [setQueue]);
+  }, []);
 
   const clearLockDelay = useCallback(() => {
     if (lockDelayRef.current !== null) {
@@ -248,9 +277,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setGameOver(false);
     setCountdown(COUNTDOWN_SECONDS);
     pendingGarbageRef.current = 0;
+    garbageHoleRef.current = null;
     setPendingGarbage(0);
     setClearCombo(0);
     setAttackNotice('');
+    setLocalAttackLog([]);
     lastAttackRef.current = { lastCleared: 0, attackKey: '' };
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
@@ -305,7 +336,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     } else if (result.cleared === 0 && queuedGarbage > 0) {
       const applyCount = Math.min(8, queuedGarbage);
       overflow = result.board.slice(0, applyCount).some((row) => row.some(Boolean));
-      nextBoard = addGarbageLines(result.board, applyCount);
+      const garbageResult = addGarbageLines(result.board, applyCount, garbageHoleRef.current);
+      nextBoard = garbageResult.board;
+      garbageHoleRef.current = garbageResult.hole;
       nextPendingGarbage = queuedGarbage - applyCount;
       notice = `garbage +${applyCount}`;
     } else if (outgoingPower > 0) {
@@ -326,6 +359,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setPendingGarbage(nextPendingGarbage);
     setClearCombo(nextCombo);
     setAttackNotice(notice);
+    pushLocalAttackLog(notice);
     setBoard(nextBoard);
     setScore((prev) => prev + gained + 8);
     setLines((prev) => {
@@ -340,7 +374,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setRunning(false);
       setGameOver(true);
     }
-  }, [clearCombo, clearLockDelay, piece, sessionId, takeNextPiece]);
+  }, [clearCombo, clearLockDelay, piece, pushLocalAttackLog, sessionId, takeNextPiece]);
 
   const scheduleLock = useCallback(() => {
     if (lockDelayRef.current !== null) return;
@@ -365,7 +399,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     pendingGarbageRef.current += totalLines;
     setPendingGarbage(pendingGarbageRef.current);
     setAttackNotice(`incoming +${totalLines}`);
-  }, [data?.garbageQueues, gameOver, myPlayerIndex]);
+    const attackers = [...new Set(pending.map((attack) => playerNames[attack.from] ?? `P${attack.from + 1}`))].join(',');
+    pushLocalAttackLog(`incoming +${totalLines}${attackers ? ` from ${attackers}` : ''}`);
+  }, [data?.garbageQueues, gameOver, myPlayerIndex, playerNames, pushLocalAttackLog]);
 
   const move = useCallback((dr: number, dc: number) => {
     if (!active) return false;
@@ -578,6 +614,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   pendingGarbage={pendingGarbage}
                   clearCombo={clearCombo}
                   attackNotice={attackNotice}
+                  attackLogLines={attackLogLines}
                   dasDelay={dasDelay}
                   arrInterval={arrInterval}
                   cellAlpha={cellAlpha}
@@ -633,7 +670,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
 function MetricsPanel({
   name, score, piece, nextQueue, holdPiece, paused, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
-  cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
+  attackLogLines, cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
 }: {
   name: string;
   score: number;
@@ -645,6 +682,7 @@ function MetricsPanel({
   pendingGarbage: number;
   clearCombo: number;
   attackNotice: string;
+  attackLogLines: string[];
   dasDelay: number;
   arrInterval: number;
   cellAlpha: number;
@@ -667,6 +705,14 @@ function MetricsPanel({
       <Metric ln={8} name="countdown" value={countdown > 0 ? countdown : 'go'} string={countdown <= 0} />
       <Metric ln={9} name="combo" value={clearCombo} />
       <Metric ln={10} name="attack" value={attackNotice || 'idle'} string />
+      <div className={`tetris-combo-banner ${clearCombo >= 2 ? 'active' : ''}`}>
+        <span>{clearCombo >= 2 ? `COMBO x${clearCombo}` : 'COMBO idle'}</span>
+      </div>
+      <div className="tetris-attack-log">
+        {attackLogLines.length > 0 ? attackLogLines.map((line, index) => (
+          <span key={`${line}-${index}`}>{line}</span>
+        )) : <span className="dim">no attacks</span>}
+      </div>
       <CL ln={11}>
         <span className="var">visibility</span><span className="pct">: </span>
         <input
