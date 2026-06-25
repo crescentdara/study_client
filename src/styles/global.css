@@ -703,6 +703,49 @@ select option { background: var(--bg-sidebar); }
   pointer-events: none;
 }
 
+.tetris-combo-banner {
+  height: 28px;
+  margin: 7px 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(62, 62, 66, 0.82);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.tetris-combo-banner.active {
+  border-color: rgba(220, 220, 170, 0.68);
+  background: rgba(220, 220, 170, 0.12);
+  color: #dcdcaa;
+  box-shadow: inset 0 0 0 1px rgba(220, 220, 170, 0.08);
+}
+
+.tetris-attack-log {
+  height: 92px;
+  margin: 7px 10px 0;
+  padding: 6px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(62, 62, 66, 0.82);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.tetris-attack-log span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tetris-range {
   width: 92px;
   height: 4px;
