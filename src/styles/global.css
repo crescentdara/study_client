@@ -628,6 +628,53 @@ select option { background: var(--bg-sidebar); }
   border-color: rgba(156, 220, 254, 0.18);
 }
 
+.tetris-cell.clearing {
+  position: relative;
+  overflow: hidden;
+  animation: tetris-crack-clear 170ms ease-out both;
+}
+
+.tetris-cell.clearing::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(34deg, transparent 0 42%, rgba(255, 255, 255, 0.86) 43% 47%, transparent 48%),
+    linear-gradient(132deg, transparent 0 53%, rgba(255, 255, 255, 0.58) 54% 57%, transparent 58%);
+  animation: tetris-crack-mark 170ms ease-out both;
+}
+
+@keyframes tetris-crack-clear {
+  0% {
+    opacity: var(--tetris-cell-alpha, 0.58);
+    filter: brightness(1);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  35% {
+    opacity: 0.95;
+    filter: brightness(1.85);
+    transform: translate3d(1px, -1px, 0) scale(1.04);
+  }
+  68% {
+    opacity: 0.48;
+    filter: brightness(1.25);
+    transform: translate3d(-1px, 1px, 0) scale(0.92);
+  }
+  100% {
+    opacity: 0;
+    filter: brightness(0.9);
+    transform: translate3d(0, 0, 0) scale(0.58);
+  }
+}
+
+@keyframes tetris-crack-mark {
+  0% { opacity: 0; }
+  28% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
 .tetris-board-metrics {
   display: flex;
   justify-content: space-between;
