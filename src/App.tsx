@@ -374,6 +374,8 @@ function App() {
 
     const [showByebye, setShowByebye] = useState(false);
 
+    const [overlayOpacity, setOverlayOpacity] = useState(0.6);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
@@ -608,43 +610,88 @@ function App() {
 
                     {/* 콘텐츠 영역 */}
                     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
-                        {currentRoom === null && showPuyo ? (
-                            <PuyoPuyo onClose={() => setShowPuyo(false)} />
-                        ) : currentRoom === null && showSudoku ? (
-                            <Sudoku onClose={() => setShowSudoku(false)} />
-                        ) : currentRoom === null ? (
-                            <Lobby
-                                nickname={nickname}
-                                emoji={emoji}
-                                sessionId={sessionId}
-                                onNicknameChange={handleNicknameChange}
-                                onEmojiChange={handleEmojiChange}
-                                onJoinRoom={handleJoinRoom}
-                                rooms={rooms}
-                                loading={loading}
-                                fetchRooms={fetchRooms}
-                                profileEditing={profileEditing}
-                                onJoin={handleJoin}
-                                lobbyError={lobbyError}
-                                onClearLobbyError={() => setLobbyError('')}
-                                wordRainOn={wordRainOn}
-                            />
-                        ) : (
-                            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-                                <StudyRoom
-                                    room={currentRoom}
+                        {/* 오페시티 적용 */}
+                        <div
+                            style={{
+                                // position: 'absolute',
+                                // top: 12,
+                                // right: 12,
+                                // zIndex: 9999,
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                gap: 8,
+                                padding: '8px 24px',
+                                background: 'rgba(30,30,30,.8)',
+                                borderRadius: 8,
+                                color: '#fff',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    opacity: '0.3'
+                                }}
+                            >
+                                <span>Opacity</span>
+                                <input
+                                    type="range"
+                                    min={20}
+                                    max={100}
+                                    value={overlayOpacity * 100}
+                                    onChange={(e) =>
+                                    setOverlayOpacity(Number(e.target.value) / 100)
+                                    }
+                                />
+                                <span>{Math.round(overlayOpacity * 100)}%</span>
+                            </div>
+                        </div>
+                        {/* 오페시티 적용 */}
+                        <div
+                            style={{
+                                flex: 1,
+                                opacity: overlayOpacity,
+                                transition: 'opacity .15s ease',
+                            }}
+                        >
+                            {currentRoom === null && showPuyo ? (
+                                <PuyoPuyo onClose={() => setShowPuyo(false)} />
+                            ) : currentRoom === null && showSudoku ? (
+                                <Sudoku onClose={() => setShowSudoku(false)} />
+                            ) : currentRoom === null ? (
+                                <Lobby
                                     nickname={nickname}
                                     emoji={emoji}
                                     sessionId={sessionId}
-                                    studyState={studyState}
-                                    onStudyState={handleStudyState}
-                                    onLeave={handleLeaveRoom}
-                                    onChatMessage={checkMention}
-                                    leaveRef={leaveRef}
+                                    onNicknameChange={handleNicknameChange}
+                                    onEmojiChange={handleEmojiChange}
+                                    onJoinRoom={handleJoinRoom}
+                                    rooms={rooms}
+                                    loading={loading}
+                                    fetchRooms={fetchRooms}
+                                    profileEditing={profileEditing}
+                                    onJoin={handleJoin}
+                                    lobbyError={lobbyError}
+                                    onClearLobbyError={() => setLobbyError('')}
+                                    wordRainOn={wordRainOn}
                                 />
-                            </div>
-                        )}
-
+                            ) : (
+                                <div style={{ flex: 1, overflow: 'auto', padding: '0 24px 20px 24px' }}>
+                                    <StudyRoom
+                                        room={currentRoom}
+                                        nickname={nickname}
+                                        emoji={emoji}
+                                        sessionId={sessionId}
+                                        studyState={studyState}
+                                        onStudyState={handleStudyState}
+                                        onLeave={handleLeaveRoom}
+                                        onChatMessage={checkMention}
+                                        leaveRef={leaveRef}
+                                    />
+                                </div>
+                            )}
+                        </div>
                         {/* 워드레인 오버레이 — 게임 실행 중 항상 마운트, display로만 표시/숨김 */}
                         {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && (
                             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5, display: wordRainVisible ? 'block' : 'none' }}>
