@@ -436,10 +436,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ackAttackIdsRef.current = [...ackAttackIdsRef.current, ...pending.map((attack) => attack.attackId)];
     pendingGarbageRef.current += totalLines;
     setPendingGarbage(pendingGarbageRef.current);
-    setAttackNotice(`incoming +${totalLines}`);
-    const attackers = [...new Set(pending.map((attack) => playerNames[attack.from] ?? `P${attack.from + 1}`))].join(',');
-    pushLocalAttackLog(`incoming +${totalLines}${attackers ? ` from ${attackers}` : ''}`);
-  }, [data?.garbageQueues, gameOver, myPlayerIndex, playerNames, pushLocalAttackLog]);
+  }, [data?.garbageQueues, gameOver, myPlayerIndex]);
 
   const move = useCallback((dr: number, dc: number) => {
     if (!active) return false;
@@ -649,16 +646,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
             />
               {isMe && (
                 <MetricsPanel
-                  name={studyState?.playerNames?.[myPlayerIndex] ?? 'me'}
-                  score={score}
-                  piece={piece}
                   nextQueue={nextQueue}
                   holdPiece={holdPiece}
                   paused={globalPaused}
-                  countdown={countdown}
-                  pendingGarbage={pendingGarbage}
                   clearCombo={clearCombo}
-                  attackNotice={attackNotice}
                   attackLogLines={attackLogLines}
                   dasDelay={dasDelay}
                   arrInterval={arrInterval}
@@ -714,19 +705,13 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 }
 
 function MetricsPanel({
-  name, score, piece, nextQueue, holdPiece, paused, countdown, pendingGarbage, clearCombo, attackNotice, dasDelay, arrInterval,
+  nextQueue, holdPiece, paused, clearCombo, dasDelay, arrInterval,
   attackLogLines, cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
 }: {
-  name: string;
-  score: number;
-  piece: Piece;
   nextQueue: Piece[];
   holdPiece: Piece | null;
   paused: boolean;
-  countdown: number;
-  pendingGarbage: number;
   clearCombo: number;
-  attackNotice: string;
   attackLogLines: string[];
   dasDelay: number;
   arrInterval: number;
@@ -741,16 +726,7 @@ function MetricsPanel({
   return (
     <div className="code-block tetris-side">
       <CL ln={1}><span className="cmt">{'// queue metrics'}</span></CL>
-      <Metric ln={2} name="operator" value={name} string />
-      <Metric ln={3} name="score" value={score} />
-      <Metric ln={4} name="batch" value={piece.type} string />
-      <Metric ln={5} name="nextBatch" value={nextQueue[0]?.type ?? 'null'} string />
-      <Metric ln={6} name="pinnedTask" value={holdPiece?.type ?? 'null'} string />
-      <Metric ln={7} name="incoming" value={pendingGarbage} />
-      <Metric ln={8} name="countdown" value={countdown > 0 ? countdown : 'go'} string={countdown <= 0} />
-      <Metric ln={9} name="combo" value={clearCombo} />
-      <Metric ln={10} name="attack" value={attackNotice || 'idle'} string />
-      <CL ln={11}>
+      <CL ln={2}>
         <span className="var">visibility</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -762,7 +738,7 @@ function MetricsPanel({
         />
         <span className="num"> {cellAlpha}%</span>
       </CL>
-      <CL ln={12}>
+      <CL ln={3}>
         <span className="var">DAS</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -774,7 +750,7 @@ function MetricsPanel({
         />
         <span className="num"> {dasDelay}ms</span>
       </CL>
-      <CL ln={13}>
+      <CL ln={4}>
         <span className="var">ARR</span><span className="pct">: </span>
         <input
           className="tetris-range"
@@ -803,9 +779,6 @@ function MetricsPanel({
           {paused ? 'resumeAll()' : 'pauseAll()'}
         </button>
         <button className="btn-primary" onClick={onRestart} disabled={!canRestart}>restartAll()</button>
-      </div>
-      <div className="tetris-note">
-        <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
       </div>
     </div>
   );

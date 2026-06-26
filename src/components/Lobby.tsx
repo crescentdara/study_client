@@ -355,7 +355,7 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'INCIDENT_AVOID', 'BREAKOUT', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
