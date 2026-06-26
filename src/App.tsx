@@ -323,6 +323,17 @@ function App() {
 
     const handleStudyState = useCallback((s: StudyStateResponse) => {
         setStudyState(s);
+        if (s.status) {
+            setCurrentRoom((room) => room && room.roomId === s.roomId
+                ? {
+                    ...room,
+                    status: s.status,
+                    studyType: s.studyType ?? room.studyType,
+                    playerNames: s.playerNames ?? room.playerNames,
+                    playerCount: s.playerNames?.length ?? room.playerCount,
+                }
+                : room);
+        }
     }, []);
 
     const handleJoin = useCallback(
