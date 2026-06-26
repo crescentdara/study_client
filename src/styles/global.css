@@ -490,6 +490,7 @@ select option { background: var(--bg-sidebar); }
   display: block;
   align-items: start;
   outline: none;
+  position: relative;
 }
 
 .tetris-main,
@@ -819,9 +820,119 @@ select option { background: var(--bg-sidebar); }
   color: var(--text-dim);
 }
 
+.tetris-work-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #1e1e1e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  pointer-events: none;
+}
+
+.tetris-work-cover-tabs {
+  height: 31px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  padding-left: 8px;
+  background: #252526;
+  border-bottom: 1px solid #1b1b1c;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.tetris-work-cover-tabs span {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-right: 1px solid rgba(62, 62, 66, 0.8);
+  background: #2d2d30;
+}
+
+.tetris-work-cover-tabs span.active {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-top: 1px solid #569cd6;
+}
+
+.tetris-work-cover-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  background: #1e1e1e;
+}
+
+.tetris-work-cover-body aside {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 12px;
+  border-right: 1px solid #2d2d30;
+  background: #252526;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.tetris-work-cover-body aside b {
+  margin-bottom: 6px;
+  color: #8a8a8a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tetris-work-cover-body aside span {
+  padding-left: 10px;
+  white-space: nowrap;
+}
+
+.tetris-work-cover-body aside span.active {
+  margin-left: -6px;
+  padding: 4px 8px 4px 16px;
+  background: #37373d;
+  color: #d4d4d4;
+}
+
+.tetris-work-cover-body main {
+  min-width: 0;
+  padding: 12px 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 48px 0 / 48px 100%,
+    #1e1e1e;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.tetris-work-cover-status {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 0 12px;
+  background: #007acc;
+  color: #fff;
+  font-size: 10px;
+}
+
 @media (max-width: 760px) {
   .tetris-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .tetris-work-cover-body {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .tetris-work-cover-tabs span {
+    padding: 0 8px;
   }
 }
 

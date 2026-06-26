@@ -11,6 +11,8 @@ const DAS_DELAY_MS = 130;
 const ARR_INTERVAL_MS = 42;
 const COUNTDOWN_SECONDS = 3;
 const CLEAR_ANIMATION_MS = 170;
+const TETRIS_DAS_KEY = 'study.tetrisDasDelay';
+const TETRIS_ARR_KEY = 'study.tetrisArrInterval';
 
 const SHAPES: Record<string, number[][]> = {
   I: [[1, 1, 1, 1]],
@@ -71,6 +73,12 @@ const refillQueue = (queue: Piece[], size = NEXT_QUEUE_SIZE) => {
     next.push(...createBag().map(createPiece));
   }
   return next.slice(0, size);
+};
+
+const readStoredNumber = (key: string, fallback: number, min: number, max: number) => {
+  const parsed = Number(localStorage.getItem(key));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
 };
 
 const rotateShape = (shape: number[][]) =>
@@ -161,8 +169,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [localAttackLog, setLocalAttackLog] = useState<string[]>([]);
   const [clearingRows, setClearingRows] = useState<number[]>([]);
   const [resolvingClear, setResolvingClear] = useState(false);
-  const [dasDelay, setDasDelay] = useState(DAS_DELAY_MS);
-  const [arrInterval, setArrInterval] = useState(ARR_INTERVAL_MS);
+  const [dasDelay, setDasDelay] = useState(() => readStoredNumber(TETRIS_DAS_KEY, DAS_DELAY_MS, 70, 220));
+  const [arrInterval, setArrInterval] = useState(() => readStoredNumber(TETRIS_ARR_KEY, ARR_INTERVAL_MS, 16, 90));
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
   const lockDelayRef = useRef<number | null>(null);
@@ -615,6 +623,16 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     '--tetris-cell-alpha': `${cellAlpha / 100}`,
   } as CSSProperties;
 
+  const updateDasDelay = useCallback((value: number) => {
+    setDasDelay(value);
+    localStorage.setItem(TETRIS_DAS_KEY, String(value));
+  }, []);
+
+  const updateArrInterval = useCallback((value: number) => {
+    setArrInterval(value);
+    localStorage.setItem(TETRIS_ARR_KEY, String(value));
+  }, []);
+
   return (
     <div className="tetris-workspace" tabIndex={0}>
       <div className="code-block tetris-main">
@@ -655,8 +673,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
                   arrInterval={arrInterval}
                   cellAlpha={cellAlpha}
                   onCellAlpha={setCellAlpha}
-                  onDasDelay={setDasDelay}
-                  onArrInterval={setArrInterval}
+                  onDasDelay={updateDasDelay}
+                  onArrInterval={updateArrInterval}
                   onPause={toggleGlobalPause}
                   onRestart={requestGlobalRestart}
                   canRestart={isHost}
@@ -699,6 +717,49 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         <div className="tetris-note">
           <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
         </div>
+      </div>
+      {globalPaused && <TetrisWorkCover />}
+    </div>
+  );
+}
+
+function TetrisWorkCover() {
+  return (
+    <div className="tetris-work-cover" aria-hidden="true">
+      <div className="tetris-work-cover-tabs">
+        <span className="active">queue.worker.ts</span>
+        <span>sessionStore.ts</span>
+        <span>indexer.log</span>
+      </div>
+      <div className="tetris-work-cover-body">
+        <aside>
+          <b>EXPLORER</b>
+          <span>src</span>
+          <span>services</span>
+          <span className="active">queue.worker.ts</span>
+          <span>sessionStore.ts</span>
+          <span>tasks</span>
+          <span>syncPipeline.ts</span>
+        </aside>
+        <main>
+          <CL ln={1}><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">createBatch</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">'./syncPipeline'</span><span className="pct">;</span></CL>
+          <CL ln={2}><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">commitSnapshot</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">'./sessionStore'</span><span className="pct">;</span></CL>
+          <CL ln={3}>{' '}</CL>
+          <CL ln={4}><span className="kw">export async function </span><span className="fn">reconcileWorkspace</span><span className="pct">{'() {'}</span></CL>
+          <CL ln={5}>  <span className="kw">const </span><span className="var">batch</span><span className="pct"> = await </span><span className="fn">createBatch</span><span className="pct">();</span></CL>
+          <CL ln={6}>  <span className="kw">const </span><span className="var">snapshot</span><span className="pct"> = await </span><span className="fn">commitSnapshot</span><span className="pct">(</span><span className="var">batch</span><span className="pct">);</span></CL>
+          <CL ln={7}>  <span className="kw">return </span><span className="pct">{'{ '}</span><span className="var">status</span><span className="pct">: </span><span className="str">'watching'</span><span className="pct">, </span><span className="var">snapshot</span><span className="pct">{' };'}</span></CL>
+          <CL ln={8}><span className="pct">{'}'}</span></CL>
+          <CL ln={9}>{' '}</CL>
+          <CL ln={10}><span className="cmt">{'// watching for file changes...'}</span></CL>
+          <CL ln={11}><span className="cmt">{'// TypeScript: 0 errors'}</span></CL>
+        </main>
+      </div>
+      <div className="tetris-work-cover-status">
+        <span>main</span>
+        <span>UTF-8</span>
+        <span>TypeScript</span>
+        <span>Prettier</span>
       </div>
     </div>
   );
