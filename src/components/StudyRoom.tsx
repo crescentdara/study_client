@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Room, StudyStateResponse, ChatMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
@@ -28,7 +28,7 @@ interface StudyRoomProps {
     leaveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export default function StudyRoom({
+function StudyRoom({
     room,
     nickname,
     emoji: _emoji,
@@ -339,3 +339,5 @@ export default function StudyRoom({
         </div>
     );
 }
+
+export default memo(StudyRoom);
