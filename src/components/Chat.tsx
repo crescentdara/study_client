@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ChatAttachment, ChatMessage } from "../types";
 import imgCh1 from '../assets/images/ch1.png';
 import imgCh2 from '../assets/images/ch2.png';
@@ -18,6 +18,8 @@ interface ChatProps {
   onSend: (text: string, sessionId: string, attachment?: ChatAttachment) => void;
   playerNames?: string[];
 }
+
+const CHAT_RENDER_LIMIT = 80;
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
   { id: "ch1", src: imgCh1, label: "😀" },
@@ -81,20 +83,33 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const [mentionAt, setMentionAt] = useState(0); // index of '@' in input
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stickToBottomRef = useRef(true);
 
-  const mentionCandidates = mentionQuery !== null
-    ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
-    : [];
+  const visibleMessages = useMemo(() => messages.slice(-CHAT_RENDER_LIMIT), [messages]);
+  const mentionCandidates = useMemo(() => (
+    mentionQuery !== null
+      ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+      : []
+  ), [mentionQuery, myNickname, playerNames]);
   const voiceMatch = input.match(/(^|\s)(\/v(?:o(?:i(?:c(?:e)?)?)?)?)$/i);
   const voiceCompletion = voiceMatch && "/voice".startsWith(voiceMatch[2].toLowerCase())
     ? "/voice".slice(voiceMatch[2].length)
     : "";
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (stickToBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [visibleMessages.length]);
+
+  const updateStickToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
 
   const handleSend = () => {
     const text = input.trim();
@@ -231,21 +246,35 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
       </div>
 
       {open && (
-        <div style={{ flex: 1, overflowY: "auto", padding: "6px 0", minHeight: 0 }}>
+        <div
+          ref={scrollRef}
+          onScroll={updateStickToBottom}
+          style={{ flex: 1, overflowY: "auto", padding: "6px 0", minHeight: 0 }}
+        >
           {messages.length === 0 && (
             <div style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
               <span style={{ color: "#6a9955" }}>{"// no messages yet"}</span>
             </div>
           )}
 
-          {messages.map((message, index) => {
+          {visibleMessages.map((message, index) => (
+            <ChatMessageItem
+              key={`${message.timestamp}-${message.nickname}-${message.text}-${message.imageUrl ?? ""}-${index}`}
+              message={message}
+              prev={visibleMessages[index - 1]}
+              next={visibleMessages[index + 1]}
+              myNickname={myNickname}
+              myEmoji={myEmoji}
+            />
+          ))}
+          {false && visibleMessages.map((message, index) => {
             const isMe = message.nickname === myNickname;
             const time = new Date(message.timestamp).toLocaleTimeString("en-US", {
               hour12: false,
               hour: "2-digit",
               minute: "2-digit",
             });
-            const prev = messages[index - 1];
+            const prev = visibleMessages[index - 1];
             const prevTime = prev
               ? new Date(prev.timestamp).toLocaleTimeString("en-US", {
                   hour12: false,
@@ -255,7 +284,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
               : null;
             const isGrouped = !!prev && prev.nickname === message.nickname && prevTime === time;
             const mentionsMe = message.mentionedNickname === myNickname;
-            const next = messages[index + 1];
+            const next = visibleMessages[index + 1];
             const nextTime = next
               ? new Date(next.timestamp).toLocaleTimeString("en-US", {
                   hour12: false,
@@ -267,7 +296,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
 
             return (
               <div
-                key={index}
+                key={`${message.timestamp}-${message.nickname}-${message.text}-${message.imageUrl ?? ""}-${index}`}
                 style={{
                   width: "100%",
                   padding: isGrouped ? "2px 10px" : "6px 10px 1px",
@@ -537,5 +566,132 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
     </div>
   );
 }
+
+const ChatMessageItem = memo(function ChatMessageItem({
+  message,
+  prev,
+  next,
+  myNickname,
+  myEmoji,
+}: {
+  message: ChatMessage;
+  prev?: ChatMessage;
+  next?: ChatMessage;
+  myNickname: string;
+  myEmoji: string;
+}) {
+  const isMe = message.nickname === myNickname;
+  const time = new Date(message.timestamp).toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const prevTime = prev
+    ? new Date(prev.timestamp).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const nextTime = next
+    ? new Date(next.timestamp).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const isGrouped = !!prev && prev.nickname === message.nickname && prevTime === time;
+  const mentionsMe = message.mentionedNickname === myNickname;
+  const isLastInGroup = !next || next.nickname !== message.nickname || nextTime !== time;
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        padding: isGrouped ? "2px 10px" : "6px 10px 1px",
+        fontSize: "12px",
+        lineHeight: "1.6",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isMe ? "flex-end" : "flex-start",
+      }}
+    >
+      {!isGrouped && (
+        <span
+          style={{
+            color: isMe ? "#4ec9b0" : "#9cdcfe",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            marginBottom: "2px",
+            flexDirection: isMe ? "row-reverse" : "row",
+          }}
+        >
+          {renderAvatar(message.emoji || (isMe ? myEmoji : ""))}
+          {message.nickname}
+        </span>
+      )}
+
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: isMe ? "row-reverse" : "row",
+          alignItems: "flex-end",
+          gap: "4px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "80%",
+            background: mentionsMe
+              ? "rgba(255,158,59,0.12)"
+              : isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
+            border: `1px solid ${mentionsMe ? "rgba(255,158,59,0.5)" : isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
+            padding: "5px 10px",
+            borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",
+            wordBreak: "break-word",
+          }}
+        >
+          {mentionsMe && (
+            <div style={{ color: "#ff9e3b", fontSize: "9px", marginBottom: 2, fontWeight: 700 }}>
+              Mentioned you
+            </div>
+          )}
+          {message.type === "IMAGE" && message.imageUrl ? (
+            <a href={message.imageUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+              <img
+                src={message.imageUrl}
+                alt={message.fileName || "uploaded image"}
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: "block",
+                  maxWidth: "100%",
+                  maxHeight: "220px",
+                  borderRadius: "3px",
+                  objectFit: "contain",
+                }}
+              />
+              {message.fileName && (
+                <span style={{ display: "block", marginTop: "4px", color: "#858585", fontSize: "10px" }}>
+                  {message.fileName}
+                </span>
+              )}
+            </a>
+          ) : (
+            <span style={{ color: "#d4d4d4" }}>
+              {renderWithMentions(message.text, myNickname)}
+            </span>
+          )}
+        </div>
+
+        {isLastInGroup && (
+          <span style={{ color: "#4e4e4e", fontSize: "10px", whiteSpace: "nowrap" }}>{time}</span>
+        )}
+      </div>
+    </div>
+  );
+});
 
 export default memo(Chat);

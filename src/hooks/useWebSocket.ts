@@ -33,7 +33,6 @@ export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: Us
           onStudyStateRef.current(JSON.parse(m.body));
         });
         client.subscribe(`/topic/chat/${roomId}`, (m: IMessage) => {
-          console.log('[WS] Chat received:', m.body);
           onChatRef.current(JSON.parse(m.body));
         });
 
@@ -80,7 +79,6 @@ export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: Us
       emoji,
       ...(attachment ?? { type: 'TEXT' }),
     });
-    console.log('[WS] sendChat →', body);
     c.publish({ destination: `/app/study/${roomId}/chat`, body });
   }, [roomId]);
 

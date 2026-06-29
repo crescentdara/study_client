@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
@@ -65,6 +65,44 @@ const GAME_EXT: Record<StudyType, string> = {
 };
 const MAX_CHAT_MESSAGES = 200;
 
+interface LobbyChatPanelProps {
+    nickname: string;
+    emoji: string;
+    sessionId: string;
+    playerNames: string[];
+    onMention: (msg: ChatMessage) => void;
+}
+
+const LobbyChatPanel = memo(function LobbyChatPanel({
+    nickname,
+    emoji,
+    sessionId,
+    playerNames,
+    onMention,
+}: LobbyChatPanelProps) {
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const handleMessage = useCallback((msg: ChatMessage) => {
+        setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
+        onMention(msg);
+    }, [onMention]);
+    const { sendChat } = useLobbyChat({ onMessage: handleMessage });
+    const noopSend = useCallback(() => {}, []);
+    const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment) => {
+        sendChat(text, nickname, emoji, sessionId, attachment);
+    }, [sendChat, nickname, emoji, sessionId]);
+
+    return (
+        <Chat
+            messages={messages}
+            myNickname={nickname}
+            myEmoji={emoji}
+            sessionId={sessionId}
+            onSend={nickname.trim() ? handleSend : noopSend}
+            playerNames={playerNames}
+        />
+    );
+});
+
 function App() {
     // ── 기본 상태 ──────────────────────────────────────────────────────────────
     const [nickname, setNicknameState] = useState(() => localStorage.getItem('study.nickname') ?? '');
@@ -88,19 +126,6 @@ function App() {
     }, [addToast]);
 
     // ── 로비 채팅 ──────────────────────────────────────────────────────────────
-    const [lobbyMessages, setLobbyMessages] = useState<ChatMessage[]>([]);
-    const handleLobbyMessage = useCallback((msg: ChatMessage) => {
-        setLobbyMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
-        checkMention(msg);
-    }, [checkMention]);
-    const { sendChat: sendLobbyChat } = useLobbyChat({ onMessage: handleLobbyMessage });
-    const handleLobbyChatSend = useCallback(
-        (text: string, _sid: string, attachment?: ChatAttachment) => {
-            sendLobbyChat(text, nickname, emoji, sessionId, attachment);
-        },
-        [sendLobbyChat, nickname, emoji, sessionId],
-    );
-
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
     const [chatWidth, setChatWidth] = useState(() => Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))));
 
@@ -384,6 +409,12 @@ function App() {
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
     const [showByebye, setShowByebye] = useState(false);
+    const chatPlayerNames = useMemo(() => (
+        (currentRoom
+            ? (currentRoom.playerNames ?? [])
+            : rooms.flatMap(r => r.playerNames ?? [])
+        ).filter((n, i, a) => n !== nickname && a.indexOf(n) === i)
+    ), [currentRoom, rooms, nickname]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -774,13 +805,13 @@ function App() {
                             <span>닉네임을 먼저 입력해주세요</span>
                         </div>
                     )}
-                    <Chat messages={lobbyMessages} myNickname={nickname} myEmoji={emoji} sessionId={sessionId} onSend={nickname.trim() ? handleLobbyChatSend : () => {}}
-                        playerNames={
-                          (currentRoom
-                            ? (currentRoom.playerNames ?? [])
-                            : rooms.flatMap(r => r.playerNames ?? [])
-                          ).filter((n, i, a) => n !== nickname && a.indexOf(n) === i)
-                        } />
+                    <LobbyChatPanel
+                        nickname={nickname}
+                        emoji={emoji}
+                        sessionId={sessionId}
+                        playerNames={chatPlayerNames}
+                        onMention={checkMention}
+                    />
                 </div>
 
             </div>
