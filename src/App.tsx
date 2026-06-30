@@ -418,8 +418,11 @@ function App() {
 
     const [overlayOpacity, setOverlayOpacity] = useState(0.6);
 
+    const [noiseOn, setNoiseOn] = useState(false);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            {noiseOn && <div className="noise"></div>}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
@@ -457,6 +460,14 @@ function App() {
                         )}
                     </div>
                     {/* 퇴사축하 팝업 */}
+
+                    <span
+                        style={{ cursor: 'pointer', opacity: noiseOn ? 1 : 0.4, userSelect: 'none' }}
+                        title="Toggle noise effect"
+                        onClick={() => setNoiseOn(v => !v)}
+                    >
+                        noise {noiseOn ? 'on' : 'off'}
+                    </span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
                     <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0 }}>
@@ -651,7 +662,7 @@ function App() {
                     </div>
 
                     {/* 콘텐츠 영역 */}
-                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+                    <div style={{ flex: 1, overflowY: 'scroll', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
                         {/* 오페시티 적용 */}
                         <div
                             style={{
