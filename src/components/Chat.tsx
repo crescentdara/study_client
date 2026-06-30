@@ -73,6 +73,8 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const [showOpacity, setShowOpacity] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [previewImage, setPreviewImage] = useState<{ url: string; fileName?: string } | null>(null);
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -87,8 +89,13 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottomRef = useRef(true);
+  const previousLatestMessageKeyRef = useRef("");
 
   const visibleMessages = useMemo(() => messages.slice(-CHAT_RENDER_LIMIT), [messages]);
+  const latestMessageKey = useMemo(() => {
+    const latest = messages[messages.length - 1];
+    return latest ? `${latest.timestamp}-${latest.nickname}-${latest.text}-${latest.imageUrl ?? ""}` : "";
+  }, [messages]);
   const mentionCandidates = useMemo(() => (
     mentionQuery !== null
       ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
@@ -100,15 +107,27 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
     : "";
 
   useEffect(() => {
+    const hasNewLatest = latestMessageKey !== "" && latestMessageKey !== previousLatestMessageKeyRef.current;
+    previousLatestMessageKeyRef.current = latestMessageKey;
+
     if (stickToBottomRef.current) {
       bottomRef.current?.scrollIntoView({ block: "end" });
+    } else if (hasNewLatest) {
+      setUnreadCount((count) => count + 1);
     }
-  }, [visibleMessages.length]);
+  }, [latestMessageKey, visibleMessages.length]);
 
   const updateStickToBottom = () => {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (stickToBottomRef.current) setUnreadCount(0);
+  };
+
+  const scrollToBottom = () => {
+    stickToBottomRef.current = true;
+    setUnreadCount(0);
+    bottomRef.current?.scrollIntoView({ block: "end" });
   };
 
   const handleSend = () => {
@@ -209,6 +228,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
         minHeight: "200px",
         opacity: chatOpacity / 100,
         transition: "opacity 0.2s",
+        position: "relative",
       }}
     >
       <div
@@ -249,7 +269,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
         <div
           ref={scrollRef}
           onScroll={updateStickToBottom}
-          style={{ flex: 1, overflowY: "auto", padding: "6px 0", minHeight: 0 }}
+          style={{ flex: 1, overflowY: "auto", padding: "6px 0 18px", minHeight: 0, scrollPaddingBottom: 18 }}
         >
           {messages.length === 0 && (
             <div style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
@@ -265,6 +285,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
               next={visibleMessages[index + 1]}
               myNickname={myNickname}
               myEmoji={myEmoji}
+              onPreview={setPreviewImage}
             />
           ))}
           {false && visibleMessages.map((message, index) => {
@@ -382,8 +403,30 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
               </div>
             );
           })}
-          <div ref={bottomRef} />
+          <div ref={bottomRef} style={{ height: 8 }} />
         </div>
+      )}
+
+      {open && unreadCount > 0 && (
+        <button
+          onClick={scrollToBottom}
+          style={{
+            position: "absolute",
+            right: 12,
+            bottom: 48,
+            zIndex: 3,
+            border: "1px solid rgba(78,201,176,0.45)",
+            borderRadius: 999,
+            background: "#1f3a35",
+            color: "#b7fff1",
+            fontSize: 11,
+            padding: "4px 10px",
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+          }}
+        >
+          {unreadCount} new messages
+        </button>
       )}
 
       {open && (
@@ -563,6 +606,43 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
           </div>
         </div>
       )}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgba(0,0,0,0.72)",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              maxWidth: "88vw",
+              maxHeight: "88vh",
+              border: "1px solid #3e3e42",
+              background: "#1e1e1e",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.55)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderBottom: "1px solid #3e3e42", color: "#858585", fontSize: 11 }}>
+              <span style={{ color: "#569cd6" }}>image.preview</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{previewImage.fileName || "uploaded image"}</span>
+              <button className="btn-secondary" style={{ marginLeft: "auto", fontSize: 11, padding: "2px 8px" }} onClick={() => setPreviewImage(null)}>close</button>
+            </div>
+            <img
+              src={previewImage.url}
+              alt={previewImage.fileName || "uploaded image"}
+              style={{ display: "block", maxWidth: "88vw", maxHeight: "calc(88vh - 34px)", objectFit: "contain" }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -573,12 +653,14 @@ const ChatMessageItem = memo(function ChatMessageItem({
   next,
   myNickname,
   myEmoji,
+  onPreview,
 }: {
   message: ChatMessage;
   prev?: ChatMessage;
   next?: ChatMessage;
   myNickname: string;
   myEmoji: string;
+  onPreview: (image: { url: string; fileName?: string }) => void;
 }) {
   const isMe = message.nickname === myNickname;
   const time = new Date(message.timestamp).toLocaleTimeString("en-US", {
@@ -659,7 +741,14 @@ const ChatMessageItem = memo(function ChatMessageItem({
             </div>
           )}
           {message.type === "IMAGE" && message.imageUrl ? (
-            <a href={message.imageUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+            <a
+              href={message.imageUrl}
+              onClick={(event) => {
+                event.preventDefault();
+                onPreview({ url: message.imageUrl || "", fileName: message.fileName });
+              }}
+              style={{ textDecoration: "none", cursor: "zoom-in" }}
+            >
               <img
                 src={message.imageUrl}
                 alt={message.fileName || "uploaded image"}

@@ -69,6 +69,7 @@ interface LobbyChatPanelProps {
     nickname: string;
     emoji: string;
     sessionId: string;
+    roomId?: string | null;
     playerNames: string[];
     onMention: (msg: ChatMessage) => void;
 }
@@ -77,15 +78,19 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     nickname,
     emoji,
     sessionId,
+    roomId,
     playerNames,
     onMention,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const handleHistory = useCallback((history: ChatMessage[]) => {
+        setMessages(history.slice(-MAX_CHAT_MESSAGES));
+    }, []);
     const handleMessage = useCallback((msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
         onMention(msg);
     }, [onMention]);
-    const { sendChat } = useLobbyChat({ onMessage: handleMessage });
+    const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, roomId });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment) => {
         sendChat(text, nickname, emoji, sessionId, attachment);
@@ -93,6 +98,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
 
     return (
         <Chat
+            key={roomId ?? 'lobby'}
             messages={messages}
             myNickname={nickname}
             myEmoji={emoji}
@@ -739,9 +745,8 @@ function App() {
                                         studyState={studyState}
                                         onStudyState={handleStudyState}
                                         onLeave={handleLeaveRoom}
-                                        onChatMessage={checkMention}
-                                        leaveRef={leaveRef}
-                                    />
+                                    leaveRef={leaveRef}
+                                />
                                 </div>
                             )}
                         </div>
@@ -867,6 +872,7 @@ function App() {
                         nickname={nickname}
                         emoji={emoji}
                         sessionId={sessionId}
+                        roomId={currentRoom?.roomId}
                         playerNames={chatPlayerNames}
                         onMention={checkMention}
                     />
