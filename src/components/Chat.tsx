@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { ChatAttachment, ChatMessage } from "../types";
 import imgCh1 from '../assets/images/ch1.png';
 import imgCh2 from '../assets/images/ch2.png';
@@ -16,6 +17,7 @@ interface ChatProps {
   myEmoji: string;
   sessionId: string;
   onSend: (text: string, sessionId: string, attachment?: ChatAttachment) => void;
+  onClearMessages?: () => void;
   playerNames?: string[];
 }
 
@@ -67,14 +69,16 @@ function renderWithMentions(text: string, myNickname: string) {
   });
 }
 
-function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = [] }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, playerNames = [] }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [showOpacity, setShowOpacity] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [previewImage, setPreviewImage] = useState<{ url: string; fileName?: string } | null>(null);
+  const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -91,11 +95,12 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const stickToBottomRef = useRef(true);
   const previousLatestMessageKeyRef = useRef("");
 
-  const visibleMessages = useMemo(() => messages.slice(-CHAT_RENDER_LIMIT), [messages]);
+  const allMessages = useMemo(() => [...messages, ...localMessages], [messages, localMessages]);
+  const visibleMessages = useMemo(() => allMessages.slice(-CHAT_RENDER_LIMIT), [allMessages]);
   const latestMessageKey = useMemo(() => {
-    const latest = messages[messages.length - 1];
+    const latest = allMessages[allMessages.length - 1];
     return latest ? `${latest.timestamp}-${latest.nickname}-${latest.text}-${latest.imageUrl ?? ""}` : "";
-  }, [messages]);
+  }, [allMessages]);
   const mentionCandidates = useMemo(() => (
     mentionQuery !== null
       ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
@@ -133,9 +138,54 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
+    if (handleCommand(text)) {
+      setInput("");
+      setMentionQuery(null);
+      return;
+    }
     onSend(text, sessionId);
     setInput("");
     setMentionQuery(null);
+  };
+
+  const addSystemMessage = (text: string) => {
+    const message: ChatMessage = {
+      nickname: "system",
+      text,
+      timestamp: Date.now(),
+      emoji: "",
+      type: "TEXT",
+    };
+    setLocalMessages((prev) => [...prev, message].slice(-20));
+  };
+
+  const handleCommand = (text: string) => {
+    if (!text.startsWith("/")) return false;
+    const lower = text.toLowerCase();
+    if (lower === "/help") {
+      addSystemMessage("commands: /help, /clear, /opacity, /voice @nickname message");
+      return true;
+    }
+    if (lower === "/clear") {
+      onClearMessages?.();
+      setLocalMessages([]);
+      window.setTimeout(() => addSystemMessage("chat cleared locally"), 0);
+      return true;
+    }
+    if (lower === "/opacity") {
+      setShowOpacity(true);
+      addSystemMessage("opacity control opened");
+      return true;
+    }
+    if (lower.startsWith("/voice")) {
+      if (!/^\/voice\s+@\S+\s+.+/i.test(text)) {
+        addSystemMessage("usage: /voice @nickname message");
+        return true;
+      }
+      return false;
+    }
+    addSystemMessage(`unknown command: ${text}`);
+    return true;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,6 +221,21 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
     setTimeout(() => inputRef.current?.focus(), 0);
     return true;
   };
+
+  const insertInputPrefix = (prefix: string) => {
+    setInput(prefix);
+    setMentionQuery(null);
+    setNicknameMenu(null);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const nicknameActions = useMemo(() => [
+    {
+      id: "voice",
+      label: "voice mention",
+      run: (nickname: string) => insertInputPrefix(`/voice @${nickname} `),
+    },
+  ], []);
 
   const uploadAndSendImage = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -218,6 +283,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
   return (
     <div
       onPaste={handlePaste}
+      onClick={() => setNicknameMenu(null)}
       style={{
         width: "100%",
         display: "flex",
@@ -271,7 +337,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
           onScroll={updateStickToBottom}
           style={{ flex: 1, overflowY: "auto", padding: "6px 0 18px", minHeight: 0, scrollPaddingBottom: 18 }}
         >
-          {messages.length === 0 && (
+          {allMessages.length === 0 && (
             <div style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
               <span style={{ color: "#6a9955" }}>{"// no messages yet"}</span>
             </div>
@@ -286,6 +352,10 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
               myNickname={myNickname}
               myEmoji={myEmoji}
               onPreview={setPreviewImage}
+              onNicknameClick={(nickname, event) => {
+                event.stopPropagation();
+                setNicknameMenu({ nickname, x: event.clientX, y: event.clientY });
+              }}
             />
           ))}
           {false && visibleMessages.map((message, index) => {
@@ -427,6 +497,48 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, playerNames = 
         >
           {unreadCount} new messages
         </button>
+      )}
+      {nicknameMenu && (
+        <div
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: nicknameMenu.x,
+            top: nicknameMenu.y + 6,
+            zIndex: 2100,
+            minWidth: 150,
+            border: "1px solid #3e3e42",
+            background: "#252526",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.45)",
+            padding: 4,
+            fontSize: 12,
+          }}
+        >
+          <div style={{ padding: "5px 8px", color: "#858585", borderBottom: "1px solid #3e3e42", marginBottom: 3 }}>
+            @{nicknameMenu.nickname}
+          </div>
+          {nicknameActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => action.run(nicknameMenu.nickname)}
+              style={{
+                width: "100%",
+                display: "block",
+                textAlign: "left",
+                border: 0,
+                background: "transparent",
+                color: "#d4d4d4",
+                padding: "6px 8px",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+              onMouseEnter={(event) => { event.currentTarget.style.background = "#37373d"; }}
+              onMouseLeave={(event) => { event.currentTarget.style.background = "transparent"; }}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {open && (
@@ -654,6 +766,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myNickname,
   myEmoji,
   onPreview,
+  onNicknameClick,
 }: {
   message: ChatMessage;
   prev?: ChatMessage;
@@ -661,6 +774,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myNickname: string;
   myEmoji: string;
   onPreview: (image: { url: string; fileName?: string }) => void;
+  onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
 }) {
   const isMe = message.nickname === myNickname;
   const time = new Date(message.timestamp).toLocaleTimeString("en-US", {
@@ -686,6 +800,14 @@ const ChatMessageItem = memo(function ChatMessageItem({
   const mentionsMe = message.mentionedNickname === myNickname;
   const isLastInGroup = !next || next.nickname !== message.nickname || nextTime !== time;
 
+  if (message.nickname === "system") {
+    return (
+      <div style={{ padding: "4px 10px", fontSize: "11px", color: "#858585", lineHeight: 1.5 }}>
+        <span style={{ color: "#6a9955" }}>// </span>{message.text}
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -700,6 +822,9 @@ const ChatMessageItem = memo(function ChatMessageItem({
     >
       {!isGrouped && (
         <span
+          onClick={(event) => {
+            if (message.nickname !== "system") onNicknameClick(message.nickname, event);
+          }}
           style={{
             color: isMe ? "#4ec9b0" : "#9cdcfe",
             display: "inline-flex",
@@ -707,6 +832,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
             gap: "4px",
             marginBottom: "2px",
             flexDirection: isMe ? "row-reverse" : "row",
+            cursor: message.nickname === "system" ? "default" : "pointer",
           }}
         >
           {renderAvatar(message.emoji || (isMe ? myEmoji : ""))}

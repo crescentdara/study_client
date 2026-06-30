@@ -335,6 +335,7 @@ export interface RushHourGameData {
 
 export interface RummikubGameData {
   hands: number[][];
+  handCounts?: number[];
   table: number[][];
   poolSize: number;
   initialMeld: boolean[];

@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Room, StudyStateResponse, ChatMessage } from '../types';
+import { Room, StudyStateResponse } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import Baseball from './games/Baseball';
 import Bingo from './games/Bingo';
@@ -23,7 +23,6 @@ interface StudyRoomProps {
     studyState: StudyStateResponse | null;
     onStudyState: (state: StudyStateResponse) => void;
     onLeave: () => void;
-    onChatMessage?: (msg: ChatMessage) => void;
     /** App의 탭 ✕ 버튼과 연결: 마운트 시 handleLeave를 여기에 등록 */
     leaveRef?: React.MutableRefObject<(() => void) | null>;
 }
@@ -36,14 +35,12 @@ function StudyRoom({
     studyState,
     onStudyState,
     onLeave,
-    onChatMessage,
     leaveRef,
 }: StudyRoomProps) {
     const [secretState, setSecretState] = useState<StudyStateResponse | null>(null);
     const { connected, sendMove } = useWebSocket({
         roomId: room.roomId,
         onStudyState,
-        onChat: (msg: ChatMessage) => { onChatMessage?.(msg); },
         onSecretState: setSecretState,
     });
 
@@ -301,6 +298,7 @@ function StudyRoom({
                     ) : isRummikub ? (
                         <Rummikub
                             studyState={studyState}
+                            secretState={secretState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}
