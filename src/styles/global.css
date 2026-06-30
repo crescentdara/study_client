@@ -788,6 +788,19 @@ select option { background: var(--bg-sidebar); }
   box-shadow: inset 0 0 0 1px rgba(220, 220, 170, 0.08);
 }
 
+.tetris-combo-banner.active.warm {
+  border-color: rgba(244, 135, 113, 0.72);
+  background: rgba(244, 135, 113, 0.14);
+  color: #f4b09f;
+}
+
+.tetris-combo-banner.active.hot {
+  border-color: rgba(255, 158, 59, 0.78);
+  background: rgba(255, 158, 59, 0.18);
+  color: #ffcb8a;
+  box-shadow: inset 0 0 0 1px rgba(255, 158, 59, 0.12), 0 0 12px rgba(255, 158, 59, 0.12);
+}
+
 .tetris-attack-log {
   height: 92px;
   margin: 7px 10px 0;

@@ -69,7 +69,6 @@ interface LobbyChatPanelProps {
     nickname: string;
     emoji: string;
     sessionId: string;
-    roomId?: string | null;
     playerNames: string[];
     onMention: (msg: ChatMessage) => void;
 }
@@ -78,7 +77,6 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     nickname,
     emoji,
     sessionId,
-    roomId,
     playerNames,
     onMention,
 }: LobbyChatPanelProps) {
@@ -90,20 +88,21 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
         setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
         onMention(msg);
     }, [onMention]);
-    const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, roomId });
+    const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment) => {
         sendChat(text, nickname, emoji, sessionId, attachment);
     }, [sendChat, nickname, emoji, sessionId]);
+    const handleClear = useCallback(() => setMessages([]), []);
 
     return (
         <Chat
-            key={roomId ?? 'lobby'}
             messages={messages}
             myNickname={nickname}
             myEmoji={emoji}
             sessionId={sessionId}
             onSend={nickname.trim() ? handleSend : noopSend}
+            onClearMessages={handleClear}
             playerNames={playerNames}
         />
     );
@@ -125,8 +124,11 @@ function App() {
 
     const checkMention = useCallback((msg: ChatMessage) => {
         if (msg.nickname !== nicknameRef.current && msg.mentionedNickname && msg.mentionedNickname === nicknameRef.current) {
-            const spaceIdx = msg.text.indexOf(' ');
-            const content = spaceIdx > 0 ? msg.text.slice(spaceIdx + 1) : msg.text;
+            const trimmed = msg.text.trim();
+            const mentionBody = trimmed.startsWith('@') && trimmed.includes(' ')
+                ? trimmed.slice(trimmed.indexOf(' ') + 1)
+                : trimmed;
+            const content = msg.voiceRequested && msg.voiceText ? `/voice ${msg.voiceText}` : mentionBody;
             addToast(msg.emoji || '💬', msg.nickname, content);
         }
     }, [addToast]);
@@ -872,7 +874,6 @@ function App() {
                         nickname={nickname}
                         emoji={emoji}
                         sessionId={sessionId}
-                        roomId={currentRoom?.roomId}
                         playerNames={chatPlayerNames}
                         onMention={checkMention}
                     />

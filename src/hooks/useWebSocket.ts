@@ -1,24 +1,21 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { StudyStateResponse, StudyMoveRequest, ChatAttachment, ChatMessage } from '../types';
+import { StudyStateResponse, StudyMoveRequest } from '../types';
 
 interface UseWebSocketOptions {
   roomId: string;
   onStudyState: (state: StudyStateResponse) => void;
-  onChat: (msg: ChatMessage) => void;
   onSecretState?: (state: StudyStateResponse) => void;
 }
 
-export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: UseWebSocketOptions) {
+export function useWebSocket({ roomId, onStudyState, onSecretState }: UseWebSocketOptions) {
   const clientRef       = useRef<Client | null>(null);
   const onStudyStateRef = useRef(onStudyState);
-  const onChatRef       = useRef(onChat);
   const onSecretStateRef = useRef(onSecretState);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => { onStudyStateRef.current = onStudyState; }, [onStudyState]);
-  useEffect(() => { onChatRef.current = onChat; }, [onChat]);
   useEffect(() => { onSecretStateRef.current = onSecretState; }, [onSecretState]);
 
   useEffect(() => {
@@ -31,9 +28,6 @@ export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: Us
 
         client.subscribe(`/topic/study/${roomId}`, (m: IMessage) => {
           onStudyStateRef.current(JSON.parse(m.body));
-        });
-        client.subscribe(`/topic/chat/${roomId}`, (m: IMessage) => {
-          onChatRef.current(JSON.parse(m.body));
         });
 
         const sessionId = sessionStorage.getItem('sessionId') ?? '';
@@ -69,18 +63,5 @@ export function useWebSocket({ roomId, onStudyState, onChat, onSecretState }: Us
    * @param sessionId 발신자 세션 ID
    * @param emoji     발신자가 선택한 이모지 (서버가 ChatMessage에 포함해 브로드캐스트)
    */
-  const sendChat = useCallback((text: string, sessionId: string, emoji = '', attachment?: ChatAttachment) => {
-    const c = clientRef.current;
-    if (!c?.connected) { console.warn('[WS] sendChat: not connected'); return; }
-    const body = JSON.stringify({
-      moveType: 'CHAT',
-      data: text.trim(),
-      sessionId,
-      emoji,
-      ...(attachment ?? { type: 'TEXT' }),
-    });
-    c.publish({ destination: `/app/study/${roomId}/chat`, body });
-  }, [roomId]);
-
-  return { connected, sendMove, sendChat };
+  return { connected, sendMove };
 }

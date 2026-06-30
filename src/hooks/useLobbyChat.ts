@@ -6,10 +6,9 @@ import { ChatAttachment, ChatMessage } from '../types';
 interface UsLobbyChatOptions {
   onMessage: (msg: ChatMessage) => void;
   onHistory?: (messages: ChatMessage[]) => void;
-  roomId?: string | null;
 }
 
-export function useLobbyChat({ onMessage, onHistory, roomId }: UsLobbyChatOptions) {
+export function useLobbyChat({ onMessage, onHistory }: UsLobbyChatOptions) {
   const clientRef    = useRef<Client | null>(null);
   const onMsgRef     = useRef(onMessage);
   const onHistoryRef = useRef(onHistory);
@@ -19,8 +18,7 @@ export function useLobbyChat({ onMessage, onHistory, roomId }: UsLobbyChatOption
   useEffect(() => { onHistoryRef.current = onHistory; }, [onHistory]);
 
   useEffect(() => {
-    const historyUrl = roomId ? `/api/chat/rooms/${roomId}/history` : '/api/chat/lobby/history';
-    fetch(historyUrl)
+    fetch('/api/chat/lobby/history')
       .then((res) => (res.ok ? res.json() : []))
       .then((messages: ChatMessage[]) => onHistoryRef.current?.(messages))
       .catch(() => onHistoryRef.current?.([]));
@@ -30,7 +28,7 @@ export function useLobbyChat({ onMessage, onHistory, roomId }: UsLobbyChatOption
       reconnectDelay: 5000,
       onConnect: () => {
         setConnected(true);
-        client.subscribe(roomId ? `/topic/chat/${roomId}` : '/topic/lobby/chat', (m: IMessage) => {
+        client.subscribe('/topic/lobby/chat', (m: IMessage) => {
           onMsgRef.current(JSON.parse(m.body));
         });
       },
@@ -39,13 +37,13 @@ export function useLobbyChat({ onMessage, onHistory, roomId }: UsLobbyChatOption
     client.activate();
     clientRef.current = client;
     return () => { client.deactivate(); };
-  }, [roomId]);
+  }, []);
 
   const sendChat = useCallback((text: string, nickname: string, emoji: string, sessionId: string, attachment?: ChatAttachment) => {
     const c = clientRef.current;
     if (!c?.connected) return;
     c.publish({
-      destination: roomId ? `/app/study/${roomId}/chat` : '/app/study/lobby/chat',
+      destination: '/app/study/lobby/chat',
       body: JSON.stringify({
         moveType: 'CHAT',
         data: text.trim(),
@@ -55,7 +53,7 @@ export function useLobbyChat({ onMessage, onHistory, roomId }: UsLobbyChatOption
         ...(attachment ?? { type: 'TEXT' }),
       }),
     });
-  }, [roomId]);
+  }, []);
 
   return { connected, sendChat };
 }
