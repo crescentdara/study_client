@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE' | 'RUSH_HOUR' | 'UBONGO';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE' | 'RUSH_HOUR' | 'UBONGO' | 'ALKKAGI';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -65,6 +65,9 @@ export interface StudyMoveRequest {
     | 'RUSH_MOVE'
     | 'UBONGO_PLACE'
     | 'UBONGO_REMOVE'
+    | 'ALKKAGI_AIM'
+    | 'ALKKAGI_RESULT'
+    | 'ALKKAGI_SHOT'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -84,7 +87,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | RushHourGameData | UbongoGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | RushHourGameData | UbongoGameData | AlkkagiGameData | null;
 
   playerNames: string[];
 }
@@ -343,6 +346,29 @@ export interface RummikubGameData {
   currentTurn: number;
   winner: number;
   hasDrawnThisTurn: boolean;
+}
+
+export interface AlkkagiStone {
+  id: number;
+  owner: number;
+  x: number;
+  y: number;
+  active: boolean;
+}
+
+export interface AlkkagiGameData {
+  numPlayers: number;
+  currentTurn: number;
+  winner: number;
+  shotCount: number;
+  stones: AlkkagiStone[];
+  activeShot?: {
+    id: number;
+    playerIndex: number;
+    stoneId: number;
+    vx: number;
+    vy: number;
+  } | null;
 }
 
 export interface WordChainGameData {

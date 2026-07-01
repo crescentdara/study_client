@@ -54,7 +54,7 @@ function Lobby({
                 maxPlayers:
                     studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT'
                         ? 3
-                        : studyType === 'OMOK'
+                        : studyType === 'OMOK' || studyType === 'ALKKAGI'
                           ? 2
                           : maxPlayers,
                 digits,
@@ -63,6 +63,8 @@ function Lobby({
                         ? 20
                         : studyType === 'OMOK'
                           ? 19
+                          : studyType === 'ALKKAGI'
+                            ? 0
                           : studyType === 'OLDMAID'
                             ? 0
                             : boardSize,
@@ -195,6 +197,8 @@ function Lobby({
                                             ? `${room.maxPlayers}p`
                                           : room.studyType === 'RUSH_HOUR'
                                             ? `${room.maxPlayers}p`
+                                          : room.studyType === 'ALKKAGI'
+                                            ? '1v1'
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -355,13 +359,14 @@ function Lobby({
                                 <span className="pct">: </span>
                                 <span className="typ">StudyType</span>
                                 <span className="pct"> = </span>
-                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO'] as StudyType[]).map((t) => (
+                                {(['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO', 'ALKKAGI'] as StudyType[]).map((t) => (
                                     <button
                                         key={t}
                                         className={`btn-opt ${studyType === t ? 'on' : ''}`}
                                         onClick={() => {
                                             setStudyType(t);
                                             if (t === 'OMOK') { setMaxPlayers(2); setBoardSize(19); }
+                                            else if (t === 'ALKKAGI') { setMaxPlayers(2); setBoardSize(0); }
                                             else if (t === 'TETRIS' || t === 'INCIDENT_AVOID' || t === 'BREAKOUT') { setMaxPlayers(3); setBoardSize(20); }
                                             else if (t === 'OLDMAID') { setMaxPlayers(4); setBoardSize(0); }
                                             else if (t === 'WORD_CHAIN') { setMaxPlayers(4); setDigits(7); }
@@ -394,7 +399,7 @@ function Lobby({
                             )}
                         {(studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT') &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">3</span><span className="cmt"> // fixed</span></span>, 1)}
-                        {studyType === 'OMOK' &&
+                        {(studyType === 'OMOK' || studyType === 'ALKKAGI') &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">2</span><span className="cmt"> // 1v1 only</span></span>, 1)}
                         {(studyType === 'RUSH_HOUR' || studyType === 'UBONGO') &&
                             L(
@@ -408,7 +413,7 @@ function Lobby({
                                 </span>,
                                 1,
                             )}
-                        {studyType !== 'OLDMAID' && studyType !== 'TETRIS' && studyType !== 'INCIDENT_AVOID' && studyType !== 'BREAKOUT' && studyType !== 'OMOK' && studyType !== 'RUSH_HOUR' && studyType !== 'UBONGO' &&
+                        {studyType !== 'OLDMAID' && studyType !== 'TETRIS' && studyType !== 'INCIDENT_AVOID' && studyType !== 'BREAKOUT' && studyType !== 'OMOK' && studyType !== 'ALKKAGI' && studyType !== 'RUSH_HOUR' && studyType !== 'UBONGO' &&
                             L(
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span>
@@ -468,6 +473,8 @@ function Lobby({
 
                         {studyType === 'OMOK' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">boardSize</span><span className="pct"> = </span><span className="num">19</span><span className="cmt"> // fixed 19×19, P1 3-3 banned</span></span>, 1)}
+                        {studyType === 'ALKKAGI' &&
+                            L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">board</span><span className="pct"> = </span><span className="str">"drag shot"</span><span className="cmt"> // click, pull, release</span></span>, 1)}
                         {studyType === 'TETRIS' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">queue</span><span className="pct"> = </span><span className="str">"20x10"</span><span className="cmt"> // 3-player workspace</span></span>, 1)}
                         {studyType === 'INCIDENT_AVOID' &&

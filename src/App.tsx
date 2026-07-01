@@ -47,6 +47,7 @@ const GAME_ICONS: Partial<Record<StudyType, string>> = {
     RUMMIKUB: '🀄',
     DAVINCI_CODE: '🔍',
     RUSH_HOUR: '🚗',
+    ALKKAGI: '⚫',
 };
 const GAME_EXT: Record<StudyType, string> = {
     BASEBALL: '.bs',
@@ -62,6 +63,7 @@ const GAME_EXT: Record<StudyType, string> = {
     DAVINCI_CODE: '.dvcode',
     RUSH_HOUR: '.rush',
     UBONGO: '.ubongo',
+    ALKKAGI: '.ak',
 };
 const MAX_CHAT_MESSAGES = 200;
 
@@ -402,9 +404,11 @@ function App() {
                     ? 'omok'
                     : currentRoom.studyType === 'TETRIS'
                       ? 'tetris'
-                      : currentRoom.studyType === 'OLDMAID'
-                        ? 'cards'
-                        : currentRoom.studyType === 'INCIDENT_AVOID'
+                              : currentRoom.studyType === 'OLDMAID'
+                                ? 'cards'
+                                : currentRoom.studyType === 'ALKKAGI'
+                                  ? 'ak'
+                                : currentRoom.studyType === 'INCIDENT_AVOID'
                           ? 'risk'
                           : currentRoom.studyType === 'BREAKOUT'
                             ? 'flow'
@@ -901,12 +905,14 @@ function App() {
                                     ? 'INCIDENT_AVOID - 360x520'
                                     : currentRoom.studyType === 'OLDMAID'
                                       ? '🃏 Old Maid'
-                                      : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
+                                      : currentRoom.studyType === 'ALKKAGI'
+                                        ? 'ALKKAGI · drag shot'
+                                        : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
                     </span>
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
                     {currentRoom
-                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
+                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.studyType === 'ALKKAGI' ? 2 : currentRoom.maxPlayers} players`
                         : 'Lobby'}
                 </span>
             </div>

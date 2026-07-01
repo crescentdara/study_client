@@ -14,6 +14,7 @@ import Rummikub from './games/Rummikub';
 import DaVinci from './games/DaVinci';
 import RushHour from './games/RushHour';
 import Ubongo from './games/Ubongo';
+import Alkkagi from './games/Alkkagi';
 
 interface StudyRoomProps {
     room: Room;
@@ -58,7 +59,8 @@ function StudyRoom({
     const isDaVinci = room.studyType === 'DAVINCI_CODE';
     const isRushHour = room.studyType === 'RUSH_HOUR';
     const isUbongo   = room.studyType === 'UBONGO';
-    const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
+    const isAlkkagi = room.studyType === 'ALKKAGI';
+    const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : isAlkkagi ? 2 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
 
@@ -319,6 +321,13 @@ function StudyRoom({
                         />
                     ) : isUbongo ? (
                         <Ubongo
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                        />
+                    ) : isAlkkagi ? (
+                        <Alkkagi
                             studyState={studyState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
