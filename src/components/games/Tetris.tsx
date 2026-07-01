@@ -111,6 +111,29 @@ const mergePiece = (board: Board, piece: Piece) => {
   return next;
 };
 
+const ghostDropRow = (board: Board, piece: Piece) => {
+  let row = piece.row;
+  while (!collides(board, piece, row + 1, piece.col, piece.shape)) row += 1;
+  return row;
+};
+
+const mergeGhostPiece = (board: Board, piece: Piece, enabled: boolean) => {
+  if (!enabled) return board;
+  const ghostRow = ghostDropRow(board, piece);
+  if (ghostRow <= piece.row) return board;
+  const next = board.map((row) => [...row]);
+  piece.shape.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      const br = ghostRow + r;
+      const bc = piece.col + c;
+      if (cell && br >= 0 && br < ROWS && bc >= 0 && bc < COLS && !next[br][bc]) {
+        next[br][bc] = `ghost-${piece.type}`;
+      }
+    });
+  });
+  return next;
+};
+
 const clearLines = (board: Board) => {
   const clearedRows: number[] = [];
   const kept = board.filter((row, index) => {
@@ -166,6 +189,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [running, setRunning] = useState(true);
   const [gameOver, setGameOver] = useState(false);
   const [cellAlpha, setCellAlpha] = useState(58);
+  const [ghostEnabled, setGhostEnabled] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [pendingGarbage, setPendingGarbage] = useState(0);
   const [clearCombo, setClearCombo] = useState(0);
@@ -199,7 +223,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
-  const projectedBoard = useMemo(() => mergePiece(board, piece), [board, piece]);
+  const projectedBoard = useMemo(
+    () => mergePiece(mergeGhostPiece(board, piece, ghostEnabled), piece),
+    [board, ghostEnabled, piece],
+  );
   const playerNames = studyState?.playerNames ?? [];
   const boardViews = playerNames.map((name, index) => {
     const state = data?.playerStates?.[String(index)];
@@ -613,6 +640,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     const isTyping = target instanceof HTMLInputElement
       || target instanceof HTMLTextAreaElement
       || Boolean(target?.isContentEditable);
+    if (!isTyping && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'g') {
+      event.preventDefault();
+      setGhostEnabled((value) => !value);
+      return;
+    }
     const keys = isTyping
       ? ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp']
       : ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
@@ -889,6 +921,12 @@ function BoardShell({
 }) {
   const gaugeCount = Math.min(12, pending);
   const clearingRowSet = useMemo(() => new Set(clearingRows), [clearingRows]);
+  const cellClass = (cell: string, row: number) => {
+    if (cell.startsWith('ghost-')) {
+      return `tetris-cell ghost t-${cell.slice(6)} ${clearingRowSet.has(row) ? 'clearing' : ''}`;
+    }
+    return `tetris-cell ${cell ? `filled t-${cell}` : ''} ${clearingRowSet.has(row) ? 'clearing' : ''}`;
+  };
   return (
     <div className={`tetris-shell ${isMe ? 'mine' : 'peer'}`}>
       <div className="tetris-head">
@@ -914,7 +952,7 @@ function BoardShell({
         {board.map((row, r) => row.map((cell, c) => (
           <div
             key={`${r}-${c}`}
-            className={`tetris-cell ${cell ? `filled t-${cell}` : ''} ${clearingRowSet.has(r) ? 'clearing' : ''}`}
+            className={cellClass(cell, r)}
             title={`${name} slot ${r + 1}.${c + 1}`}
           />
         )))}

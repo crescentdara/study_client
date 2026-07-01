@@ -645,6 +645,22 @@ select option { background: var(--bg-sidebar); }
   border-color: rgba(156, 220, 254, 0.18);
 }
 
+.tetris-cell.ghost {
+  position: relative;
+  background: transparent;
+  opacity: 1;
+  border-color: rgba(220, 220, 170, 0.24);
+}
+
+.tetris-cell.ghost::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 2px solid rgba(220, 220, 170, 0.38);
+  background: rgba(220, 220, 170, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(30, 30, 30, 0.65);
+}
+
 .tetris-cell.clearing {
   position: relative;
   overflow: hidden;
