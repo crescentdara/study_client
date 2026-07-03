@@ -67,6 +67,7 @@ export interface StudyMoveRequest {
     | 'UBONGO_REMOVE'
     | 'ALKKAGI_AIM'
     | 'ALKKAGI_RESULT'
+    | 'ALKKAGI_TIMEOUT'
     | 'ALKKAGI_SHOT'
     | 'CHAT';
   data: string;
@@ -361,6 +362,10 @@ export interface AlkkagiGameData {
   currentTurn: number;
   winner: number;
   shotCount: number;
+  turnStartedAt?: number;
+  turnTimeLimitMs?: number;
+  shotLog?: string[];
+  mapType?: 'CLASSIC' | 'CENTER_HOLE' | 'CORNER_HOLES' | 'SIDE_POCKETS' | 'PILLARS' | 'BUMPER_FIELD' | 'PINBALL' | 'NARROW_BRIDGE' | 'RIVER';
   stones: AlkkagiStone[];
   activeShot?: {
     id: number;

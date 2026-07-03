@@ -40,21 +40,22 @@ function Lobby({
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
 
+    const defaultRoomName = (type: StudyType) => `${type} room`;
+
     const handleCreate = async () => {
         if (profileEditing) { setError('Save your profile first.'); return; }
         if (!nickname.trim()) { setError('Enter a nickname first.'); return; }
-        if (!roomName.trim()) { setError('Room name is required.'); return; }
         setCreating(true);
         try {
             const body: CreateRoomRequest = {
-                roomName: roomName.trim(),
+                roomName: roomName.trim() || defaultRoomName(studyType),
                 studyType,
                 nickname: nickname.trim(),
                 sessionId,
                 maxPlayers:
                     studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT'
                         ? 3
-                        : studyType === 'OMOK' || studyType === 'ALKKAGI'
+                        : studyType === 'OMOK'
                           ? 2
                           : maxPlayers,
                 digits,
@@ -198,7 +199,7 @@ function Lobby({
                                           : room.studyType === 'RUSH_HOUR'
                                             ? `${room.maxPlayers}p`
                                           : room.studyType === 'ALKKAGI'
-                                            ? '1v1'
+                                            ? `${room.maxPlayers}p`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -366,7 +367,7 @@ function Lobby({
                                         onClick={() => {
                                             setStudyType(t);
                                             if (t === 'OMOK') { setMaxPlayers(2); setBoardSize(19); }
-                                            else if (t === 'ALKKAGI') { setMaxPlayers(2); setBoardSize(0); }
+                                            else if (t === 'ALKKAGI') { setMaxPlayers(1); setBoardSize(0); }
                                             else if (t === 'TETRIS' || t === 'INCIDENT_AVOID' || t === 'BREAKOUT') { setMaxPlayers(3); setBoardSize(20); }
                                             else if (t === 'OLDMAID') { setMaxPlayers(4); setBoardSize(0); }
                                             else if (t === 'WORD_CHAIN') { setMaxPlayers(4); setDigits(7); }
@@ -399,8 +400,20 @@ function Lobby({
                             )}
                         {(studyType === 'TETRIS' || studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT') &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">3</span><span className="cmt"> // fixed</span></span>, 1)}
-                        {(studyType === 'OMOK' || studyType === 'ALKKAGI') &&
+                        {studyType === 'OMOK' &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">2</span><span className="cmt"> // 1v1 only</span></span>, 1)}
+                        {studyType === 'ALKKAGI' &&
+                            L(
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span>
+                                    {[1, 2, 3].map((n) => (
+                                        <button key={n} className={`btn-opt ${maxPlayers === n ? 'on' : ''}`} onClick={() => setMaxPlayers(n)} style={{ fontSize: '11px', padding: '3px 8px' }}>
+                                            <span className="num">{n}</span>
+                                        </button>
+                                    ))}
+                                </span>,
+                                1,
+                            )}
                         {(studyType === 'RUSH_HOUR' || studyType === 'UBONGO') &&
                             L(
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
