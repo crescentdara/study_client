@@ -66,6 +66,7 @@ const GAME_EXT: Record<StudyType, string> = {
     ALKKAGI: '.ak',
 };
 const MAX_CHAT_MESSAGES = 200;
+const TERMINAL_HEIGHT = 160;
 
 interface LobbyChatPanelProps {
     nickname: string;
@@ -162,7 +163,6 @@ function App() {
 
     // ── 터미널 상태 ────────────────────────────────────────────────────────────
     const [termOpen, setTermOpen] = useState(true);
-    const [termHeight, setTermHeight] = useState(160);
     const [termInput, setTermInput] = useState('');
     const [termHistory, setTermHistory] = useState<{ type: 'cmd' | 'out' | 'err'; text: string }[]>([
         { type: 'out', text: 'Initialized empty Git repository in /study-platform/.git/' },
@@ -742,7 +742,11 @@ function App() {
                                     wordRainOn={wordRainOn}
                                 />
                             ) : (
-                                <div style={{ flex: 1, overflow: 'auto', padding: '0 24px 20px 24px' }}>
+                                <div style={{
+                                    flex: 1,
+                                    overflow: 'auto',
+                                    padding: currentRoom.studyType === 'ALKKAGI' ? '0 4px 4px 4px' : '0 24px 20px 24px',
+                                }}>
                                     <StudyRoom
                                         room={currentRoom}
                                         nickname={nickname}
@@ -785,23 +789,14 @@ function App() {
 
                     {/* 터미널 패널 */}
                     {termOpen && (
-                        <div style={{ height: termHeight, flexShrink: 0, borderTop: '1px solid #3e3e42', background: '#1e1e1e', display: 'flex', flexDirection: 'column', fontFamily: "'Consolas','Courier New',monospace" }}>
+                        <div style={{ height: TERMINAL_HEIGHT, flexShrink: 0, borderTop: '1px solid #3e3e42', background: '#1e1e1e', display: 'flex', flexDirection: 'column', fontFamily: "'Consolas','Courier New',monospace" }}>
                             <div style={{ display: 'flex', alignItems: 'center', background: '#252526', borderBottom: '1px solid #3e3e42', flexShrink: 0, height: '26px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 14px', height: '100%', background: '#1e1e1e', borderRight: '1px solid #3e3e42', fontSize: '11px', color: '#ccc' }}>
                                     <span style={{ color: '#6a9955', fontSize: '11px' }}>⬤</span>
                                     <span>TERMINAL</span>
                                     <span style={{ color: '#858585', fontSize: '10px' }}>bash</span>
                                 </div>
-                                <div style={{ flex: 1, cursor: 'ns-resize', height: '100%' }}
-                                    onMouseDown={(e) => {
-                                        const startY = e.clientY;
-                                        const startH = termHeight;
-                                        const onMove = (ev: MouseEvent) => { setTermHeight(Math.max(80, Math.min(400, startH + (startY - ev.clientY)))); };
-                                        const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-                                        window.addEventListener('mousemove', onMove);
-                                        window.addEventListener('mouseup', onUp);
-                                    }}
-                                />
+                                <div style={{ flex: 1, height: '100%' }} />
                                 <div style={{ display: 'flex', gap: '2px', paddingRight: '8px' }}>
                                     <span style={{ fontSize: '14px', color: '#555', cursor: 'pointer', padding: '0 4px', lineHeight: '1' }} title="Close terminal" onClick={() => setTermOpen(false)}>✕</span>
                                 </div>
@@ -912,7 +907,7 @@ function App() {
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
                     {currentRoom
-                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.studyType === 'ALKKAGI' ? 2 : currentRoom.maxPlayers} players`
+                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
                         : 'Lobby'}
                 </span>
             </div>

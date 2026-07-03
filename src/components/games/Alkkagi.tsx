@@ -13,13 +13,74 @@ interface SimStone extends AlkkagiStone {
   vy: number;
 }
 
-const BOARD_W = 1500;
-const BOARD_H = 820;
-const STONE_R = 13;
-const MAX_PULL = 190;
-const POWER = 0.13;
-const FRICTION = 0.988;
-const STOP_SPEED = 0.08;
+interface VisualEffect {
+  id: number;
+  x: number;
+  y: number;
+  type: 'hit' | 'out';
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
+const BOARD_W = 1200;
+const BOARD_H = 660;
+const STONE_R = 15;
+const MAX_PULL = 230;
+const POWER = 0.12;
+const FRICTION = 0.972;
+const STOP_SPEED = 0.16;
+const VIEW_SCALE = 0.82;
+const PLAYER_COLORS = ['#4ec9b0', '#ce9178', '#9cdcfe'];
+const PLAYER_FILLS = ['#d4d4d4', '#111111', '#2d4f67'];
+
+type MapType = NonNullable<AlkkagiGameData['mapType']>;
+
+const OBSTACLES: Record<MapType, Array<{ x: number; y: number; r: number }>> = {
+  CLASSIC: [],
+  CENTER_HOLE: [],
+  CORNER_HOLES: [],
+  SIDE_POCKETS: [],
+  PILLARS: [
+    { x: BOARD_W * 0.46, y: BOARD_H * 0.34, r: 36 },
+    { x: BOARD_W * 0.54, y: BOARD_H * 0.66, r: 36 },
+  ],
+  BUMPER_FIELD: [
+    { x: BOARD_W * 0.36, y: BOARD_H * 0.34, r: 32 },
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.50, r: 44 },
+    { x: BOARD_W * 0.64, y: BOARD_H * 0.66, r: 32 },
+  ],
+  PINBALL: [
+    { x: BOARD_W * 0.36, y: BOARD_H * 0.28, r: 30 },
+    { x: BOARD_W * 0.64, y: BOARD_H * 0.28, r: 30 },
+    { x: BOARD_W * 0.42, y: BOARD_H * 0.58, r: 36 },
+    { x: BOARD_W * 0.58, y: BOARD_H * 0.58, r: 36 },
+  ],
+  NARROW_BRIDGE: [
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.27, r: 42 },
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.73, r: 42 },
+  ],
+  RIVER: [
+    { x: BOARD_W * 0.26, y: BOARD_H * 0.50, r: 32 },
+    { x: BOARD_W * 0.74, y: BOARD_H * 0.50, r: 32 },
+  ],
+};
+
+const HOLES: Partial<Record<MapType, Array<{ x: number; y: number; r: number }>>> = {
+  CENTER_HOLE: [{ x: BOARD_W / 2, y: BOARD_H / 2, r: 52 }],
+  CORNER_HOLES: [
+    { x: BOARD_W * 0.10, y: BOARD_H * 0.12, r: 48 },
+    { x: BOARD_W * 0.90, y: BOARD_H * 0.12, r: 48 },
+    { x: BOARD_W * 0.10, y: BOARD_H * 0.88, r: 48 },
+    { x: BOARD_W * 0.90, y: BOARD_H * 0.88, r: 48 },
+  ],
+  SIDE_POCKETS: [
+    { x: BOARD_W * 0.06, y: BOARD_H * 0.50, r: 52 },
+    { x: BOARD_W * 0.94, y: BOARD_H * 0.50, r: 52 },
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.08, r: 42 },
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.92, r: 42 },
+  ],
+};
 
 function toSim(stones: AlkkagiStone[]): SimStone[] {
   return stones.map(stone => ({ ...stone, vx: 0, vy: 0 }));
@@ -44,6 +105,8 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   const animRef = useRef<number | null>(null);
   const dragRef = useRef<{ id: number; startX: number; startY: number; x: number; y: number } | null>(null);
   const playedShotRef = useRef<number>(0);
+  const effectsRef = useRef<VisualEffect[]>([]);
+  const effectSeqRef = useRef(0);
   const [stones, setStones] = useState<SimStone[]>([]);
   const [drag, setDrag] = useState<{ id: number; startX: number; startY: number; x: number; y: number } | null>(null);
   const [moving, setMoving] = useState(false);
@@ -52,13 +115,19 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   const isMyTurn = game?.currentTurn === myPlayerIndex && studyState?.status === 'PLAYING' && !moving && !game?.activeShot;
   const playerNames = studyState?.playerNames ?? [];
   const currentName = game ? playerNames[game.currentTurn] ?? `P${game.currentTurn + 1}` : '';
-  const myColor = myPlayerIndex === 0 ? '#4ec9b0' : '#ce9178';
+  const myColor = playerColor(myPlayerIndex);
+  const mapType: MapType = game?.mapType ?? 'CLASSIC';
 
   useEffect(() => {
-    if (!game || moving) return;
+    if (!game || game.activeShot) return;
+    if (animRef.current != null) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
     const next = toSim(game.stones ?? []);
     stonesRef.current = next;
     setStones(next);
+    setMoving(false);
   }, [game?.shotCount, game?.currentTurn, game?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -72,16 +141,17 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     stonesRef.current = next;
     setStones(next);
     setMoving(true);
-    runSimulation(game.activeShot.id, game.activeShot.playerIndex);
+    effectsRef.current = [];
+    runSimulation(game.activeShot.id, game.activeShot.playerIndex, true);
   }, [game?.activeShot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const updateSize = () => {
       const rect = wrapRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.max(520, rect.width - 16);
-      const height = Math.max(320, rect.height - 16);
-      const scale = Math.min(width / BOARD_W, height / BOARD_H);
+      const width = Math.max(720, rect.width - 2);
+      const height = Math.max(420, rect.height - 2);
+      const scale = Math.min(width / BOARD_W, height / BOARD_H) * VIEW_SCALE;
       setSize({ width: Math.floor(BOARD_W * scale), height: Math.floor(BOARD_H * scale) });
     };
     updateSize();
@@ -130,13 +200,27 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     );
   }
 
+  function playerColor(owner: number) {
+    return PLAYER_COLORS[owner % PLAYER_COLORS.length] ?? PLAYER_COLORS[0];
+  }
+
+  function playerFill(owner: number) {
+    return PLAYER_FILLS[owner % PLAYER_FILLS.length] ?? PLAYER_FILLS[0];
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     if (!isMyTurn) return;
     const point = boardPoint(event);
     const stone = findStone(point.x, point.y);
     if (!stone) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    const nextDrag = { id: stone.id, startX: point.x, startY: point.y, x: point.x, y: point.y };
+    const nextDrag = {
+      id: stone.id,
+      startX: stone.x * BOARD_W,
+      startY: stone.y * BOARD_H,
+      x: stone.x * BOARD_W,
+      y: stone.y * BOARD_H,
+    };
     dragRef.current = nextDrag;
     setDrag(nextDrag);
   }
@@ -178,28 +262,49 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     });
   }
 
-  function runSimulation(shotId: number, shooterIndex: number) {
+  function addEffect(x: number, y: number, type: VisualEffect['type'], color: string) {
+    effectsRef.current = [
+      ...effectsRef.current,
+      { id: effectSeqRef.current++, x, y, type, color, life: type === 'out' ? 26 : 18, maxLife: type === 'out' ? 26 : 18 },
+    ].slice(-24);
+  }
+
+  function runSimulation(shotId: number, shooterIndex: number, confirmResult: boolean) {
     let quietFrames = 0;
     const step = () => {
       const list = stonesRef.current;
+      const maxSpeed = Math.max(0, ...list.filter(stone => stone.active).map(speed));
+      const subSteps = Math.max(1, Math.min(5, Math.ceil(maxSpeed / (STONE_R * 0.45))));
+
+      for (let subStep = 0; subStep < subSteps; subStep++) {
+        for (const stone of list) {
+          if (!stone.active) continue;
+          stone.x += (stone.vx / subSteps) / BOARD_W;
+          stone.y += (stone.vy / subSteps) / BOARD_H;
+          resolveObstacleCollision(stone);
+          if (isOutOfPlay(stone)) {
+            const px = stone.x * BOARD_W;
+            const py = stone.y * BOARD_H;
+            addEffect(Math.max(0, Math.min(BOARD_W, px)), Math.max(0, Math.min(BOARD_H, py)), 'out', playerColor(stone.owner));
+            stone.active = false;
+            stone.vx = 0;
+            stone.vy = 0;
+          }
+        }
+        resolveCollisions(list);
+      }
+
       for (const stone of list) {
         if (!stone.active) continue;
-        stone.x += stone.vx / BOARD_W;
-        stone.y += stone.vy / BOARD_H;
         stone.vx *= FRICTION;
         stone.vy *= FRICTION;
         if (Math.abs(stone.vx) < 0.01) stone.vx = 0;
         if (Math.abs(stone.vy) < 0.01) stone.vy = 0;
-        const px = stone.x * BOARD_W;
-        const py = stone.y * BOARD_H;
-        if (px < -STONE_R || px > BOARD_W + STONE_R || py < -STONE_R || py > BOARD_H + STONE_R) {
-          stone.active = false;
-          stone.vx = 0;
-          stone.vy = 0;
-        }
       }
 
-      resolveCollisions(list);
+      effectsRef.current = effectsRef.current
+        .map((effect) => ({ ...effect, life: effect.life - 1 }))
+        .filter((effect) => effect.life > 0);
       const anyMoving = list.some(stone => stone.active && speed(stone) > STOP_SPEED);
       setStones([...list]);
       draw();
@@ -216,7 +321,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
           stone.vy = 0;
         }
         setMoving(false);
-        if (shooterIndex === myPlayerIndex) {
+        if (confirmResult && shooterIndex === myPlayerIndex) {
           sendMove({
             moveType: 'ALKKAGI_RESULT',
             data: '',
@@ -230,6 +335,57 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       }
     };
     animRef.current = requestAnimationFrame(step);
+  }
+
+  function isOutOfPlay(stone: SimStone) {
+    const px = stone.x * BOARD_W;
+    const py = stone.y * BOARD_H;
+    if (px < -STONE_R || px > BOARD_W + STONE_R || py < -STONE_R || py > BOARD_H + STONE_R) return true;
+    for (const hole of HOLES[mapType] ?? []) {
+      if (Math.hypot(px - hole.x, py - hole.y) < hole.r - 4) return true;
+    }
+    if (mapType === 'NARROW_BRIDGE') {
+      const inMiddle = px > BOARD_W * 0.38 && px < BOARD_W * 0.62;
+      const inGap = py > BOARD_H * 0.33 && py < BOARD_H * 0.67;
+      if (inMiddle && !inGap) return true;
+    }
+    if (mapType === 'RIVER') {
+      const inRiver = py > BOARD_H * 0.42 && py < BOARD_H * 0.58;
+      const onBridge =
+        (px > BOARD_W * 0.36 && px < BOARD_W * 0.44) ||
+        (px > BOARD_W * 0.56 && px < BOARD_W * 0.64);
+      if (inRiver && !onBridge) return true;
+    }
+    return false;
+  }
+
+  function resolveObstacleCollision(stone: SimStone) {
+    const obstacles = OBSTACLES[mapType] ?? [];
+    for (const obstacle of obstacles) {
+      const px = stone.x * BOARD_W;
+      const py = stone.y * BOARD_H;
+      let dx = px - obstacle.x;
+      let dy = py - obstacle.y;
+      let dist = Math.hypot(dx, dy);
+      const minDist = obstacle.r + STONE_R;
+      if (dist >= minDist) continue;
+      if (dist <= 0.001) {
+        dx = 1;
+        dy = 0;
+        dist = 1;
+      }
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const overlap = minDist - dist;
+      stone.x += (nx * overlap) / BOARD_W;
+      stone.y += (ny * overlap) / BOARD_H;
+      const vn = stone.vx * nx + stone.vy * ny;
+      if (vn < 0) {
+        stone.vx -= 1.82 * vn * nx;
+        stone.vy -= 1.82 * vn * ny;
+        addEffect(obstacle.x + nx * obstacle.r, obstacle.y + ny * obstacle.r, 'hit', '#9cdcfe');
+      }
+    }
   }
 
   function resolveCollisions(list: SimStone[]) {
@@ -247,7 +403,12 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         let dy = by - ay;
         let dist = Math.hypot(dx, dy);
         const minDist = STONE_R * 2;
-        if (dist <= 0 || dist >= minDist) continue;
+        if (dist >= minDist) continue;
+        if (dist <= 0.001) {
+          dx = 1;
+          dy = 0;
+          dist = 1;
+        }
 
         const nx = dx / dist;
         const ny = dy / dist;
@@ -264,6 +425,10 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         const vaT = a.vx * tx + a.vy * ty;
         const vbT = b.vx * tx + b.vy * ty;
         const bounce = 0.94;
+        const impact = Math.abs(vaN - vbN);
+        if (impact > 1.4) {
+          addEffect((ax + bx) / 2, (ay + by) / 2, 'hit', '#dcdcaa');
+        }
         a.vx = (vbN * nx + vaT * tx) * bounce;
         a.vy = (vbN * ny + vaT * ty) * bounce;
         b.vx = (vaN * nx + vbT * tx) * bounce;
@@ -290,6 +455,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.strokeStyle = '#3e3e42';
     ctx.lineWidth = 2;
     ctx.strokeRect(18, 18, BOARD_W - 36, BOARD_H - 36);
+    drawMap(ctx);
 
     ctx.strokeStyle = '#2b2b2f';
     ctx.lineWidth = 1;
@@ -311,32 +477,42 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       drawStone(ctx, stone);
     }
 
+    for (const effect of effectsRef.current) {
+      drawEffect(ctx, effect);
+    }
+
     if (drag) {
       const stone = stonesRef.current.find(s => s.id === drag.id);
       if (stone?.active) {
         const sx = stone.x * BOARD_W;
         const sy = stone.y * BOARD_H;
         const pull = clampPull(drag.x - sx, drag.y - sy);
+        const powerRatio = pull.dist / MAX_PULL;
+        const powerColor = powerRatio > 0.82 ? '#f14c4c' : powerRatio > 0.48 ? '#dcdcaa' : myColor;
         const endX = sx + pull.dx;
         const endY = sy + pull.dy;
-        ctx.strokeStyle = myColor;
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = powerColor;
+        ctx.lineWidth = 3 + powerRatio * 5;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
-        ctx.setLineDash([9, 8]);
-        ctx.strokeStyle = '#dcdcaa';
+        ctx.setLineDash([5, 12]);
+        ctx.strokeStyle = powerColor;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
-        ctx.lineTo(sx - pull.dx * 1.6, sy - pull.dy * 1.6);
+        ctx.lineTo(sx - pull.dx * 0.35, sy - pull.dy * 0.35);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.fillStyle = '#dcdcaa';
-        ctx.fillRect(sx - 48, sy - 44, 96 * (pull.dist / MAX_PULL), 5);
+        ctx.fillStyle = 'rgba(30,30,30,.72)';
+        ctx.fillRect(sx - 58, sy - 46, 116, 8);
+        ctx.fillStyle = powerColor;
+        ctx.fillRect(sx - 58, sy - 46, 116 * powerRatio, 8);
+        ctx.strokeStyle = 'rgba(255,255,255,.22)';
+        ctx.strokeRect(sx - 58, sy - 46, 116, 8);
       }
     }
 
@@ -350,11 +526,101 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     }
   }
 
+  function drawMap(ctx: CanvasRenderingContext2D) {
+    for (const hole of HOLES[mapType] ?? []) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, .85)';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = 'rgba(0, 0, 0, .45)';
+      ctx.beginPath();
+      ctx.arc(hole.x, hole.y, hole.r + 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      const gradient = ctx.createRadialGradient(hole.x, hole.y, 4, hole.x, hole.y, hole.r);
+      gradient.addColorStop(0, '#000000');
+      gradient.addColorStop(0.62, '#020202');
+      gradient.addColorStop(1, 'rgba(120, 18, 18, .32)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(hole.x, hole.y, hole.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#f14c4c';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.setLineDash([14, 10]);
+      ctx.strokeStyle = 'rgba(241, 76, 76, .55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(hole.x, hole.y, hole.r + 11, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (mapType === 'RIVER') {
+      ctx.fillStyle = 'rgba(86, 156, 214, .16)';
+      ctx.fillRect(18, BOARD_H * 0.42, BOARD_W - 36, BOARD_H * 0.16);
+      ctx.strokeStyle = 'rgba(86, 156, 214, .34)';
+      ctx.setLineDash([12, 9]);
+      ctx.strokeRect(18, BOARD_H * 0.42, BOARD_W - 36, BOARD_H * 0.16);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(106, 153, 85, .20)';
+      ctx.fillRect(BOARD_W * 0.36, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
+      ctx.fillRect(BOARD_W * 0.56, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
+      ctx.strokeStyle = 'rgba(106, 153, 85, .50)';
+      ctx.strokeRect(BOARD_W * 0.36, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
+      ctx.strokeRect(BOARD_W * 0.56, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
+    }
+    for (const obstacle of OBSTACLES[mapType] ?? []) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, .45)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetX = 7;
+      ctx.shadowOffsetY = 9;
+
+      const gradient = ctx.createRadialGradient(obstacle.x - obstacle.r * 0.35, obstacle.y - obstacle.r * 0.42, 4, obstacle.x, obstacle.y, obstacle.r);
+      gradient.addColorStop(0, '#74777d');
+      gradient.addColorStop(0.48, '#3e4249');
+      gradient.addColorStop(1, '#17191d');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(obstacle.x, obstacle.y, obstacle.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = mapType === 'PINBALL' ? '#dcdcaa' : '#9cdcfe';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 255, 255, .20)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(obstacle.x - obstacle.r * 0.12, obstacle.y - obstacle.r * 0.14, obstacle.r * 0.62, Math.PI * 1.05, Math.PI * 1.72);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (mapType === 'NARROW_BRIDGE') {
+      ctx.fillStyle = 'rgba(244, 76, 76, .10)';
+      ctx.fillRect(BOARD_W * 0.38, 18, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
+      ctx.fillRect(BOARD_W * 0.38, BOARD_H * 0.73, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
+      ctx.strokeStyle = 'rgba(244, 76, 76, .28)';
+      ctx.setLineDash([10, 8]);
+      ctx.strokeRect(BOARD_W * 0.38, 18, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
+      ctx.strokeRect(BOARD_W * 0.38, BOARD_H * 0.73, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = '#858585';
+    ctx.font = '700 18px Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(mapType.toLowerCase(), 30, 42);
+  }
+
   function drawStone(ctx: CanvasRenderingContext2D, stone: SimStone) {
     const x = stone.x * BOARD_W;
     const y = stone.y * BOARD_H;
-    const fill = stone.owner === 0 ? '#d4d4d4' : '#111111';
-    const edge = stone.owner === 0 ? '#4ec9b0' : '#ce9178';
+    const fill = playerFill(stone.owner);
+    const edge = playerColor(stone.owner);
     ctx.beginPath();
     ctx.arc(x + 4, y + 5, STONE_R, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,.32)';
@@ -372,8 +638,29 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.fill();
   }
 
-  const myAlive = stones.filter(s => s.owner === myPlayerIndex && s.active).length;
-  const opponentAlive = stones.filter(s => s.owner !== myPlayerIndex && s.active).length;
+  function drawEffect(ctx: CanvasRenderingContext2D, effect: VisualEffect) {
+    const progress = 1 - effect.life / effect.maxLife;
+    const alpha = Math.max(0, effect.life / effect.maxLife);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = effect.color;
+    ctx.lineWidth = effect.type === 'out' ? 4 : 3;
+    ctx.beginPath();
+    ctx.arc(effect.x, effect.y, (effect.type === 'out' ? 18 : 10) + progress * (effect.type === 'out' ? 46 : 28), 0, Math.PI * 2);
+    ctx.stroke();
+    if (effect.type === 'out') {
+      ctx.fillStyle = effect.color;
+      ctx.font = '700 18px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('OUT', effect.x, effect.y - 16 - progress * 18);
+    }
+    ctx.restore();
+  }
+
+  const aliveCounts = Array.from({ length: game?.numPlayers ?? playerNames.length ?? 0 }, (_, owner) =>
+    stones.filter(s => s.owner === owner && s.active).length
+  );
+  const shotLog = game?.shotLog ?? [];
 
   return (
     <div style={{
@@ -389,18 +676,21 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '8px 12px',
+        padding: '5px 10px',
         borderBottom: '1px solid #3e3e42',
         background: '#252526',
         fontSize: 12,
       }}>
         <span style={{ color: myColor, fontWeight: 700 }}>{isMyTurn ? 'Your turn' : moving ? 'Moving' : `${currentName}'s turn`}</span>
-        <span style={{ color: '#858585' }}>Mine {myAlive}</span>
-        <span style={{ color: '#858585' }}>Opponent {opponentAlive}</span>
+        {aliveCounts.map((count, owner) => (
+          <span key={owner} style={{ color: owner === myPlayerIndex ? myColor : '#858585' }}>
+            {owner === myPlayerIndex ? 'Mine' : (playerNames[owner] ?? `P${owner + 1}`)} {count}
+          </span>
+        ))}
         <span style={{ marginLeft: 'auto', color: '#858585' }}>drag backward and release</span>
       </div>
 
-      <div ref={wrapRef} style={{ minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+      <div ref={wrapRef} style={{ minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }}>
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
@@ -419,18 +709,36 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       </div>
 
       <div style={{
-        minHeight: 34,
-        padding: '7px 12px',
+        minHeight: 32,
+        padding: '4px 10px',
         borderTop: '1px solid #3e3e42',
         background: '#202024',
         color: studyState?.message?.startsWith('ERROR:') ? '#f14c4c' : '#858585',
         fontSize: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        overflow: 'hidden',
       }}>
-        {studyState?.message?.startsWith('ERROR:')
-          ? studyState.message
-          : isMyTurn
-            ? 'Click your stone, pull backward, then release.'
-            : 'Wait until every stone stops.'}
+        <span style={{ flexShrink: 0 }}>
+          {studyState?.message?.startsWith('ERROR:')
+            ? studyState.message
+            : isMyTurn
+              ? 'Click your stone, pull backward, then release.'
+              : 'Wait until every stone stops.'}
+        </span>
+        <div style={{
+          display: 'flex',
+          gap: 10,
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          color: '#6a9955',
+          minWidth: 0,
+        }}>
+          {shotLog.length > 0
+            ? shotLog.slice(-4).reverse().map((line, index) => <span key={`${line}-${index}`}>// {line}</span>)
+            : <span>// no shot log</span>}
+        </div>
       </div>
     </div>
   );

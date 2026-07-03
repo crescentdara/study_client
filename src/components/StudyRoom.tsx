@@ -60,7 +60,7 @@ function StudyRoom({
     const isRushHour = room.studyType === 'RUSH_HOUR';
     const isUbongo   = room.studyType === 'UBONGO';
     const isAlkkagi = room.studyType === 'ALKKAGI';
-    const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : isAlkkagi ? 2 : room.maxPlayers;
+    const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
 
@@ -109,14 +109,14 @@ function StudyRoom({
     return (
         <div style={{ display: 'flex', height: '100%' }}>
             {/* ── 게임 영역 ── */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isAlkkagi ? '4px' : '10px', minWidth: 0 }}>
                 {/* 상단 정보바 */}
                 <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '5px 10px',
+                        padding: isAlkkagi ? '3px 8px' : '5px 10px',
                         background: '#252526',
                         border: '1px solid #3e3e42',
                         fontSize: '12px',
@@ -217,12 +217,12 @@ function StudyRoom({
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
                                             disabled={
-                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isRushHour && !isUbongo && playerNames.length < 2
+                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isRushHour && !isUbongo && !isAlkkagi && playerNames.length < 2
                                             }
                                         >
                                             ▶ startGame()
                                         </button>
-                                        {!isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && playerNames.length < 2 && (
+                                        {!isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isAlkkagi && playerNames.length < 2 && (
                                             <span className="cmt">// need at least 2 players</span>
                                         )}
                                     </span>
