@@ -19,6 +19,15 @@ export function useWebSocket({ roomId, onStudyState, onSecretState }: UseWebSock
   useEffect(() => { onSecretStateRef.current = onSecretState; }, [onSecretState]);
 
   useEffect(() => {
+    const parseMessage = (message: IMessage, label: string) => {
+      try {
+        return JSON.parse(message.body) as StudyStateResponse;
+      } catch (error) {
+        console.error(`[WS] Failed to parse ${label} message:`, error, message.body);
+        return null;
+      }
+    };
+
     const client = new Client({
       webSocketFactory: () => new SockJS('/ws'),
       reconnectDelay: 5000,
@@ -27,13 +36,15 @@ export function useWebSocket({ roomId, onStudyState, onSecretState }: UseWebSock
         setConnected(true);
 
         client.subscribe(`/topic/study/${roomId}`, (m: IMessage) => {
-          onStudyStateRef.current(JSON.parse(m.body));
+          const state = parseMessage(m, 'study');
+          if (state) onStudyStateRef.current(state);
         });
 
         const sessionId = sessionStorage.getItem('sessionId') ?? '';
         if (sessionId) {
           client.subscribe(`/topic/study/${roomId}/secret/${sessionId}`, (m: IMessage) => {
-            onSecretStateRef.current?.(JSON.parse(m.body));
+            const state = parseMessage(m, 'secret');
+            if (state) onSecretStateRef.current?.(state);
           });
         }
         client.publish({

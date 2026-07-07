@@ -194,6 +194,9 @@ export interface TetrisGarbageAttack {
 export interface TetrisAttackLogEntry extends TetrisGarbageAttack {
   to: number;
   timestamp: number;
+  tspin?: boolean;
+  b2b?: boolean;
+  perfectClear?: boolean;
 }
 
 export interface TetrisPlayerState {

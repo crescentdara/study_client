@@ -60,9 +60,11 @@ function StudyRoom({
     const isRushHour = room.studyType === 'RUSH_HOUR';
     const isUbongo   = room.studyType === 'UBONGO';
     const isAlkkagi = room.studyType === 'ALKKAGI';
-    const maxPlayers = isTetris || isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
+    const maxPlayers = isTetris ? 4 : isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
+    const hasGameData = Boolean(studyState?.gameData);
+    const isPlayableMember = myPlayerIndex >= 0 && myPlayerIndex < playerNames.length;
 
     /**
      * 방이 폐쇄됐을 때 자동으로 로비로 이동
@@ -79,9 +81,7 @@ function StudyRoom({
     /** 방 나가기: 서버에 LEAVE 알림 후 로비 전환 */
     const handleLeave = useCallback(() => {
         sendMove({ moveType: 'LEAVE', data: '', sessionId });
-        // 서버 메시지 전송 직후 바로 로비로 전환
-        // (WebSocket은 비동기라 deactivate 전에 publish가 완료됨)
-        onLeave();
+        window.setTimeout(onLeave, 80);
     }, [sendMove, sessionId, onLeave]);
 
     /**
@@ -196,7 +196,7 @@ function StudyRoom({
                                 {playerNames.map((nm, i, arr) => (
                                     <span key={i}>
                                         <span className="str">"{nm}"</span>
-                                        {nm === nickname && <span className="cmt"> /*me*/</span>}
+                                        {i === myPlayerIndex && <span className="cmt"> /*me*/</span>}
                                         {i < arr.length - 1 && <span className="pct">, </span>}
                                     </span>
                                 ))}
@@ -237,7 +237,27 @@ function StudyRoom({
                 )}
 
                 {/* ── SETUP / PLAYING / FINISHED: 게임 컴포넌트 ── */}
-                {status !== 'WAITING' &&
+                {status !== 'WAITING' && !isPlayableMember && (
+                    <div className="msg-bar error">
+                        <span className="cmt">{'> '}</span>
+                        Player sync failed. Please leave and join again.
+                    </div>
+                )}
+                {status !== 'WAITING' && isPlayableMember && !hasGameData && (
+                    <div className="code-block">
+                        <div className="c-line">
+                            <span className="ln">1</span>
+                            <span className="c-line-body">
+                                <span className="cmt">
+                                    {status === 'FINISHED'
+                                        ? '// Game ended because a player left. Host can restart.'
+                                        : '// Game state is syncing...'}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                )}
+                {status !== 'WAITING' && isPlayableMember && hasGameData &&
                     (isBaseball ? (
                         <Baseball
                             studyState={studyState}

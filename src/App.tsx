@@ -907,7 +907,7 @@ function App() {
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
                     {currentRoom
-                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
+                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' ? 4 : currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
                         : 'Lobby'}
                 </span>
             </div>
