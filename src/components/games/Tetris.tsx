@@ -5,7 +5,7 @@ import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAtta
 const ROWS = 20;
 const COLS = 10;
 const SYNC_INTERVAL_MS = 700;
-const NEXT_QUEUE_SIZE = 1;
+const NEXT_QUEUE_SIZE = 5;
 const LOCK_DELAY_MS = 420;
 const MAX_LOCK_RESETS = 15;
 const DAS_DELAY_MS = 130;
@@ -31,6 +31,7 @@ type Piece = {
   shape: number[][];
   row: number;
   col: number;
+  rotation: number;
 };
 
 interface Props {
@@ -44,7 +45,7 @@ const emptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill('')
 
 const createPiece = (type: string): Piece => {
   const shape = SHAPES[type].map((row) => [...row]);
-  return { type, shape, row: 0, col: Math.floor((COLS - shape[0].length) / 2) };
+  return { type, shape, row: 0, col: Math.floor((COLS - shape[0].length) / 2), rotation: 0 };
 };
 
 const createBag = () => {
@@ -85,8 +86,50 @@ const readStoredNumber = (key: string, fallback: number, min: number, max: numbe
 const rotateShape = (shape: number[][]) =>
   shape[0].map((_, col) => shape.map((row) => row[col]).reverse());
 
-const kickOffsets = (pieceType: string) =>
-  pieceType === 'I' ? [0, -2, 2, -1, 1, -3, 3] : [0, -1, 1, -2, 2];
+const JLSTZ_KICKS: Record<string, Array<{ dc: number; dr: number }>> = {
+  '0>1': [{ dc: 0, dr: 0 }, { dc: -1, dr: 0 }, { dc: -1, dr: 1 }, { dc: 0, dr: -2 }, { dc: -1, dr: -2 }],
+  '1>2': [{ dc: 0, dr: 0 }, { dc: 1, dr: 0 }, { dc: 1, dr: -1 }, { dc: 0, dr: 2 }, { dc: 1, dr: 2 }],
+  '2>3': [{ dc: 0, dr: 0 }, { dc: 1, dr: 0 }, { dc: 1, dr: 1 }, { dc: 0, dr: -2 }, { dc: 1, dr: -2 }],
+  '3>0': [{ dc: 0, dr: 0 }, { dc: -1, dr: 0 }, { dc: -1, dr: -1 }, { dc: 0, dr: 2 }, { dc: -1, dr: 2 }],
+};
+
+const I_KICKS: Record<string, Array<{ dc: number; dr: number }>> = {
+  '0>1': [{ dc: 0, dr: 0 }, { dc: -2, dr: 0 }, { dc: 1, dr: 0 }, { dc: -2, dr: -1 }, { dc: 1, dr: 2 }],
+  '1>2': [{ dc: 0, dr: 0 }, { dc: -1, dr: 0 }, { dc: 2, dr: 0 }, { dc: -1, dr: 2 }, { dc: 2, dr: -1 }],
+  '2>3': [{ dc: 0, dr: 0 }, { dc: 2, dr: 0 }, { dc: -1, dr: 0 }, { dc: 2, dr: 1 }, { dc: -1, dr: -2 }],
+  '3>0': [{ dc: 0, dr: 0 }, { dc: 1, dr: 0 }, { dc: -2, dr: 0 }, { dc: 1, dr: -2 }, { dc: -2, dr: 1 }],
+};
+
+const WALL_FALLBACK_KICKS = [
+  { dc: 0, dr: 0 },
+  { dc: -1, dr: 0 },
+  { dc: 1, dr: 0 },
+  { dc: -2, dr: 0 },
+  { dc: 2, dr: 0 },
+  { dc: -3, dr: 0 },
+  { dc: 3, dr: 0 },
+  { dc: -1, dr: -1 },
+  { dc: 1, dr: -1 },
+  { dc: -2, dr: -1 },
+  { dc: 2, dr: -1 },
+  { dc: -1, dr: 1 },
+  { dc: 1, dr: 1 },
+  { dc: -2, dr: 1 },
+  { dc: 2, dr: 1 },
+];
+
+const kickOffsets = (pieceType: string, from: number, to: number) => {
+  if (pieceType === 'O') return [{ dc: 0, dr: 0 }];
+  const key = `${from}>${to}`;
+  const base = (pieceType === 'I' ? I_KICKS[key] : JLSTZ_KICKS[key]) ?? [];
+  const seen = new Set<string>();
+  return [...base, ...WALL_FALLBACK_KICKS].filter((kick) => {
+    const id = `${kick.dc}:${kick.dr}`;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
 const collides = (board: Board, piece: Piece, nextRow = piece.row, nextCol = piece.col, nextShape = piece.shape) => {
   for (let r = 0; r < nextShape.length; r += 1) {
@@ -146,14 +189,25 @@ const clearLines = (board: Board) => {
   return { board: [...blank, ...kept], cleared, clearedRows };
 };
 
+const pickGarbageHole = (previousHole: number | null) => {
+  if (previousHole === null) return Math.floor(Math.random() * COLS);
+  const offset = 1 + Math.floor(Math.random() * (COLS - 1));
+  return (previousHole + offset) % COLS;
+};
+
 const addGarbageLines = (board: Board, count: number, previousHole: number | null) => {
   const safeCount = Math.max(0, Math.min(8, count));
   if (safeCount === 0) return { board, hole: previousHole };
   const kept = board.slice(safeCount).map((row) => [...row]);
-  let hole = previousHole ?? Math.floor(Math.random() * COLS);
+  let hole = previousHole ?? pickGarbageHole(null);
+  let streak = 0;
   const garbage = Array.from({ length: safeCount }, (_, index) => {
-    if (index > 0 && Math.random() >= 0.7) {
-      hole = Math.floor(Math.random() * COLS);
+    const shouldShiftHole = index > 0 && (streak >= 2 || Math.random() < 0.42);
+    if (shouldShiftHole) {
+      hole = pickGarbageHole(hole);
+      streak = 0;
+    } else {
+      streak += 1;
     }
     return Array.from({ length: COLS }, (_, col) => (col === hole ? '' : 'G'));
   });
@@ -167,11 +221,44 @@ const baseAttackLines = (cleared: number) => {
   return 0;
 };
 
-const attackPower = (cleared: number, combo: number) => {
+const tSpinAttackLines = (cleared: number) => {
+  if (cleared === 1) return 2;
+  if (cleared === 2) return 4;
+  if (cleared >= 3) return 6;
+  return 0;
+};
+
+const scoreForClear = (cleared: number, tspin: boolean, b2b: boolean, perfectClear: boolean) => {
+  const base = tspin
+    ? [400, 800, 1200, 1600][cleared] ?? 400
+    : [0, 120, 320, 520, 820][cleared] ?? 0;
+  const b2bBonus = b2b && (tspin || cleared >= 4) ? Math.floor(base * 0.5) : 0;
+  return base + b2bBonus + (perfectClear ? 1200 : 0);
+};
+
+const outgoingAttackPower = (cleared: number, combo: number, tspin: boolean, b2b: boolean, perfectClear: boolean) => {
   if (cleared <= 0) return 0;
-  const base = baseAttackLines(cleared);
+  const base = tspin ? tSpinAttackLines(cleared) : baseAttackLines(cleared);
+  const b2bBonus = b2b && (tspin || cleared >= 4) ? 1 : 0;
   const comboBonus = combo >= 2 ? Math.min(4, combo - 1) : 0;
-  return base + comboBonus;
+  const perfectBonus = perfectClear ? 6 : 0;
+  return base + b2bBonus + comboBonus + perfectBonus;
+};
+
+const isBoardEmpty = (board: Board) => board.every((row) => row.every((cell) => !cell));
+
+const isTSpin = (board: Board, piece: Piece, lastMoveWasRotate: boolean) => {
+  if (!lastMoveWasRotate || piece.type !== 'T') return false;
+  const corners = [
+    [piece.row, piece.col],
+    [piece.row, piece.col + 2],
+    [piece.row + 2, piece.col],
+    [piece.row + 2, piece.col + 2],
+  ];
+  const blocked = corners.filter(([row, col]) => (
+    row < 0 || row >= ROWS || col < 0 || col >= COLS || Boolean(board[row][col])
+  )).length;
+  return blocked >= 3;
 };
 
 export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove }: Props) {
@@ -193,14 +280,16 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [pendingGarbage, setPendingGarbage] = useState(0);
   const [clearCombo, setClearCombo] = useState(0);
+  const [backToBack, setBackToBack] = useState(false);
   const [attackNotice, setAttackNotice] = useState('');
-  const [localAttackLog, setLocalAttackLog] = useState<string[]>([]);
   const [clearingRows, setClearingRows] = useState<number[]>([]);
   const [resolvingClear, setResolvingClear] = useState(false);
   const [dasDelay, setDasDelay] = useState(() => readStoredNumber(TETRIS_DAS_KEY, DAS_DELAY_MS, 70, 220));
   const [arrInterval, setArrInterval] = useState(() => readStoredNumber(TETRIS_ARR_KEY, ARR_INTERVAL_MS, 16, 90));
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
+  const horizontalDirectionRef = useRef<-1 | 1 | null>(null);
   const lockDelayRef = useRef<number | null>(null);
   const lockResetCountRef = useRef(0);
   const clearAnimationRef = useRef<number | null>(null);
@@ -208,6 +297,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const syncPayloadRef = useRef<object>({});
   const attackSeqRef = useRef(0);
   const lastAttackRef = useRef<{ lastCleared: number; attackKey: string; attackLines: number }>({ lastCleared: 0, attackKey: '', attackLines: 0 });
+  const lastClearMetaRef = useRef({ tspin: false, b2b: false, perfectClear: false });
+  const lastMoveWasRotateRef = useRef(false);
   const appliedAttacksRef = useRef<Set<string>>(new Set());
   const ackAttackIdsRef = useRef<string[]>([]);
   const pendingGarbageRef = useRef(0);
@@ -243,24 +334,6 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ...boardViews.filter((view) => view.isMe),
     ...boardViews.filter((view) => !view.isMe).slice(1),
   ];
-
-  const pushLocalAttackLog = useCallback((message: string) => {
-    if (!message) return;
-    setLocalAttackLog((prev) => [message, ...prev].slice(0, 6));
-  }, []);
-
-  const attackLogLines = useMemo(() => {
-    const serverLines = (data?.attackLog ?? [])
-      .slice(-6)
-      .reverse()
-      .map((entry) => {
-        const from = playerNames[entry.from] ?? `P${entry.from + 1}`;
-        const to = playerNames[entry.to] ?? `P${entry.to + 1}`;
-        const combo = entry.combo > 1 ? ` c${entry.combo}` : '';
-        return `${from} -> ${to} +${entry.lines}${combo}`;
-      });
-    return [...localAttackLog, ...serverLines].slice(0, 6);
-  }, [data?.attackLog, localAttackLog, playerNames]);
 
   useEffect(() => {
     pieceRef.current = piece;
@@ -349,10 +422,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     garbageHoleRef.current = null;
     setPendingGarbage(0);
     setClearCombo(0);
+    setBackToBack(false);
     setAttackNotice('');
-    setLocalAttackLog([]);
     lockResetCountRef.current = 0;
     lastAttackRef.current = { lastCleared: 0, attackKey: '', attackLines: 0 };
+    lastClearMetaRef.current = { tspin: false, b2b: false, perfectClear: false };
+    lastMoveWasRotateRef.current = false;
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
   }, [clearLineAnimation, clearLockDelay, setQueue]);
@@ -390,7 +465,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     const merged = mergePiece(boardRef.current, targetPiece);
     const result = clearLines(merged);
     const nextCombo = result.cleared > 0 ? clearCombo + 1 : 0;
-    const rawOutgoingPower = attackPower(result.cleared, nextCombo);
+    const tspin = isTSpin(merged, targetPiece, lastMoveWasRotateRef.current);
+    const difficultClear = result.cleared > 0 && (tspin || result.cleared >= 4);
+    const nextBackToBack = result.cleared > 0 ? (difficultClear ? true : false) : backToBack;
+    const b2bAwarded = difficultClear && backToBack;
+    const perfectClear = result.cleared > 0 && isBoardEmpty(result.board);
+    const rawOutgoingPower = outgoingAttackPower(result.cleared, nextCombo, tspin, b2bAwarded, perfectClear);
     const cancelPower = result.cleared > 0 ? Math.max(1, rawOutgoingPower) : 0;
     const queuedGarbage = pendingGarbageRef.current;
     let nextPendingGarbage = queuedGarbage;
@@ -413,9 +493,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       nextPendingGarbage = queuedGarbage - applyCount;
       notice = `garbage +${applyCount}`;
     } else if (rawOutgoingPower > 0) {
-      notice = `send +${rawOutgoingPower}`;
+      const tags = [tspin ? 'T-spin' : '', b2bAwarded ? 'B2B' : '', perfectClear ? 'PC' : ''].filter(Boolean).join(' ');
+      notice = `${tags ? `${tags} ` : ''}send +${rawOutgoingPower}`;
     } else if (result.cleared > 0) {
-      notice = `clear x${result.cleared}`;
+      notice = `${tspin ? 'T-spin ' : ''}clear x${result.cleared}${perfectClear ? ' PC' : ''}`;
     }
 
     const commitLock = () => {
@@ -423,7 +504,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setClearingRows([]);
       setResolvingClear(false);
 
-      const gained = [0, 120, 320, 520, 820][result.cleared] ?? 0;
+      const gained = scoreForClear(result.cleared, tspin, b2bAwarded, perfectClear);
       const spawned = takeNextPiece();
       attackSeqRef.current += 1;
       lastAttackRef.current = {
@@ -431,12 +512,14 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
         attackLines: outgoingAttackLines,
       };
+      lastClearMetaRef.current = { tspin, b2b: b2bAwarded, perfectClear };
+      lastMoveWasRotateRef.current = false;
 
       pendingGarbageRef.current = nextPendingGarbage;
       setPendingGarbage(nextPendingGarbage);
       setClearCombo(nextCombo);
+      setBackToBack(nextBackToBack);
       setAttackNotice(notice);
-      pushLocalAttackLog(notice);
       setBoard(nextBoard);
       setScore((prev) => prev + gained + 8);
       setLines((prev) => {
@@ -462,7 +545,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     }
 
     commitLock();
-  }, [clearCombo, clearLockDelay, piece, pushLocalAttackLog, resolvingClear, sessionId, takeNextPiece]);
+  }, [backToBack, clearCombo, clearLockDelay, piece, resolvingClear, sessionId, takeNextPiece]);
 
   const scheduleLock = useCallback(() => {
     if (lockDelayRef.current !== null) return;
@@ -502,6 +585,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       return false;
     }
     setPiece(nextPiece);
+    lastMoveWasRotateRef.current = false;
     if (onGround) scheduleLock();
     return true;
   }, [active, board, clearLockDelay, piece, resetLockDelayForMove, scheduleLock]);
@@ -513,10 +597,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const rotate = useCallback(() => {
     if (!active || piece.type === 'O') return;
     const shape = rotateShape(piece.shape);
-    const offsets = kickOffsets(piece.type);
-    const offset = offsets.find((candidate) => !collides(board, piece, piece.row, piece.col + candidate, shape));
+    const nextRotation = (piece.rotation + 1) % 4;
+    const offsets = kickOffsets(piece.type, piece.rotation, nextRotation);
+    const offset = offsets.find((candidate) => !collides(board, piece, piece.row + candidate.dr, piece.col + candidate.dc, shape));
     if (offset !== undefined) {
-      const nextPiece = { ...piece, shape, col: piece.col + offset };
+      const nextPiece = { ...piece, shape, row: piece.row + offset.dr, col: piece.col + offset.dc, rotation: nextRotation };
       const onGround = collides(board, nextPiece, nextPiece.row + 1, nextPiece.col);
       if (!onGround) {
         clearLockDelay(true);
@@ -524,6 +609,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         return;
       }
       setPiece(nextPiece);
+      lastMoveWasRotateRef.current = true;
       if (onGround) scheduleLock();
     }
   }, [active, board, clearLockDelay, piece, resetLockDelayForMove, scheduleLock]);
@@ -535,6 +621,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     while (!collides(board, piece, row + 1, piece.col)) row += 1;
     const dropped = { ...piece, row };
     setPiece(dropped);
+    lastMoveWasRotateRef.current = false;
     lockPiece(dropped);
   }, [active, board, clearLockDelay, lockPiece, piece]);
 
@@ -549,6 +636,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setHoldPiece(held);
     }
     setPiece(nextPiece);
+    lastMoveWasRotateRef.current = false;
     setCanHold(false);
     if (collides(boardRef.current, nextPiece)) {
       setRunning(false);
@@ -574,6 +662,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       lastCleared: lastAttackRef.current.lastCleared,
       attackKey: lastAttackRef.current.attackKey,
       attackLines: lastAttackRef.current.attackLines,
+      tspin: lastClearMetaRef.current.tspin,
+      b2b: lastClearMetaRef.current.b2b,
+      perfectClear: lastClearMetaRef.current.perfectClear,
       ackAttackIds,
     };
     syncPayloadRef.current = payload;
@@ -587,6 +678,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         lastCleared: lastAttackRef.current.lastCleared,
         attackKey: lastAttackRef.current.attackKey,
         attackLines: lastAttackRef.current.attackLines,
+        tspin: lastClearMetaRef.current.tspin,
+        b2b: lastClearMetaRef.current.b2b,
+        perfectClear: lastClearMetaRef.current.perfectClear,
         ackAttackIds: ackAttackIdsRef.current,
       };
       sendMove({
@@ -596,6 +690,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         payload,
       });
       lastAttackRef.current = { lastCleared: 0, attackKey: '', attackLines: 0 };
+      lastClearMetaRef.current = { tspin: false, b2b: false, perfectClear: false };
       ackAttackIdsRef.current = [];
     };
     sync();
@@ -614,6 +709,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (horizontalDelayRef.current !== null) window.clearTimeout(horizontalDelayRef.current);
     horizontalHoldRef.current = null;
     horizontalDelayRef.current = null;
+    horizontalDirectionRef.current = null;
   }, []);
 
   useEffect(() => stopHorizontalHold, [stopHorizontalHold]);
@@ -627,27 +723,28 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
 
   const startHorizontalHold = useCallback((direction: -1 | 1) => {
     if (!active) return;
-    if (horizontalHoldRef.current !== null || horizontalDelayRef.current !== null) return;
+    if (horizontalDirectionRef.current === direction && (horizontalHoldRef.current !== null || horizontalDelayRef.current !== null)) return;
+    if (horizontalDirectionRef.current !== null && horizontalDirectionRef.current !== direction) stopHorizontalHold();
+    horizontalDirectionRef.current = direction;
     moveRef.current(0, direction);
     horizontalDelayRef.current = window.setTimeout(() => {
       horizontalDelayRef.current = null;
       horizontalHoldRef.current = window.setInterval(() => moveRef.current(0, direction), arrInterval);
     }, dasDelay);
-  }, [active, arrInterval, dasDelay]);
+  }, [active, arrInterval, dasDelay, stopHorizontalHold]);
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     const target = event.target as HTMLElement | null;
     const isTyping = target instanceof HTMLInputElement
       || target instanceof HTMLTextAreaElement
       || Boolean(target?.isContentEditable);
+    if (isTyping) return;
     if (!isTyping && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'g') {
       event.preventDefault();
       setGhostEnabled((value) => !value);
       return;
     }
-    const keys = isTyping
-      ? ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp']
-      : ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
     if (!keys.includes(event.key)) return;
     event.preventDefault();
     if (event.key === 'ArrowLeft') startHorizontalHold(-1);
@@ -664,7 +761,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [hardDrop, hold, isHost, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
+    if (event.key === 'ArrowLeft' && horizontalDirectionRef.current === -1) stopHorizontalHold();
+    if (event.key === 'ArrowRight' && horizontalDirectionRef.current === 1) stopHorizontalHold();
   }, [stopHorizontalHold]);
 
   useEffect(() => {
@@ -704,10 +802,25 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <span className="pct">.</span><span className="fn">observe</span>
           <span className="pct">(</span><span className="num">{data?.rows ?? ROWS}x{data?.cols ?? COLS}</span><span className="pct">)</span>
         </CL>
+        <MetricsPanel
+          paused={globalPaused}
+          open={settingsOpen}
+          dasDelay={dasDelay}
+          arrInterval={arrInterval}
+          cellAlpha={cellAlpha}
+          onToggle={() => setSettingsOpen((open) => !open)}
+          onCellAlpha={setCellAlpha}
+          onDasDelay={updateDasDelay}
+          onArrInterval={updateArrInterval}
+          onPause={toggleGlobalPause}
+          onRestart={requestGlobalRestart}
+          canRestart={isHost}
+        />
 
         <div className="tetris-board-row">
           {centeredBoardViews.map(({ name, index, state, board: viewBoard, isMe }) => (
             <div key={index} className={`tetris-player-stack ${isMe ? 'mine' : ''}`}>
+              {isMe && <HoldRail holdPiece={holdPiece} />}
               <BoardShell
               name={name}
               board={viewBoard}
@@ -721,62 +834,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               clearingRows={isMe ? clearingRows : []}
               style={isMe ? boardStyle : undefined}
             />
-              {isMe && (
-                <MetricsPanel
-                  nextQueue={nextQueue}
-                  holdPiece={holdPiece}
-                  paused={globalPaused}
-                  clearCombo={clearCombo}
-                  attackLogLines={attackLogLines}
-                  dasDelay={dasDelay}
-                  arrInterval={arrInterval}
-                  cellAlpha={cellAlpha}
-                  onCellAlpha={setCellAlpha}
-                  onDasDelay={updateDasDelay}
-                  onArrInterval={updateArrInterval}
-                  onPause={toggleGlobalPause}
-                  onRestart={requestGlobalRestart}
-                  canRestart={isHost}
-                />
-              )}
+              {isMe && <NextRail nextQueue={nextQueue} />}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="code-block tetris-side tetris-side-legacy">
-        <CL ln={1}><span className="cmt">{'// queue metrics'}</span></CL>
-        <Metric ln={2} name="operator" value={studyState?.playerNames?.[myPlayerIndex] ?? 'me'} string />
-        <Metric ln={3} name="score" value={score} />
-        <Metric ln={4} name="batch" value={piece.type} string />
-        <Metric ln={5} name="nextBatch" value={nextQueue[0]?.type ?? 'null'} string />
-        <Metric ln={6} name="pinnedTask" value={holdPiece?.type ?? 'null'} string />
-        <CL ln={7}>
-          <span className="var">visibility</span><span className="pct">: </span>
-          <input
-            className="tetris-range"
-            type="range"
-            min={22}
-            max={82}
-            value={cellAlpha}
-            onChange={(event) => setCellAlpha(Number(event.target.value))}
-          />
-          <span className="num"> {cellAlpha}%</span>
-        </CL>
-        <div className="tetris-preview-row">
-          {nextQueue.map((next, index) => <Preview key={`${next.type}-${index}`} title={`next${index + 1}`} piece={next} />)}
-          <Preview title="hold" piece={holdPiece} />
-        </div>
-        <div className="tetris-actions">
-          <button className="btn-secondary" onClick={toggleGlobalPause}>
-            {globalPaused ? 'resumeAll()' : 'pauseAll()'}
-          </button>
-          <button className="btn-primary" onClick={requestGlobalRestart} disabled={!isHost}>restartAll()</button>
-        </div>
-        <div className="tetris-note">
-          <span className="cmt">{'// arrows: move/drop - space: rotate - c: pin - p: pause all'}</span>
-        </div>
-      </div>
       {globalPaused && <TetrisWorkCover />}
     </div>
   );
@@ -824,18 +887,36 @@ function TetrisWorkCover() {
   );
 }
 
+function NextRail({ nextQueue }: { nextQueue: Piece[] }) {
+  return (
+    <div className="tetris-next-rail" aria-label="next blocks">
+      <div className="dim">next</div>
+      {nextQueue.map((next, index) => (
+        <Preview key={`${next.type}-${index}`} title={`${index + 1}`} piece={next} compact />
+      ))}
+    </div>
+  );
+}
+
+function HoldRail({ holdPiece }: { holdPiece: Piece | null }) {
+  return (
+    <div className="tetris-hold-rail" aria-label="hold block">
+      <div className="dim">hold</div>
+      <Preview title="hold" piece={holdPiece} compact />
+    </div>
+  );
+}
+
 function MetricsPanel({
-  nextQueue, holdPiece, paused, clearCombo, dasDelay, arrInterval,
-  attackLogLines, cellAlpha, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
+  paused, open, dasDelay, arrInterval,
+  cellAlpha, onToggle, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
 }: {
-  nextQueue: Piece[];
-  holdPiece: Piece | null;
   paused: boolean;
-  clearCombo: number;
-  attackLogLines: string[];
+  open: boolean;
   dasDelay: number;
   arrInterval: number;
   cellAlpha: number;
+  onToggle: () => void;
   onCellAlpha: (value: number) => void;
   onDasDelay: (value: number) => void;
   onArrInterval: (value: number) => void;
@@ -844,62 +925,32 @@ function MetricsPanel({
   canRestart: boolean;
 }) {
   return (
-    <div className="code-block tetris-side">
-      <CL ln={1}><span className="cmt">{'// queue metrics'}</span></CL>
-      <CL ln={2}>
-        <span className="var">visibility</span><span className="pct">: </span>
-        <input
-          className="tetris-range"
-          type="range"
-          min={22}
-          max={82}
-          value={cellAlpha}
-          onChange={(event) => onCellAlpha(Number(event.target.value))}
-        />
-        <span className="num"> {cellAlpha}%</span>
-      </CL>
-      <CL ln={3}>
-        <span className="var">DAS</span><span className="pct">: </span>
-        <input
-          className="tetris-range"
-          type="range"
-          min={70}
-          max={220}
-          value={dasDelay}
-          onChange={(event) => onDasDelay(Number(event.target.value))}
-        />
-        <span className="num"> {dasDelay}ms</span>
-      </CL>
-      <CL ln={4}>
-        <span className="var">ARR</span><span className="pct">: </span>
-        <input
-          className="tetris-range"
-          type="range"
-          min={16}
-          max={90}
-          value={arrInterval}
-          onChange={(event) => onArrInterval(Number(event.target.value))}
-        />
-        <span className="num"> {arrInterval}ms</span>
-      </CL>
-      <div className="tetris-preview-row">
-        {nextQueue.map((next, index) => <Preview key={`${next.type}-${index}`} title={`next${index + 1}`} piece={next} />)}
-        <Preview title="hold" piece={holdPiece} />
-      </div>
-      <div className={`tetris-combo-banner ${clearCombo >= 2 ? 'active' : ''} ${clearCombo >= 7 ? 'hot' : clearCombo >= 4 ? 'warm' : ''}`}>
-        <span>{clearCombo >= 2 ? `COMBO x${clearCombo}` : 'COMBO idle'}</span>
-      </div>
-      <div className="tetris-attack-log">
-        {attackLogLines.length > 0 ? attackLogLines.map((line, index) => (
-          <span key={`${line}-${index}`}>{line}</span>
-        )) : <span className="dim">no attacks</span>}
-      </div>
+    <div className="tetris-controls-dock">
       <div className="tetris-actions">
         <button className="btn-secondary" onClick={onPause}>
-          {paused ? 'resumeAll()' : 'pauseAll()'}
+          {paused ? 'resume' : 'pause'}
         </button>
-        <button className="btn-primary" onClick={onRestart} disabled={!canRestart}>restartAll()</button>
+        <button className="btn-primary" onClick={onRestart} disabled={!canRestart}>restart</button>
+        <button className="btn-secondary" onClick={onToggle} aria-expanded={open}>tune</button>
       </div>
+      {open && (
+        <div className="tetris-settings-popover">
+          <div className="tetris-control-list">
+            <label>
+              <span><span className="var">visibility</span><span className="num">{cellAlpha}%</span></span>
+              <input className="tetris-range" type="range" min={22} max={82} value={cellAlpha} onChange={(event) => onCellAlpha(Number(event.target.value))} />
+            </label>
+            <label>
+              <span><span className="var">DAS</span><span className="num">{dasDelay}ms</span></span>
+              <input className="tetris-range" type="range" min={70} max={220} value={dasDelay} onChange={(event) => onDasDelay(Number(event.target.value))} />
+            </label>
+            <label>
+              <span><span className="var">ARR</span><span className="num">{arrInterval}ms</span></span>
+              <input className="tetris-range" type="range" min={16} max={90} value={arrInterval} onChange={(event) => onArrInterval(Number(event.target.value))} />
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -966,11 +1017,11 @@ function BoardShell({
   );
 }
 
-function Preview({ title, piece }: { title: string; piece: Piece | null }) {
+function Preview({ title, piece, compact = false }: { title: string; piece: Piece | null; compact?: boolean }) {
   return (
-    <div className="tetris-preview">
+    <div className={`tetris-preview ${compact ? 'compact' : ''}`}>
       <div className="dim">{title}</div>
-      <div className={`tetris-mini ${piece ? '' : 'empty'}`}>
+      <div className={`tetris-mini ${compact ? 'small' : ''} ${piece ? '' : 'empty'}`}>
         {Array.from({ length: 16 }, (_, i) => {
           const r = Math.floor(i / 4);
           const c = i % 4;
@@ -980,15 +1031,6 @@ function Preview({ title, piece }: { title: string; piece: Piece | null }) {
         {!piece && <b>empty</b>}
       </div>
     </div>
-  );
-}
-
-function Metric({ ln, name, value, string = false }: { ln: number; name: string; value: string | number; string?: boolean }) {
-  return (
-    <CL ln={ln}>
-      <span className="var">{name}</span><span className="pct">: </span>
-      <span className={string ? 'str' : 'num'}>{string ? `"${value}"` : value}</span>
-    </CL>
   );
 }
 
