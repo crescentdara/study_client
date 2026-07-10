@@ -564,11 +564,46 @@ select option { background: var(--bg-sidebar); }
 }
 
 .tetris-shell.mine {
-  border-color: rgba(78, 201, 176, 0.48);
+  border-color: rgba(78, 201, 176, 0.92);
+  box-shadow: 0 0 0 1px rgba(78, 201, 176, 0.32), 0 0 14px rgba(78, 201, 176, 0.16);
 }
 
 .tetris-shell.peer {
   opacity: 0.82;
+}
+
+.tetris-shell.distractable {
+  cursor: pointer;
+}
+
+.tetris-shell.distractable:hover {
+  border-color: rgba(244, 135, 113, 0.46);
+}
+
+.tetris-shake-burst {
+  animation: tetris-shake-burst 145ms linear both;
+  transform-origin: 50% 50%;
+}
+
+.tetris-garbage-impact {
+  animation: tetris-garbage-impact 190ms ease-out both;
+  transform-origin: 50% 100%;
+}
+
+@keyframes tetris-shake-burst {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  18% { transform: translate3d(-4px, 2px, 0) rotate(-0.7deg); }
+  36% { transform: translate3d(5px, -2px, 0) rotate(0.8deg); }
+  54% { transform: translate3d(-3px, -1px, 0) rotate(-0.45deg); }
+  72% { transform: translate3d(3px, 1px, 0) rotate(0.35deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+
+@keyframes tetris-garbage-impact {
+  0% { transform: translate3d(0, 0, 0); }
+  32% { transform: translate3d(0, -5px, 0); }
+  62% { transform: translate3d(0, 3px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
 }
 
 .tetris-head {
@@ -592,6 +627,65 @@ select option { background: var(--bg-sidebar); }
   gap: 1px;
   padding: 8px;
   background: #1b1f23;
+}
+
+.tetris-send-pulse,
+.tetris-incoming-pulse {
+  position: absolute;
+  inset: 4px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tetris-send-pulse {
+  border: 2px solid rgba(220, 220, 170, 0.76);
+  box-shadow: inset 0 0 0 1px rgba(220, 220, 170, 0.18), 0 0 16px rgba(220, 220, 170, 0.22);
+  animation: tetris-send-pulse 420ms ease-out both;
+}
+
+.tetris-incoming-pulse {
+  border: 2px solid rgba(244, 135, 113, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(244, 135, 113, 0.18), 0 0 18px rgba(244, 135, 113, 0.24);
+  animation: tetris-incoming-pulse 420ms ease-out both;
+}
+
+.tetris-flash-badge {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 4;
+  max-width: calc(100% - 22px);
+  transform: translate(-50%, -50%);
+  padding: 5px 9px;
+  border: 1px solid rgba(220, 220, 170, 0.62);
+  background: rgba(30, 30, 30, 0.84);
+  color: #dcdcaa;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tetris-flash-badge 820ms ease-out both;
+}
+
+@keyframes tetris-send-pulse {
+  0% { opacity: 0; transform: scale(0.96); }
+  24% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+@keyframes tetris-incoming-pulse {
+  0% { opacity: 0; transform: scale(1.05); }
+  26% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.94); }
+}
+
+@keyframes tetris-flash-badge {
+  0% { opacity: 0; transform: translate(-50%, -42%) scale(0.92); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  72% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -58%) scale(0.96); }
 }
 
 .tetris-countdown {

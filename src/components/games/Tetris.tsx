@@ -154,6 +154,10 @@ const mergePiece = (board: Board, piece: Piece) => {
   return next;
 };
 
+const removeGhostCells = (board: Board) => (
+  board.map((row) => row.map((cell) => (cell.startsWith('ghost-') ? '' : cell)))
+);
+
 const ghostDropRow = (board: Board, piece: Piece) => {
   let row = piece.row;
   while (!collides(board, piece, row + 1, piece.col, piece.shape)) row += 1;
@@ -282,6 +286,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [clearCombo, setClearCombo] = useState(0);
   const [backToBack, setBackToBack] = useState(false);
   const [attackNotice, setAttackNotice] = useState('');
+  const [flashBadge, setFlashBadge] = useState('');
+  const [sendPulse, setSendPulse] = useState(0);
+  const [incomingPulse, setIncomingPulse] = useState(0);
+  const [garbageImpact, setGarbageImpact] = useState(0);
+  const [shakeBursts, setShakeBursts] = useState(0);
   const [clearingRows, setClearingRows] = useState<number[]>([]);
   const [resolvingClear, setResolvingClear] = useState(false);
   const [dasDelay, setDasDelay] = useState(() => readStoredNumber(TETRIS_DAS_KEY, DAS_DELAY_MS, 70, 220));
@@ -300,6 +309,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const lastClearMetaRef = useRef({ tspin: false, b2b: false, perfectClear: false });
   const lastMoveWasRotateRef = useRef(false);
   const appliedAttacksRef = useRef<Set<string>>(new Set());
+  const seenDistractEventsRef = useRef<Set<string>>(new Set());
   const ackAttackIdsRef = useRef<string[]>([]);
   const pendingGarbageRef = useRef(0);
   const garbageHoleRef = useRef<number | null>(null);
@@ -310,22 +320,26 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const globalPaused = Boolean(data?.paused);
   const gameInstanceId = data?.instanceId ?? '';
   const isHost = myPlayerIndex === 0;
+  const playerNames = studyState?.playerNames ?? [];
   const active = running && !gameOver && !globalPaused && countdown <= 0 && !resolvingClear;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
 
+  const publicBoard = useMemo(
+    () => mergePiece(board, piece),
+    [board, piece],
+  );
   const projectedBoard = useMemo(
     () => mergePiece(mergeGhostPiece(board, piece, ghostEnabled), piece),
     [board, ghostEnabled, piece],
   );
-  const playerNames = studyState?.playerNames ?? [];
   const boardViews = playerNames.map((name, index) => {
     const state = data?.playerStates?.[String(index)];
     return {
       name,
       index,
       state,
-      board: index === myPlayerIndex ? projectedBoard : state?.board ?? emptyBoard(),
+      board: index === myPlayerIndex ? projectedBoard : state?.board ? removeGhostCells(state.board) : emptyBoard(),
       isMe: index === myPlayerIndex,
     };
   });
@@ -334,6 +348,15 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ...boardViews.filter((view) => view.isMe),
     ...boardViews.filter((view) => !view.isMe).slice(1),
   ];
+
+  useEffect(() => {
+    const events = data?.distractEvents ?? [];
+    events.forEach((event) => {
+      if (event.type !== 'shake' || event.target !== myPlayerIndex || seenDistractEventsRef.current.has(event.eventId)) return;
+      seenDistractEventsRef.current.add(event.eventId);
+      setShakeBursts((value) => value + 1);
+    });
+  }, [data?.distractEvents, myPlayerIndex]);
 
   useEffect(() => {
     pieceRef.current = piece;
@@ -352,6 +375,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     const timer = window.setTimeout(() => setAttackNotice(''), 900);
     return () => window.clearTimeout(timer);
   }, [attackNotice]);
+
+  useEffect(() => {
+    if (!flashBadge) return undefined;
+    const timer = window.setTimeout(() => setFlashBadge(''), 850);
+    return () => window.clearTimeout(timer);
+  }, [flashBadge]);
 
   useEffect(() => {
     if (studyState?.status !== 'PLAYING' || countdown <= 0 || gameOver || globalPaused) return undefined;
@@ -424,6 +453,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setClearCombo(0);
     setBackToBack(false);
     setAttackNotice('');
+    setFlashBadge('');
+    setSendPulse(0);
+    setIncomingPulse(0);
+    setGarbageImpact(0);
+    setShakeBursts(0);
     lockResetCountRef.current = 0;
     lastAttackRef.current = { lastCleared: 0, attackKey: '', attackLines: 0 };
     lastClearMetaRef.current = { tspin: false, b2b: false, perfectClear: false };
@@ -478,11 +512,15 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     let outgoingAttackLines = rawOutgoingPower;
     let overflow = false;
     let notice = '';
+    let badge = '';
+    let sentAttack = false;
+    let appliedGarbage = false;
 
     if (cancelPower > 0 && queuedGarbage > 0) {
       const canceled = Math.min(queuedGarbage, cancelPower);
       nextPendingGarbage = queuedGarbage - canceled;
       outgoingAttackLines = Math.max(0, rawOutgoingPower - canceled);
+      sentAttack = outgoingAttackLines > 0;
       notice = outgoingAttackLines > 0 ? `cancel -${canceled} / send +${outgoingAttackLines}` : `cancel -${canceled}`;
     } else if (result.cleared === 0 && queuedGarbage > 0) {
       const applyCount = Math.min(8, queuedGarbage);
@@ -491,13 +529,19 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       nextBoard = garbageResult.board;
       garbageHoleRef.current = garbageResult.hole;
       nextPendingGarbage = queuedGarbage - applyCount;
+      appliedGarbage = true;
       notice = `garbage +${applyCount}`;
     } else if (rawOutgoingPower > 0) {
       const tags = [tspin ? 'T-spin' : '', b2bAwarded ? 'B2B' : '', perfectClear ? 'PC' : ''].filter(Boolean).join(' ');
+      sentAttack = true;
       notice = `${tags ? `${tags} ` : ''}send +${rawOutgoingPower}`;
     } else if (result.cleared > 0) {
       notice = `${tspin ? 'T-spin ' : ''}clear x${result.cleared}${perfectClear ? ' PC' : ''}`;
     }
+    if (perfectClear) badge = 'PERFECT CLEAR';
+    else if (tspin) badge = b2bAwarded ? 'B2B T-SPIN' : 'T-SPIN';
+    else if (b2bAwarded) badge = 'BACK TO BACK';
+    else if (nextCombo >= 2) badge = `COMBO x${nextCombo}`;
 
     const commitLock = () => {
       clearAnimationRef.current = null;
@@ -520,6 +564,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setClearCombo(nextCombo);
       setBackToBack(nextBackToBack);
       setAttackNotice(notice);
+      if (badge) setFlashBadge(badge);
+      if (sentAttack) setSendPulse((value) => value + 1);
+      if (appliedGarbage) setGarbageImpact((value) => value + 1);
       setBoard(nextBoard);
       setScore((prev) => prev + gained + 8);
       setLines((prev) => {
@@ -569,6 +616,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ackAttackIdsRef.current = [...ackAttackIdsRef.current, ...pending.map((attack) => attack.attackId)];
     pendingGarbageRef.current += totalLines;
     setPendingGarbage(pendingGarbageRef.current);
+    setIncomingPulse((value) => value + 1);
+    setFlashBadge(`INCOMING +${totalLines}`);
   }, [data?.garbageQueues, gameOver, myPlayerIndex]);
 
   const move = useCallback((dr: number, dc: number) => {
@@ -653,7 +702,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   useEffect(() => {
     const ackAttackIds = ackAttackIdsRef.current;
     const payload = {
-      board: projectedBoard,
+      board: publicBoard,
       score,
       lines,
       cycle,
@@ -668,7 +717,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       ackAttackIds,
     };
     syncPayloadRef.current = payload;
-  }, [cycle, gameOver, lines, projectedBoard, running, score]);
+  }, [cycle, gameOver, lines, publicBoard, running, score]);
 
   useEffect(() => {
     if (studyState?.status !== 'PLAYING' || myPlayerIndex < 0) return undefined;
@@ -761,8 +810,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [hardDrop, hold, isHost, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'ArrowLeft' && horizontalDirectionRef.current === -1) stopHorizontalHold();
-    if (event.key === 'ArrowRight' && horizontalDirectionRef.current === 1) stopHorizontalHold();
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
   }, [stopHorizontalHold]);
 
   useEffect(() => {
@@ -790,6 +838,16 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     localStorage.setItem(TETRIS_ARR_KEY, String(value));
   }, []);
 
+  const sendDistract = useCallback((target: number) => {
+    if (target === myPlayerIndex || studyState?.status !== 'PLAYING') return;
+    sendMove({
+      moveType: 'TETRIS_DISTRACT',
+      data: 'shake',
+      sessionId,
+      payload: { target },
+    });
+  }, [myPlayerIndex, sendMove, sessionId, studyState?.status]);
+
   return (
     <div className="tetris-workspace" tabIndex={0}>
       <div className="code-block tetris-main">
@@ -816,7 +874,6 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           onRestart={requestGlobalRestart}
           canRestart={isHost}
         />
-
         <div className="tetris-board-row">
           {centeredBoardViews.map(({ name, index, state, board: viewBoard, isMe }) => (
             <div key={index} className={`tetris-player-stack ${isMe ? 'mine' : ''}`}>
@@ -831,6 +888,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
               winner={studyState?.winner === index}
               isMe={isMe}
+              shakeKey={isMe ? shakeBursts : 0}
+              sendPulseKey={isMe ? sendPulse : 0}
+              incomingPulseKey={isMe ? incomingPulse : 0}
+              impactKey={isMe ? garbageImpact : 0}
+              badge={isMe ? flashBadge : ''}
+              onDistract={!isMe ? () => sendDistract(index) : undefined}
               clearingRows={isMe ? clearingRows : []}
               style={isMe ? boardStyle : undefined}
             />
@@ -956,7 +1019,7 @@ function MetricsPanel({
 }
 
 function BoardShell({
-  name, board, score, lines, cycle, status, pending, winner, isMe, clearingRows, style,
+  name, board, score, lines, cycle, status, pending, winner, isMe, shakeKey, sendPulseKey, incomingPulseKey, impactKey, badge, onDistract, clearingRows, style,
 }: {
   name: string;
   board: Board;
@@ -967,6 +1030,12 @@ function BoardShell({
   pending: number;
   winner: boolean;
   isMe: boolean;
+  shakeKey: number;
+  sendPulseKey: number;
+  incomingPulseKey: number;
+  impactKey: number;
+  badge: string;
+  onDistract?: () => void;
   clearingRows: number[];
   style?: CSSProperties;
 }) {
@@ -979,34 +1048,42 @@ function BoardShell({
     return `tetris-cell ${cell ? `filled t-${cell}` : ''} ${clearingRowSet.has(row) ? 'clearing' : ''}`;
   };
   return (
-    <div className={`tetris-shell ${isMe ? 'mine' : 'peer'}`}>
+    <div className={`tetris-shell ${isMe ? 'mine' : 'peer'} ${onDistract ? 'distractable' : ''}`} onClick={onDistract}>
       <div className="tetris-head">
         <span><span className={isMe ? 'var' : 'str'}>{isMe ? 'me' : `"${name}"`}</span></span>
         <span><span className="var">status</span><span className="pct">: </span><span className={winner ? 'typ' : status === 'overflow' ? 'str' : status === 'running' ? 'typ' : 'dim'}>{winner ? 'winner' : status}</span></span>
         <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
       </div>
-      <div className="tetris-board" style={style}>
-        {status === 'paused' && (
-          <div className="tetris-countdown tetris-paused-title">PAUSED</div>
-        )}
-        {isMe && /^\d+$/.test(status) && (
-          <div className="tetris-countdown">{status}</div>
-        )}
-        {pending > 0 && (
-          <div className="tetris-garbage-gauge" title={`incoming ${pending}`}>
-            <span className="tetris-garbage-label">{pending}</span>
-            {Array.from({ length: gaugeCount }, (_, i) => (
-              <i key={i} />
-            ))}
-          </div>
-        )}
-        {board.map((row, r) => row.map((cell, c) => (
-          <div
-            key={`${r}-${c}`}
-            className={cellClass(cell, r)}
-            title={`${name} slot ${r + 1}.${c + 1}`}
-          />
-        )))}
+      <div
+        key={`${shakeKey}-${impactKey}`}
+        className={`${shakeKey > 0 ? 'tetris-shake-burst' : ''} ${impactKey > 0 ? 'tetris-garbage-impact' : ''}`}
+      >
+        <div className="tetris-board" style={style}>
+          {sendPulseKey > 0 && <div key={sendPulseKey} className="tetris-send-pulse" />}
+          {incomingPulseKey > 0 && <div key={incomingPulseKey} className="tetris-incoming-pulse" />}
+          {badge && <div key={badge} className="tetris-flash-badge">{badge}</div>}
+          {status === 'paused' && (
+            <div className="tetris-countdown tetris-paused-title">PAUSED</div>
+          )}
+          {isMe && /^\d+$/.test(status) && (
+            <div className="tetris-countdown">{status}</div>
+          )}
+          {pending > 0 && (
+            <div className="tetris-garbage-gauge" title={`incoming ${pending}`}>
+              <span className="tetris-garbage-label">{pending}</span>
+              {Array.from({ length: gaugeCount }, (_, i) => (
+                <i key={i} />
+              ))}
+            </div>
+          )}
+          {board.map((row, r) => row.map((cell, c) => (
+            <div
+              key={`${r}-${c}`}
+              className={cellClass(cell, r)}
+              title={`${name} slot ${r + 1}.${c + 1}`}
+            />
+          )))}
+        </div>
       </div>
       <div className="tetris-board-metrics">
         <span><span className="var">score</span><span className="pct">: </span><span className="num">{score}</span></span>
