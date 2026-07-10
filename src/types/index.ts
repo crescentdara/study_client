@@ -42,6 +42,7 @@ export interface StudyMoveRequest {
     | 'OMOK_RPS'
     | 'TETRIS_SYNC'
     | 'TETRIS_PAUSE'
+    | 'TETRIS_DISTRACT'
     | 'INCIDENT_SYNC'
     | 'BREAKOUT_SYNC'
     | 'CATCHMIND_SET_WORD'
@@ -180,7 +181,16 @@ export interface TetrisGameData {
   comboCounts?: Record<string, number>;
   lastAttackers?: Record<string, number>;
   attackLog?: TetrisAttackLogEntry[];
+  distractEvents?: TetrisDistractEvent[];
   paused?: boolean;
+}
+
+export interface TetrisDistractEvent {
+  eventId: string;
+  type: 'shake';
+  from: number;
+  target: number;
+  timestamp: number;
 }
 
 export interface TetrisGarbageAttack {
