@@ -378,7 +378,7 @@ export interface AlkkagiGameData {
   turnStartedAt?: number;
   turnTimeLimitMs?: number;
   shotLog?: string[];
-  mapType?: 'CLASSIC' | 'CENTER_HOLE' | 'CORNER_HOLES' | 'SIDE_POCKETS' | 'PILLARS' | 'BUMPER_FIELD' | 'PINBALL' | 'NARROW_BRIDGE' | 'RIVER';
+  mapType?: 'CLASSIC' | 'CENTER_HOLE' | 'CORNER_HOLES' | 'SIDE_POCKETS' | 'PILLARS' | 'BUMPER_FIELD' | 'PINBALL' | 'NARROW_BRIDGE' | 'RIVER' | 'ICE_SAND' | 'ELASTIC_WALLS' | 'MAGNET_FIELD' | 'DONUT_RING' | 'OFFICE_DESK';
   stones: AlkkagiStone[];
   activeShot?: {
     id: number;

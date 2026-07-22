@@ -17,10 +17,16 @@ interface VisualEffect {
   id: number;
   x: number;
   y: number;
-  type: 'hit' | 'out';
+  type: 'hit' | 'out' | 'launch' | 'heavy';
   life: number;
   maxLife: number;
   color: string;
+}
+
+interface TrailPoint {
+  x: number;
+  y: number;
+  life: number;
 }
 
 const BOARD_W = 1200;
@@ -31,6 +37,8 @@ const POWER = 0.12;
 const FRICTION = 0.972;
 const STOP_SPEED = 0.16;
 const VIEW_SCALE = 0.82;
+const COLLISION_PASSES = 2;
+const MAX_SIM_FRAMES = 900;
 const PLAYER_COLORS = ['#4ec9b0', '#ce9178', '#9cdcfe'];
 const PLAYER_FILLS = ['#d4d4d4', '#111111', '#2d4f67'];
 
@@ -64,6 +72,22 @@ const OBSTACLES: Record<MapType, Array<{ x: number; y: number; r: number }>> = {
     { x: BOARD_W * 0.26, y: BOARD_H * 0.50, r: 32 },
     { x: BOARD_W * 0.74, y: BOARD_H * 0.50, r: 32 },
   ],
+  ICE_SAND: [],
+  ELASTIC_WALLS: [
+    { x: BOARD_W * 0.26, y: BOARD_H * 0.28, r: 30 },
+    { x: BOARD_W * 0.74, y: BOARD_H * 0.28, r: 30 },
+    { x: BOARD_W * 0.30, y: BOARD_H * 0.72, r: 34 },
+    { x: BOARD_W * 0.70, y: BOARD_H * 0.72, r: 34 },
+  ],
+  MAGNET_FIELD: [
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.50, r: 34 },
+  ],
+  DONUT_RING: [],
+  OFFICE_DESK: [
+    { x: BOARD_W * 0.38, y: BOARD_H * 0.34, r: 38 },
+    { x: BOARD_W * 0.62, y: BOARD_H * 0.36, r: 28 },
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.68, r: 44 },
+  ],
 };
 
 const HOLES: Partial<Record<MapType, Array<{ x: number; y: number; r: number }>>> = {
@@ -79,6 +103,21 @@ const HOLES: Partial<Record<MapType, Array<{ x: number; y: number; r: number }>>
     { x: BOARD_W * 0.94, y: BOARD_H * 0.50, r: 52 },
     { x: BOARD_W * 0.50, y: BOARD_H * 0.08, r: 42 },
     { x: BOARD_W * 0.50, y: BOARD_H * 0.92, r: 42 },
+  ],
+};
+
+const SURFACE_ZONES: Partial<Record<MapType, Array<{ x: number; y: number; w: number; h: number; type: 'ice' | 'sand' }>>> = {
+  ICE_SAND: [
+    { x: 18, y: BOARD_H * 0.18, w: BOARD_W * 0.42, h: BOARD_H * 0.28, type: 'ice' },
+    { x: BOARD_W * 0.58, y: BOARD_H * 0.54, w: BOARD_W * 0.40 - 18, h: BOARD_H * 0.28, type: 'sand' },
+  ],
+};
+
+const MAGNETS: Partial<Record<MapType, Array<{ x: number; y: number; r: number; strength: number }>>> = {
+  MAGNET_FIELD: [
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.50, r: 250, strength: 0.42 },
+    { x: BOARD_W * 0.22, y: BOARD_H * 0.50, r: 150, strength: -0.22 },
+    { x: BOARD_W * 0.78, y: BOARD_H * 0.50, r: 150, strength: -0.22 },
   ],
 };
 
@@ -107,6 +146,8 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   const playedShotRef = useRef<number>(0);
   const effectsRef = useRef<VisualEffect[]>([]);
   const effectSeqRef = useRef(0);
+  const trailRef = useRef<TrailPoint[]>([]);
+  const shakeRef = useRef(0);
   const [stones, setStones] = useState<SimStone[]>([]);
   const [drag, setDrag] = useState<{ id: number; startX: number; startY: number; x: number; y: number } | null>(null);
   const [moving, setMoving] = useState(false);
@@ -142,6 +183,9 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     setStones(next);
     setMoving(true);
     effectsRef.current = [];
+    trailRef.current = [];
+    addEffect(stone.x * BOARD_W, stone.y * BOARD_H, 'launch', playerColor(stone.owner));
+    addShake(Math.min(7, Math.hypot(stone.vx, stone.vy) * 0.18));
     runSimulation(game.activeShot.id, game.activeShot.playerIndex, true);
   }, [game?.activeShot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -263,14 +307,20 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   }
 
   function addEffect(x: number, y: number, type: VisualEffect['type'], color: string) {
+    const life = type === 'out' ? 34 : type === 'launch' ? 18 : type === 'heavy' ? 24 : 16;
     effectsRef.current = [
       ...effectsRef.current,
-      { id: effectSeqRef.current++, x, y, type, color, life: type === 'out' ? 26 : 18, maxLife: type === 'out' ? 26 : 18 },
+      { id: effectSeqRef.current++, x, y, type, color, life, maxLife: life },
     ].slice(-24);
+  }
+
+  function addShake(amount: number) {
+    shakeRef.current = Math.min(12, Math.max(shakeRef.current, amount));
   }
 
   function runSimulation(shotId: number, shooterIndex: number, confirmResult: boolean) {
     let quietFrames = 0;
+    let frameCount = 0;
     const step = () => {
       const list = stonesRef.current;
       const maxSpeed = Math.max(0, ...list.filter(stone => stone.active).map(speed));
@@ -279,6 +329,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       for (let subStep = 0; subStep < subSteps; subStep++) {
         for (const stone of list) {
           if (!stone.active) continue;
+          applyMapForce(stone, subSteps);
           stone.x += (stone.vx / subSteps) / BOARD_W;
           stone.y += (stone.vy / subSteps) / BOARD_H;
           resolveObstacleCollision(stone);
@@ -286,18 +337,22 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
             const px = stone.x * BOARD_W;
             const py = stone.y * BOARD_H;
             addEffect(Math.max(0, Math.min(BOARD_W, px)), Math.max(0, Math.min(BOARD_H, py)), 'out', playerColor(stone.owner));
+            addShake(7);
             stone.active = false;
             stone.vx = 0;
             stone.vy = 0;
           }
         }
-        resolveCollisions(list);
+        for (let pass = 0; pass < COLLISION_PASSES; pass++) {
+          resolveCollisions(list);
+        }
       }
 
       for (const stone of list) {
         if (!stone.active) continue;
-        stone.vx *= FRICTION;
-        stone.vy *= FRICTION;
+        const friction = surfaceFriction(stone);
+        stone.vx *= friction;
+        stone.vy *= friction;
         if (Math.abs(stone.vx) < 0.01) stone.vx = 0;
         if (Math.abs(stone.vy) < 0.01) stone.vy = 0;
       }
@@ -305,11 +360,22 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       effectsRef.current = effectsRef.current
         .map((effect) => ({ ...effect, life: effect.life - 1 }))
         .filter((effect) => effect.life > 0);
+      shakeRef.current = Math.max(0, shakeRef.current * 0.78 - 0.05);
+      const activeShotStone = game?.activeShot ? list.find(stone => stone.id === game.activeShot?.stoneId && stone.active) : null;
+      if (activeShotStone && frameCount % 4 === 0 && speed(activeShotStone) > STOP_SPEED * 2) {
+        trailRef.current = [
+          ...trailRef.current.map(point => ({ ...point, life: point.life - 1 })).filter(point => point.life > 0),
+          { x: activeShotStone.x * BOARD_W, y: activeShotStone.y * BOARD_H, life: 24 },
+        ].slice(-28);
+      } else {
+        trailRef.current = trailRef.current.map(point => ({ ...point, life: point.life - 1 })).filter(point => point.life > 0);
+      }
       const anyMoving = list.some(stone => stone.active && speed(stone) > STOP_SPEED);
       setStones([...list]);
       draw();
 
-      if (anyMoving) {
+      frameCount++;
+      if (anyMoving && frameCount < MAX_SIM_FRAMES) {
         quietFrames = 0;
         animRef.current = requestAnimationFrame(step);
       } else if (quietFrames < 8) {
@@ -328,7 +394,13 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
             sessionId,
             payload: {
               shotId,
-              stones: list.map(({ id, owner, x, y, active }) => ({ id, owner, x, y, active })),
+              stones: list.map(({ id, owner, x, y, active }) => ({
+                id,
+                owner,
+                x: Math.round(x * 100000) / 100000,
+                y: Math.round(y * 100000) / 100000,
+                active,
+              })),
             },
           });
         }
@@ -356,7 +428,36 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         (px > BOARD_W * 0.56 && px < BOARD_W * 0.64);
       if (inRiver && !onBridge) return true;
     }
+    if (mapType === 'DONUT_RING') {
+      const distFromCenter = Math.hypot(px - BOARD_W * 0.50, py - BOARD_H * 0.50);
+      if (distFromCenter < 126) return true;
+    }
     return false;
+  }
+
+  function applyMapForce(stone: SimStone, subSteps: number) {
+    const px = stone.x * BOARD_W;
+    const py = stone.y * BOARD_H;
+    for (const magnet of MAGNETS[mapType] ?? []) {
+      const dx = magnet.x - px;
+      const dy = magnet.y - py;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1 || dist > magnet.r) continue;
+      const pull = (1 - dist / magnet.r) * magnet.strength / subSteps;
+      stone.vx += (dx / dist) * pull;
+      stone.vy += (dy / dist) * pull;
+    }
+  }
+
+  function surfaceFriction(stone: SimStone) {
+    const px = stone.x * BOARD_W;
+    const py = stone.y * BOARD_H;
+    for (const zone of SURFACE_ZONES[mapType] ?? []) {
+      const inside = px >= zone.x && px <= zone.x + zone.w && py >= zone.y && py <= zone.y + zone.h;
+      if (!inside) continue;
+      return zone.type === 'ice' ? 0.987 : 0.885;
+    }
+    return FRICTION;
   }
 
   function resolveObstacleCollision(stone: SimStone) {
@@ -381,9 +482,12 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       stone.y += (ny * overlap) / BOARD_H;
       const vn = stone.vx * nx + stone.vy * ny;
       if (vn < 0) {
-        stone.vx -= 1.82 * vn * nx;
-        stone.vy -= 1.82 * vn * ny;
-        addEffect(obstacle.x + nx * obstacle.r, obstacle.y + ny * obstacle.r, 'hit', '#9cdcfe');
+        const bounce = mapType === 'ELASTIC_WALLS' ? 2.22 : mapType === 'OFFICE_DESK' ? 1.68 : 1.82;
+        stone.vx -= bounce * vn * nx;
+        stone.vy -= bounce * vn * ny;
+        const impact = Math.abs(vn);
+        addEffect(obstacle.x + nx * obstacle.r, obstacle.y + ny * obstacle.r, impact > 7 ? 'heavy' : 'hit', '#9cdcfe');
+        if (impact > 5) addShake(Math.min(9, impact * 0.6));
       }
     }
   }
@@ -427,12 +531,15 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         const bounce = 0.94;
         const impact = Math.abs(vaN - vbN);
         if (impact > 1.4) {
-          addEffect((ax + bx) / 2, (ay + by) / 2, 'hit', '#dcdcaa');
+          addEffect((ax + bx) / 2, (ay + by) / 2, impact > 8 ? 'heavy' : 'hit', '#dcdcaa');
+          if (impact > 6) addShake(Math.min(10, impact * 0.5));
         }
-        a.vx = (vbN * nx + vaT * tx) * bounce;
-        a.vy = (vbN * ny + vaT * ty) * bounce;
-        b.vx = (vaN * nx + vbT * tx) * bounce;
-        b.vy = (vaN * ny + vbT * ty) * bounce;
+        if (vaN > vbN) {
+          a.vx = (vbN * nx + vaT * tx) * bounce;
+          a.vy = (vbN * ny + vaT * ty) * bounce;
+          b.vx = (vaN * nx + vbT * tx) * bounce;
+          b.vy = (vaN * ny + vbT * ty) * bounce;
+        }
         dist = minDist;
         dx = nx * dist;
         dy = ny * dist;
@@ -445,9 +552,21 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.setTransform(scale * window.devicePixelRatio, 0, 0, scale * window.devicePixelRatio, 0, 0);
 
-    ctx.clearRect(0, 0, BOARD_W, BOARD_H);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const shake = shakeRef.current;
+    const shakeX = shake > 0.1 ? (Math.random() - 0.5) * shake : 0;
+    const shakeY = shake > 0.1 ? (Math.random() - 0.5) * shake : 0;
+    ctx.setTransform(
+      scale * window.devicePixelRatio,
+      0,
+      0,
+      scale * window.devicePixelRatio,
+      shakeX * scale * window.devicePixelRatio,
+      shakeY * scale * window.devicePixelRatio
+    );
+
     ctx.fillStyle = '#141414';
     ctx.fillRect(0, 0, BOARD_W, BOARD_H);
     ctx.fillStyle = '#1f1f1f';
@@ -456,6 +575,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.lineWidth = 2;
     ctx.strokeRect(18, 18, BOARD_W - 36, BOARD_H - 36);
     drawMap(ctx);
+    drawTrail(ctx);
 
     ctx.strokeStyle = '#2b2b2f';
     ctx.lineWidth = 1;
@@ -474,7 +594,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
     for (const stone of stonesRef.current) {
       if (!stone.active) continue;
-      drawStone(ctx, stone);
+      drawStone(ctx, stone, drag?.id === stone.id);
     }
 
     for (const effect of effectsRef.current) {
@@ -489,23 +609,6 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         const pull = clampPull(drag.x - sx, drag.y - sy);
         const powerRatio = pull.dist / MAX_PULL;
         const powerColor = powerRatio > 0.82 ? '#f14c4c' : powerRatio > 0.48 ? '#dcdcaa' : myColor;
-        const endX = sx + pull.dx;
-        const endY = sy + pull.dy;
-        ctx.strokeStyle = powerColor;
-        ctx.lineWidth = 3 + powerRatio * 5;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-
-        ctx.setLineDash([5, 12]);
-        ctx.strokeStyle = powerColor;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx - pull.dx * 0.35, sy - pull.dy * 0.35);
-        ctx.stroke();
-        ctx.setLineDash([]);
 
         ctx.fillStyle = 'rgba(30,30,30,.72)';
         ctx.fillRect(sx - 58, sy - 46, 116, 8);
@@ -527,6 +630,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   }
 
   function drawMap(ctx: CanvasRenderingContext2D) {
+    drawSpecialMapAreas(ctx);
     for (const hole of HOLES[mapType] ?? []) {
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, .85)';
@@ -556,6 +660,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.arc(hole.x, hole.y, hole.r + 11, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
+      drawMapLabel(ctx, hole.x, hole.y + hole.r + 28, 'HOLE', '#f14c4c');
     }
     if (mapType === 'RIVER') {
       ctx.fillStyle = 'rgba(86, 156, 214, .16)';
@@ -570,6 +675,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.strokeStyle = 'rgba(106, 153, 85, .50)';
       ctx.strokeRect(BOARD_W * 0.36, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
       ctx.strokeRect(BOARD_W * 0.56, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
+      drawMapLabel(ctx, BOARD_W * 0.50, BOARD_H * 0.50, 'DROP ZONE', '#569cd6');
     }
     for (const obstacle of OBSTACLES[mapType] ?? []) {
       ctx.save();
@@ -590,7 +696,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-      ctx.strokeStyle = mapType === 'PINBALL' ? '#dcdcaa' : '#9cdcfe';
+      ctx.strokeStyle = mapType === 'PINBALL' || mapType === 'ELASTIC_WALLS' ? '#dcdcaa' : '#9cdcfe';
       ctx.lineWidth = 5;
       ctx.stroke();
       ctx.strokeStyle = 'rgba(255, 255, 255, .20)';
@@ -599,6 +705,9 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.arc(obstacle.x - obstacle.r * 0.12, obstacle.y - obstacle.r * 0.14, obstacle.r * 0.62, Math.PI * 1.05, Math.PI * 1.72);
       ctx.stroke();
       ctx.restore();
+      const obstacleLabel = mapType === 'MAGNET_FIELD' ? 'MAGNET' : mapType === 'OFFICE_DESK' ? 'DESK ITEM' : mapType === 'ELASTIC_WALLS' ? 'BOUNCE' : 'WALL';
+      const obstacleColor = mapType === 'PINBALL' || mapType === 'ELASTIC_WALLS' ? '#dcdcaa' : mapType === 'MAGNET_FIELD' ? '#c586c0' : '#9cdcfe';
+      drawMapLabel(ctx, obstacle.x, obstacle.y + obstacle.r + 24, obstacleLabel, obstacleColor);
     }
     if (mapType === 'NARROW_BRIDGE') {
       ctx.fillStyle = 'rgba(244, 76, 76, .10)';
@@ -609,6 +718,8 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.strokeRect(BOARD_W * 0.38, 18, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
       ctx.strokeRect(BOARD_W * 0.38, BOARD_H * 0.73, BOARD_W * 0.24, BOARD_H * 0.27 - 18);
       ctx.setLineDash([]);
+      drawMapLabel(ctx, BOARD_W * 0.50, BOARD_H * 0.18, 'DROP ZONE', '#f14c4c');
+      drawMapLabel(ctx, BOARD_W * 0.50, BOARD_H * 0.84, 'DROP ZONE', '#f14c4c');
     }
     ctx.fillStyle = '#858585';
     ctx.font = '700 18px Consolas, monospace';
@@ -616,11 +727,113 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.fillText(mapType.toLowerCase(), 30, 42);
   }
 
-  function drawStone(ctx: CanvasRenderingContext2D, stone: SimStone) {
+  function drawSpecialMapAreas(ctx: CanvasRenderingContext2D) {
+    for (const zone of SURFACE_ZONES[mapType] ?? []) {
+      ctx.save();
+      ctx.fillStyle = zone.type === 'ice' ? 'rgba(86, 156, 214, .18)' : 'rgba(206, 145, 120, .18)';
+      ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
+      ctx.strokeStyle = zone.type === 'ice' ? 'rgba(86, 156, 214, .58)' : 'rgba(206, 145, 120, .58)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash(zone.type === 'ice' ? [16, 8] : [5, 8]);
+      ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
+      ctx.setLineDash([]);
+      drawMapLabel(ctx, zone.x + zone.w / 2, zone.y + zone.h / 2, zone.type === 'ice' ? 'ICE' : 'SAND', zone.type === 'ice' ? '#569cd6' : '#ce9178');
+      ctx.restore();
+    }
+
+    for (const magnet of MAGNETS[mapType] ?? []) {
+      ctx.save();
+      ctx.strokeStyle = magnet.strength > 0 ? 'rgba(197, 134, 192, .36)' : 'rgba(244, 76, 76, .28)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.arc(magnet.x, magnet.y, magnet.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    if (mapType === 'DONUT_RING') {
+      const cx = BOARD_W * 0.50;
+      const cy = BOARD_H * 0.50;
+      ctx.save();
+      ctx.fillStyle = 'rgba(244, 76, 76, .12)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 126, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(244, 76, 76, .60)';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([18, 10]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 126, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      drawMapLabel(ctx, cx, cy, 'CENTER OUT', '#f14c4c');
+      ctx.restore();
+    }
+
+    if (mapType === 'OFFICE_DESK') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(106, 153, 85, .10)';
+      ctx.fillRect(18, 18, BOARD_W - 36, BOARD_H - 36);
+      ctx.strokeStyle = 'rgba(220, 220, 170, .25)';
+      ctx.lineWidth = 2;
+      for (let x = 120; x < BOARD_W; x += 160) {
+        ctx.beginPath();
+        ctx.moveTo(x, 18);
+        ctx.lineTo(x + 80, BOARD_H - 18);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawMapLabel(ctx: CanvasRenderingContext2D, x: number, y: number, label: string, color: string) {
+    ctx.save();
+    ctx.font = '700 15px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const width = ctx.measureText(label).width + 18;
+    ctx.fillStyle = 'rgba(20,20,20,.72)';
+    ctx.fillRect(x - width / 2, y - 11, width, 22);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - width / 2, y - 11, width, 22);
+    ctx.fillStyle = color;
+    ctx.fillText(label, x, y + 1);
+    ctx.restore();
+  }
+
+  function drawTrail(ctx: CanvasRenderingContext2D) {
+    for (const point of trailRef.current) {
+      const alpha = Math.max(0, Math.min(1, point.life / 24));
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4 + alpha * 5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(220, 220, 170, ${alpha * 0.34})`;
+      ctx.fill();
+    }
+  }
+
+  function drawStone(ctx: CanvasRenderingContext2D, stone: SimStone, selected = false) {
     const x = stone.x * BOARD_W;
     const y = stone.y * BOARD_H;
     const fill = playerFill(stone.owner);
     const edge = playerColor(stone.owner);
+    if (selected) {
+      ctx.save();
+      ctx.shadowColor = edge;
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, STONE_R + 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.08)';
+      ctx.beginPath();
+      ctx.arc(x, y, STONE_R + 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.beginPath();
     ctx.arc(x + 4, y + 5, STONE_R, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,.32)';
@@ -644,13 +857,26 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = effect.color;
-    ctx.lineWidth = effect.type === 'out' ? 4 : 3;
+    ctx.lineWidth = effect.type === 'out' ? 5 : effect.type === 'heavy' ? 4 : 3;
     ctx.beginPath();
-    ctx.arc(effect.x, effect.y, (effect.type === 'out' ? 18 : 10) + progress * (effect.type === 'out' ? 46 : 28), 0, Math.PI * 2);
+    const baseRadius = effect.type === 'out' ? 20 : effect.type === 'launch' ? 12 : effect.type === 'heavy' ? 14 : 10;
+    const spread = effect.type === 'out' ? 62 : effect.type === 'launch' ? 34 : effect.type === 'heavy' ? 42 : 28;
+    ctx.arc(effect.x, effect.y, baseRadius + progress * spread, 0, Math.PI * 2);
     ctx.stroke();
+    if (effect.type === 'launch' || effect.type === 'heavy') {
+      for (let i = 0; i < 10; i++) {
+        const angle = (Math.PI * 2 * i) / 10 + progress * 0.8;
+        const inner = 12 + progress * 18;
+        const outer = 22 + progress * (effect.type === 'heavy' ? 44 : 32);
+        ctx.beginPath();
+        ctx.moveTo(effect.x + Math.cos(angle) * inner, effect.y + Math.sin(angle) * inner);
+        ctx.lineTo(effect.x + Math.cos(angle) * outer, effect.y + Math.sin(angle) * outer);
+        ctx.stroke();
+      }
+    }
     if (effect.type === 'out') {
       ctx.fillStyle = effect.color;
-      ctx.font = '700 18px Consolas, monospace';
+      ctx.font = '700 20px Consolas, monospace';
       ctx.textAlign = 'center';
       ctx.fillText('OUT', effect.x, effect.y - 16 - progress * 18);
     }
