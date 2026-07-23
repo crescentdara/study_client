@@ -11,6 +11,12 @@ interface Props {
 interface SimStone extends AlkkagiStone {
   vx: number;
   vy: number;
+  exploded?: boolean;
+  triggered?: boolean;
+  ghostUsed?: boolean;
+  mineHits?: number;
+  cursed?: boolean;
+  portalCooldown?: number;
 }
 
 interface VisualEffect {
@@ -30,7 +36,7 @@ interface TrailPoint {
 }
 
 const BOARD_W = 1200;
-const BOARD_H = 660;
+const BOARD_H = 760;
 const STONE_R = 15;
 const MAX_PULL = 230;
 const POWER = 0.12;
@@ -39,6 +45,8 @@ const STOP_SPEED = 0.16;
 const VIEW_SCALE = 0.82;
 const COLLISION_PASSES = 2;
 const MAX_SIM_FRAMES = 900;
+const SIM_STEP_MS = 1000 / 60;
+const MAX_CATCH_UP_STEPS = 6;
 const PLAYER_COLORS = ['#4ec9b0', '#ce9178', '#9cdcfe'];
 const PLAYER_FILLS = ['#d4d4d4', '#111111', '#2d4f67'];
 
@@ -88,6 +96,18 @@ const OBSTACLES: Record<MapType, Array<{ x: number; y: number; r: number }>> = {
     { x: BOARD_W * 0.62, y: BOARD_H * 0.36, r: 28 },
     { x: BOARD_W * 0.50, y: BOARD_H * 0.68, r: 44 },
   ],
+  HEX_ARENA: [
+    { x: BOARD_W * 0.50, y: BOARD_H * 0.50, r: 42 },
+  ],
+  HEX_TYPHOON: [],
+  HEX_RUINS: [
+    { x: BOARD_W * 0.42, y: BOARD_H * 0.48, r: 34 },
+    { x: BOARD_W * 0.58, y: BOARD_H * 0.52, r: 34 },
+  ],
+  ROULETTE_ARENA: [],
+  TYPHOON_ISLAND: [],
+  PORTAL_MAZE: [],
+  COLLAPSE_ICE: [],
 };
 
 const HOLES: Partial<Record<MapType, Array<{ x: number; y: number; r: number }>>> = {
@@ -150,6 +170,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   const shakeRef = useRef(0);
   const [stones, setStones] = useState<SimStone[]>([]);
   const [drag, setDrag] = useState<{ id: number; startX: number; startY: number; x: number; y: number } | null>(null);
+  const [selectedStoneId, setSelectedStoneId] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   const [size, setSize] = useState({ width: BOARD_W, height: BOARD_H });
 
@@ -158,6 +179,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   const currentName = game ? playerNames[game.currentTurn] ?? `P${game.currentTurn + 1}` : '';
   const myColor = playerColor(myPlayerIndex);
   const mapType: MapType = game?.mapType ?? 'CLASSIC';
+  const mapPhase = game?.mapPhase ?? 0;
 
   useEffect(() => {
     if (!game || game.activeShot) return;
@@ -169,7 +191,14 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     stonesRef.current = next;
     setStones(next);
     setMoving(false);
-  }, [game?.shotCount, game?.currentTurn, game?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
+    dragRef.current = null;
+    setDrag(null);
+    setSelectedStoneId(null);
+    effectsRef.current = [];
+    trailRef.current = [];
+    shakeRef.current = 0;
+    if (game.shotCount === 0) playedShotRef.current = 0;
+  }, [game?.mapSeed, game?.shotCount, game?.currentTurn, game?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!game?.activeShot || playedShotRef.current === game.activeShot.id) return;
@@ -188,6 +217,16 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     addShake(Math.min(7, Math.hypot(stone.vx, stone.vy) * 0.18));
     runSimulation(game.activeShot.id, game.activeShot.playerIndex, true);
   }, [game?.activeShot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!game?.activeShot || !game.shotResultTimeoutMs) return;
+    // Server and browser clocks can differ. Start this recovery timer when this client receives the shot state,
+    // and leave time for the local physics simulation to submit its result first.
+    const timer = window.setTimeout(() => {
+      sendMove({ moveType: 'ALKKAGI_TIMEOUT', data: '', sessionId, payload: {} });
+    }, game.shotResultTimeoutMs + 1_500);
+    return () => window.clearTimeout(timer);
+  }, [game?.activeShot?.id, game?.shotResultTimeoutMs, sendMove, sessionId]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -222,7 +261,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
   useEffect(() => {
     draw();
-  }, [stones, drag, size, studyState?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stones, drag, selectedStoneId, size, studyState?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => {
     if (animRef.current != null) cancelAnimationFrame(animRef.current);
@@ -236,10 +275,10 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     };
   }
 
-  function findStone(x: number, y: number) {
+  function findStone(x: number, y: number, mineOnly = false) {
     return stonesRef.current.find(stone =>
       stone.active &&
-      stone.owner === myPlayerIndex &&
+      (!mineOnly || stone.owner === myPlayerIndex) &&
       Math.hypot(stone.x * BOARD_W - x, stone.y * BOARD_H - y) <= STONE_R + 16
     );
   }
@@ -253,10 +292,10 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (!isMyTurn) return;
     const point = boardPoint(event);
     const stone = findStone(point.x, point.y);
-    if (!stone) return;
+    setSelectedStoneId(stone?.id ?? null);
+    if (!stone || !isMyTurn || stone.owner !== myPlayerIndex) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const nextDrag = {
       id: stone.id,
@@ -321,8 +360,40 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   function runSimulation(shotId: number, shooterIndex: number, confirmResult: boolean) {
     let quietFrames = 0;
     let frameCount = 0;
-    const step = () => {
-      const list = stonesRef.current;
+    let lastTimestamp = performance.now();
+    let accumulator = 0;
+    let finished = false;
+
+    const finishSimulation = (list: SimStone[]) => {
+      if (finished) return;
+      finished = true;
+      for (const stone of list) {
+        stone.vx = 0;
+        stone.vy = 0;
+      }
+      setStones([...list]);
+      setMoving(false);
+      if (confirmResult && shooterIndex === myPlayerIndex) {
+        sendMove({
+          moveType: 'ALKKAGI_RESULT',
+          data: '',
+          sessionId,
+          payload: {
+            shotId,
+            stones: list.map(({ id, owner, x, y, active, type }) => ({
+              id,
+              owner,
+              x: Math.round(x * 100000) / 100000,
+              y: Math.round(y * 100000) / 100000,
+              active,
+              type,
+            })),
+          },
+        });
+      }
+    };
+
+    const simulateTick = (list: SimStone[]) => {
       const maxSpeed = Math.max(0, ...list.filter(stone => stone.active).map(speed));
       const subSteps = Math.max(1, Math.min(5, Math.ceil(maxSpeed / (STONE_R * 0.45))));
 
@@ -333,6 +404,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
           stone.x += (stone.vx / subSteps) / BOARD_W;
           stone.y += (stone.vy / subSteps) / BOARD_H;
           resolveObstacleCollision(stone);
+          applyPortal(stone);
           if (isOutOfPlay(stone)) {
             const px = stone.x * BOARD_W;
             const py = stone.y * BOARD_H;
@@ -371,40 +443,36 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         trailRef.current = trailRef.current.map(point => ({ ...point, life: point.life - 1 })).filter(point => point.life > 0);
       }
       const anyMoving = list.some(stone => stone.active && speed(stone) > STOP_SPEED);
-      setStones([...list]);
-      draw();
 
       frameCount++;
       if (anyMoving && frameCount < MAX_SIM_FRAMES) {
         quietFrames = 0;
-        animRef.current = requestAnimationFrame(step);
+        return false;
       } else if (quietFrames < 8) {
         quietFrames++;
-        animRef.current = requestAnimationFrame(step);
-      } else {
-        for (const stone of list) {
-          stone.vx = 0;
-          stone.vy = 0;
-        }
-        setMoving(false);
-        if (confirmResult && shooterIndex === myPlayerIndex) {
-          sendMove({
-            moveType: 'ALKKAGI_RESULT',
-            data: '',
-            sessionId,
-            payload: {
-              shotId,
-              stones: list.map(({ id, owner, x, y, active }) => ({
-                id,
-                owner,
-                x: Math.round(x * 100000) / 100000,
-                y: Math.round(y * 100000) / 100000,
-                active,
-              })),
-            },
-          });
-        }
+        return false;
       }
+      return true;
+    };
+
+    const step = (timestamp: number) => {
+      if (finished) return;
+
+      const elapsed = Math.min(100, Math.max(0, timestamp - lastTimestamp));
+      lastTimestamp = timestamp;
+      accumulator += elapsed;
+      const list = stonesRef.current;
+      let catchUpSteps = 0;
+
+      while (accumulator >= SIM_STEP_MS && catchUpSteps < MAX_CATCH_UP_STEPS && !finished) {
+        if (simulateTick(list)) finishSimulation(list);
+        accumulator -= SIM_STEP_MS;
+        catchUpSteps++;
+      }
+
+      setStones([...list]);
+      draw();
+      if (!finished) animRef.current = requestAnimationFrame(step);
     };
     animRef.current = requestAnimationFrame(step);
   }
@@ -432,7 +500,15 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       const distFromCenter = Math.hypot(px - BOARD_W * 0.50, py - BOARD_H * 0.50);
       if (distFromCenter < 126) return true;
     }
+    if (mapType.startsWith('HEX_') && !isInsideHex(stone.x, stone.y)) return true;
+    if (mapType === 'COLLAPSE_ICE' && Math.hypot((stone.x - 0.5) / 1.2, stone.y - 0.5) > collapseRadius()) return true;
     return false;
+  }
+
+  function isInsideHex(x: number, y: number) {
+    if (y < 0.05 || y > 0.95) return false;
+    const halfWidth = y < 0.25 ? (y - 0.05) * 1.85 : y > 0.75 ? (0.95 - y) * 1.85 : 0.37;
+    return x >= 0.50 - halfWidth && x <= 0.50 + halfWidth;
   }
 
   function applyMapForce(stone: SimStone, subSteps: number) {
@@ -447,9 +523,17 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       stone.vx += (dx / dist) * pull;
       stone.vy += (dy / dist) * pull;
     }
+    if (mapType === 'TYPHOON_ISLAND' || mapType === 'HEX_TYPHOON') {
+      const angle = (mapPhase * 53 % 360) * Math.PI / 180;
+      const wind = 0.16 / subSteps;
+      stone.vx += Math.cos(angle) * wind;
+      stone.vy += Math.sin(angle) * wind;
+    }
   }
 
   function surfaceFriction(stone: SimStone) {
+    if (stone.type === 'SLIPPERY') return 0.988;
+    if (stone.cursed) return 0.987;
     const px = stone.x * BOARD_W;
     const py = stone.y * BOARD_H;
     for (const zone of SURFACE_ZONES[mapType] ?? []) {
@@ -460,8 +544,52 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     return FRICTION;
   }
 
+  function getObstacles() {
+    if (mapType !== 'ROULETTE_ARENA') return OBSTACLES[mapType] ?? [];
+    const angle = mapPhase * Math.PI / 6;
+    return [0, 1, 2, 3].map((index) => {
+      const theta = angle + index * Math.PI / 2;
+      return {
+        x: BOARD_W * 0.5 + Math.cos(theta) * 190,
+        y: BOARD_H * 0.5 + Math.sin(theta) * 190,
+        r: index % 2 === 0 ? 35 : 28,
+      };
+    });
+  }
+
+  function getPortals() {
+    if (mapType !== 'PORTAL_MAZE') return [];
+    const shift = (mapPhase % 3) * 0.035;
+    return [
+      { x: BOARD_W * (0.23 + shift), y: BOARD_H * 0.28, targetX: BOARD_W * (0.77 - shift), targetY: BOARD_H * 0.72 },
+      { x: BOARD_W * (0.77 - shift), y: BOARD_H * 0.72, targetX: BOARD_W * (0.23 + shift), targetY: BOARD_H * 0.28 },
+    ];
+  }
+
+  function applyPortal(stone: SimStone) {
+    if (stone.portalCooldown && stone.portalCooldown > 0) {
+      stone.portalCooldown--;
+      return;
+    }
+    const px = stone.x * BOARD_W;
+    const py = stone.y * BOARD_H;
+    for (const portal of getPortals()) {
+      if (Math.hypot(px - portal.x, py - portal.y) > 28) continue;
+      addEffect(px, py, 'heavy', '#c586c0');
+      stone.x = portal.targetX / BOARD_W;
+      stone.y = portal.targetY / BOARD_H;
+      stone.portalCooldown = 24;
+      addEffect(portal.targetX, portal.targetY, 'heavy', '#c586c0');
+      break;
+    }
+  }
+
+  function collapseRadius() {
+    return Math.max(0.24, 0.52 - mapPhase * 0.035);
+  }
+
   function resolveObstacleCollision(stone: SimStone) {
-    const obstacles = OBSTACLES[mapType] ?? [];
+    const obstacles = getObstacles();
     for (const obstacle of obstacles) {
       const px = stone.x * BOARD_W;
       const py = stone.y * BOARD_H;
@@ -508,6 +636,16 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         let dist = Math.hypot(dx, dy);
         const minDist = STONE_R * 2;
         if (dist >= minDist) continue;
+        if (a.type === 'GHOST' && !a.ghostUsed) {
+          a.ghostUsed = true;
+          addEffect(ax, ay, 'heavy', '#9cdcfe');
+          continue;
+        }
+        if (b.type === 'GHOST' && !b.ghostUsed) {
+          b.ghostUsed = true;
+          addEffect(bx, by, 'heavy', '#9cdcfe');
+          continue;
+        }
         if (dist <= 0.001) {
           dx = 1;
           dy = 0;
@@ -516,18 +654,19 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
         const nx = dx / dist;
         const ny = dy / dist;
-        const overlap = (minDist - dist) / 2;
-        a.x -= (nx * overlap) / BOARD_W;
-        a.y -= (ny * overlap) / BOARD_H;
-        b.x += (nx * overlap) / BOARD_W;
-        b.y += (ny * overlap) / BOARD_H;
+        const massA = stoneMass(a);
+        const massB = stoneMass(b);
+        const inverseMassA = 1 / massA;
+        const inverseMassB = 1 / massB;
+        const overlap = minDist - dist;
+        const overlapRatio = overlap / (inverseMassA + inverseMassB);
+        a.x -= (nx * overlapRatio * inverseMassA) / BOARD_W;
+        a.y -= (ny * overlapRatio * inverseMassA) / BOARD_H;
+        b.x += (nx * overlapRatio * inverseMassB) / BOARD_W;
+        b.y += (ny * overlapRatio * inverseMassB) / BOARD_H;
 
-        const tx = -ny;
-        const ty = nx;
         const vaN = a.vx * nx + a.vy * ny;
         const vbN = b.vx * nx + b.vy * ny;
-        const vaT = a.vx * tx + a.vy * ty;
-        const vbT = b.vx * tx + b.vy * ty;
         const bounce = 0.94;
         const impact = Math.abs(vaN - vbN);
         if (impact > 1.4) {
@@ -535,16 +674,134 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
           if (impact > 6) addShake(Math.min(10, impact * 0.5));
         }
         if (vaN > vbN) {
-          a.vx = (vbN * nx + vaT * tx) * bounce;
-          a.vy = (vbN * ny + vaT * ty) * bounce;
-          b.vx = (vaN * nx + vbT * tx) * bounce;
-          b.vy = (vaN * ny + vbT * ty) * bounce;
+          const impulse = (1 + bounce) * (vaN - vbN) / (inverseMassA + inverseMassB);
+          a.vx -= impulse * inverseMassA * nx;
+          a.vy -= impulse * inverseMassA * ny;
+          b.vx += impulse * inverseMassB * nx;
+          b.vy += impulse * inverseMassB * ny;
+          if (impact > 2) {
+            triggerImpactEffect(a, b, list);
+            triggerImpactEffect(b, a, list);
+          }
         }
         dist = minDist;
         dx = nx * dist;
         dy = ny * dist;
       }
     }
+  }
+
+  function triggerImpactEffect(source: SimStone, target: SimStone, list: SimStone[]) {
+    if (source.type === 'MINE') {
+      source.mineHits = (source.mineHits ?? 0) + 1;
+      if (source.mineHits >= 2 && !source.triggered) {
+        source.triggered = true;
+        blastFrom(source, list, 210, 26, '#f14c4c');
+      }
+      return;
+    }
+    if (source.triggered || !source.type || source.type === 'NORMAL') return;
+    source.triggered = true;
+    const effect = source.type === 'ROULETTE'
+      ? ['BOMB', 'BLACK_HOLE', 'WARP', 'SPLIT', 'LIGHTNING', 'CURSE'][(source.id + target.id + (game?.shotCount ?? 0)) % 6]
+      : source.type;
+    runImpactEffect(effect, source, target, list);
+  }
+
+  function runImpactEffect(effect: string, source: SimStone, target: SimStone, list: SimStone[]) {
+    if (effect === 'BOMB') blastFrom(source, list, 175, 22, '#f14c4c');
+    if (effect === 'BLACK_HOLE') blackHoleBurst(source, list);
+    if (effect === 'WARP') warpStone(source, target);
+    if (effect === 'SPLIT') splitBurst(source, list);
+    if (effect === 'LIGHTNING') lightningStrike(source, target, list);
+    if (effect === 'CURSE') {
+      target.cursed = true;
+      target.vx *= 1.9;
+      target.vy *= 1.9;
+      addEffect(target.x * BOARD_W, target.y * BOARD_H, 'heavy', '#c586c0');
+    }
+  }
+
+  function blastFrom(source: SimStone, list: SimStone[], radius: number, strength: number, color: string) {
+    const bx = source.x * BOARD_W;
+    const by = source.y * BOARD_H;
+    for (const stone of list) {
+      if (!stone.active || stone.id === source.id) continue;
+      const dx = stone.x * BOARD_W - bx;
+      const dy = stone.y * BOARD_H - by;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 1 || distance > radius) continue;
+      const force = (1 - distance / radius) * strength;
+      stone.vx += (dx / distance) * force;
+      stone.vy += (dy / distance) * force;
+    }
+    addEffect(bx, by, 'heavy', color);
+    addShake(14);
+  }
+
+  function blackHoleBurst(source: SimStone, list: SimStone[]) {
+    const bx = source.x * BOARD_W;
+    const by = source.y * BOARD_H;
+    for (const stone of list) {
+      if (!stone.active || stone.id === source.id) continue;
+      const dx = stone.x * BOARD_W - bx;
+      const dy = stone.y * BOARD_H - by;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 1 || distance > 185) continue;
+      const pull = (1 - distance / 210) * (distance < 62 ? -20 : 13);
+      stone.vx -= (dx / distance) * pull;
+      stone.vy -= (dy / distance) * pull;
+    }
+    addEffect(bx, by, 'heavy', '#c586c0');
+    addShake(9);
+  }
+
+  function warpStone(source: SimStone, target: SimStone) {
+    const originX = source.x * BOARD_W;
+    const originY = source.y * BOARD_H;
+    const angle = ((source.id * 73 + target.id * 37 + (game?.shotCount ?? 0) * 29) % 360) * Math.PI / 180;
+    source.x = 0.5 + Math.cos(angle) * 0.33;
+    source.y = 0.5 + Math.sin(angle) * 0.33;
+    source.vx *= -0.6;
+    source.vy *= -0.6;
+    addEffect(originX, originY, 'heavy', '#c586c0');
+    addEffect(source.x * BOARD_W, source.y * BOARD_H, 'heavy', '#9cdcfe');
+  }
+
+  function splitBurst(source: SimStone, list: SimStone[]) {
+    const sx = source.x * BOARD_W;
+    const sy = source.y * BOARD_H;
+    for (const stone of list) {
+      if (!stone.active || stone.id === source.id) continue;
+      const dx = stone.x * BOARD_W - sx;
+      const dy = stone.y * BOARD_H - sy;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 1 || distance > 135) continue;
+      stone.vx += (dx / distance) * (1 - distance / 135) * 14;
+      stone.vy += (dy / distance) * (1 - distance / 135) * 14;
+    }
+    addEffect(sx, sy, 'heavy', '#dcdcaa');
+  }
+
+  function lightningStrike(source: SimStone, target: SimStone, list: SimStone[]) {
+    const sx = source.x * BOARD_W;
+    const sy = source.y * BOARD_H;
+    const next = list
+      .filter(stone => stone.active && stone.id !== source.id && stone.id !== target.id)
+      .sort((a, b) => Math.hypot(a.x * BOARD_W - sx, a.y * BOARD_H - sy) - Math.hypot(b.x * BOARD_W - sx, b.y * BOARD_H - sy))[0];
+    if (!next) return;
+    const dx = next.x * BOARD_W - sx;
+    const dy = next.y * BOARD_H - sy;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    next.vx += (dx / distance) * 18;
+    next.vy += (dy / distance) * 18;
+    addEffect(next.x * BOARD_W, next.y * BOARD_H, 'heavy', '#dcdcaa');
+  }
+
+  function stoneMass(stone: SimStone) {
+    if (stone.type === 'HEAVY') return 5.5;
+    if (stone.type === 'LIGHT') return 0.35;
+    return 1;
   }
 
   function draw() {
@@ -574,6 +831,18 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.strokeStyle = '#3e3e42';
     ctx.lineWidth = 2;
     ctx.strokeRect(18, 18, BOARD_W - 36, BOARD_H - 36);
+    if (mapType.startsWith('HEX_')) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(86, 156, 214, .10)';
+      ctx.beginPath();
+      hexPath(ctx);
+      ctx.fill();
+      ctx.strokeStyle = '#569cd6';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([18, 10]);
+      ctx.stroke();
+      ctx.restore();
+    }
     drawMap(ctx);
     drawTrail(ctx);
 
@@ -594,7 +863,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
     for (const stone of stonesRef.current) {
       if (!stone.active) continue;
-      drawStone(ctx, stone, drag?.id === stone.id);
+      drawStone(ctx, stone, drag?.id === stone.id || selectedStoneId === stone.id);
     }
 
     for (const effect of effectsRef.current) {
@@ -631,6 +900,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
   function drawMap(ctx: CanvasRenderingContext2D) {
     drawSpecialMapAreas(ctx);
+    drawDynamicMapAreas(ctx);
     for (const hole of HOLES[mapType] ?? []) {
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, .85)';
@@ -677,7 +947,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       ctx.strokeRect(BOARD_W * 0.56, BOARD_H * 0.42, BOARD_W * 0.08, BOARD_H * 0.16);
       drawMapLabel(ctx, BOARD_W * 0.50, BOARD_H * 0.50, 'DROP ZONE', '#569cd6');
     }
-    for (const obstacle of OBSTACLES[mapType] ?? []) {
+    for (const obstacle of getObstacles()) {
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, .45)';
       ctx.shadowBlur = 14;
@@ -788,6 +1058,64 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     }
   }
 
+  function drawDynamicMapAreas(ctx: CanvasRenderingContext2D) {
+    if (mapType === 'TYPHOON_ISLAND' || mapType === 'HEX_TYPHOON') {
+      const angle = (mapPhase * 53 % 360) * Math.PI / 180;
+      const cx = BOARD_W * 0.5;
+      const cy = BOARD_H * 0.5;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(86, 156, 214, .55)';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([16, 12]);
+      for (let offset = -1; offset <= 1; offset++) {
+        ctx.beginPath();
+        ctx.moveTo(cx - Math.cos(angle) * 220 - Math.sin(angle) * offset * 100, cy - Math.sin(angle) * 220 + Math.cos(angle) * offset * 100);
+        ctx.lineTo(cx + Math.cos(angle) * 220 - Math.sin(angle) * offset * 100, cy + Math.sin(angle) * 220 + Math.cos(angle) * offset * 100);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      drawMapLabel(ctx, cx, cy, 'WIND', '#569cd6');
+      ctx.restore();
+    }
+    if (mapType === 'PORTAL_MAZE') {
+      for (const portal of getPortals()) {
+        ctx.save();
+        ctx.strokeStyle = '#c586c0';
+        ctx.lineWidth = 6;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, 24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        drawMapLabel(ctx, portal.x, portal.y - 38, 'WARP', '#c586c0');
+      }
+    }
+    if (mapType === 'COLLAPSE_ICE') {
+      const radius = collapseRadius();
+      ctx.save();
+      ctx.fillStyle = 'rgba(86, 156, 214, .12)';
+      ctx.beginPath();
+      ctx.ellipse(BOARD_W * 0.5, BOARD_H * 0.5, radius * BOARD_W * 1.2, radius * BOARD_H, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#569cd6';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([14, 10]);
+      ctx.stroke();
+      ctx.restore();
+      drawMapLabel(ctx, BOARD_W * 0.5, BOARD_H * 0.5, `SAFE ${Math.max(0, 15 - mapPhase)}`, '#569cd6');
+    }
+    if (mapType === 'ROULETTE_ARENA') {
+      drawMapLabel(ctx, BOARD_W * 0.5, BOARD_H * 0.5, `ROTATE ${mapPhase}`, '#dcdcaa');
+    }
+  }
+
+  function hexPath(ctx: CanvasRenderingContext2D) {
+    const points = [[0.50, 0.05], [0.87, 0.25], [0.87, 0.75], [0.50, 0.95], [0.13, 0.75], [0.13, 0.25]];
+    ctx.moveTo(points[0][0] * BOARD_W, points[0][1] * BOARD_H);
+    for (const [x, y] of points.slice(1)) ctx.lineTo(x * BOARD_W, y * BOARD_H);
+    ctx.closePath();
+  }
+
   function drawMapLabel(ctx: CanvasRenderingContext2D, x: number, y: number, label: string, color: string) {
     ctx.save();
     ctx.font = '700 15px Consolas, monospace';
@@ -819,6 +1147,18 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     const y = stone.y * BOARD_H;
     const fill = playerFill(stone.owner);
     const edge = playerColor(stone.owner);
+    const special = specialStoneStyle(stone.type);
+    if (special) {
+      ctx.save();
+      ctx.shadowColor = special.color;
+      ctx.shadowBlur = 16;
+      ctx.strokeStyle = special.color;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(x, y, STONE_R + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     if (selected) {
       ctx.save();
       ctx.shadowColor = edge;
@@ -845,10 +1185,58 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     ctx.lineWidth = 4;
     ctx.strokeStyle = edge;
     ctx.stroke();
+    /* legacy special marker
+    if (stone.type && stone.type !== 'NORMAL') {
+      const icon = stone.type === 'HEAVY' ? 'H' : stone.type === 'SLIPPERY' ? '~' : stone.type === 'LIGHT' ? 'L' : '✦';
+      ctx.fillStyle = stone.type === 'HEAVY' ? '#dcdcaa' : stone.type === 'SLIPPERY' ? '#569cd6' : stone.type === 'LIGHT' ? '#c586c0' : '#f14c4c';
+      ctx.font = '700 16px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(icon, x, y + 1);
+    }
+    */
+    if (special) {
+      ctx.fillStyle = special.color;
+      ctx.font = '700 13px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(special.icon, x, y + 1);
+      ctx.font = '700 10px Consolas, monospace';
+      const labelWidth = ctx.measureText(special.label).width + 10;
+      ctx.fillStyle = 'rgba(20,20,20,.86)';
+      ctx.fillRect(x - labelWidth / 2, y - STONE_R - 21, labelWidth, 14);
+      ctx.strokeStyle = special.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - labelWidth / 2, y - STONE_R - 21, labelWidth, 14);
+      ctx.fillStyle = special.color;
+      ctx.fillText(special.label, x, y - STONE_R - 14);
+    }
     ctx.beginPath();
     ctx.arc(x - 7, y - 8, 6, 0, Math.PI * 2);
     ctx.fillStyle = stone.owner === 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.2)';
     ctx.fill();
+  }
+
+  function specialStoneStyle(type?: AlkkagiStone['type']) {
+    if (type === 'HEAVY') return { icon: 'H', label: '\uCC84\uBCBD', color: '#dcdcaa' };
+    if (type === 'SLIPPERY') return { icon: 'ICE', label: '\uBE59\uD310', color: '#569cd6' };
+    if (type === 'BOMB') return { icon: '!', label: '\uD3ED\uD0C4', color: '#f14c4c' };
+    if (type === 'LIGHT') return { icon: 'L', label: '\uACBD\uB7C9', color: '#c586c0' };
+    if (type === 'BLACK_HOLE') return { icon: 'BH', label: '\uBE14\uB799\uD640', color: '#c586c0' };
+    if (type === 'WARP') return { icon: 'W', label: '\uC6CC\uD504', color: '#9cdcfe' };
+    if (type === 'SPLIT') return { icon: 'S', label: '\uBD84\uC5F4', color: '#dcdcaa' };
+    if (type === 'GHOST') return { icon: 'G', label: '\uC720\uB839', color: '#9cdcfe' };
+    if (type === 'LIGHTNING') return { icon: 'Z', label: '\uBC88\uAC1C', color: '#f5d547' };
+    if (type === 'CURSE') return { icon: 'C', label: '\uC800\uC8FC', color: '#b065c6' };
+    if (type === 'ROULETTE') return { icon: 'R', label: '\uB8F0\uB81B', color: '#4ec9b0' };
+    if (type === 'MINE') return { icon: 'M', label: '\uC9C0\uB8B0', color: '#f14c4c' };
+    /* legacy labels
+    if (type === 'HEAVY') return { icon: 'H', label: '철벽', color: '#dcdcaa' };
+    if (type === 'SLIPPERY') return { icon: 'ICE', label: '빙판', color: '#569cd6' };
+    if (type === 'BOMB') return { icon: '!', label: '폭탄', color: '#f14c4c' };
+    if (type === 'LIGHT') return { icon: 'L', label: '경량', color: '#c586c0' };
+    */
+    return null;
   }
 
   function drawEffect(ctx: CanvasRenderingContext2D, effect: VisualEffect) {
@@ -887,12 +1275,30 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     stones.filter(s => s.owner === owner && s.active).length
   );
   const shotLog = game?.shotLog ?? [];
+  const specialLegend = [
+    { name: '\uCC84\uBCBD', description: '\uC798 \uC548 \uBC00\uB9BC', color: '#dcdcaa' },
+    { name: '\uBE59\uD310', description: '\uC624\uB798 \uBBF8\uB044\uB7EC\uC9D0', color: '#569cd6' },
+    { name: '\uD3ED\uD0C4', description: '\uCDA9\uB3CC \uC2DC \uB113\uBC31', color: '#f14c4c' },
+    { name: '\uACBD\uB7C9', description: '\uD06C\uAC8C \uD305\uAE40', color: '#c586c0' },
+    { name: '\uBE14\uB799\uD640', description: '\uB04C\uC5B4\uB2F9\uAE40', color: '#c586c0' },
+    { name: '\uC6CC\uD504', description: '\uC21C\uAC04\uC774\uB3D9', color: '#9cdcfe' },
+    { name: '\uBD84\uC5F4', description: '\uCDA9\uACA9\uD30C', color: '#dcdcaa' },
+    { name: '\uC720\uB839', description: '\uD55C \uBC88 \uAD00\uD1B5', color: '#9cdcfe' },
+    { name: '\uBC88\uAC1C', description: '\uC5F0\uC1C4 \uB113\uBC31', color: '#f5d547' },
+    { name: '\uC800\uC8FC', description: '\uC0C1\uB300\uB97C \uBBF8\uB044\uB7FD\uAC8C', color: '#b065c6' },
+    { name: '\uB8F0\uB81B', description: '\uD6A8\uACFC \uBB34\uC791\uC704', color: '#4ec9b0' },
+    { name: '\uC9C0\uB8B0', description: '2\uD68C \uCDA9\uB3CC \uD3ED\uBC1C', color: '#f14c4c' },
+  ];
+  const selectedStone = selectedStoneId == null ? null : stones.find(stone => stone.id === selectedStoneId) ?? null;
+  const selectedSpecial = selectedStone?.type && selectedStone.type !== 'NORMAL'
+    ? specialLegend.find(special => special.name === specialStoneStyle(selectedStone.type)?.label)
+    : null;
 
   return (
     <div style={{
       height: '100%',
       display: 'grid',
-      gridTemplateRows: 'auto minmax(0, 1fr) auto',
+      gridTemplateRows: '42px minmax(0, 1fr) 40px',
       background: '#1e1e1e',
       color: '#d4d4d4',
       fontFamily: 'Consolas, monospace',
@@ -901,11 +1307,16 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       <div style={{
         display: 'flex',
         alignItems: 'center',
+        flexWrap: 'nowrap',
         gap: 12,
         padding: '5px 10px',
+        boxSizing: 'border-box',
         borderBottom: '1px solid #3e3e42',
         background: '#252526',
         fontSize: 12,
+        whiteSpace: 'nowrap',
+        overflowX: 'auto',
+        overflowY: 'hidden',
       }}>
         <span style={{ color: myColor, fontWeight: 700 }}>{isMyTurn ? 'Your turn' : moving ? 'Moving' : `${currentName}'s turn`}</span>
         {aliveCounts.map((count, owner) => (
@@ -913,7 +1324,19 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
             {owner === myPlayerIndex ? 'Mine' : (playerNames[owner] ?? `P${owner + 1}`)} {count}
           </span>
         ))}
-        <span style={{ marginLeft: 'auto', color: '#858585' }}>drag backward and release</span>
+        {/* legacy special legend
+        <span style={{ color: '#dcdcaa' }}>H 철벽</span>
+        <span style={{ color: '#569cd6' }}>~ 미끄럼</span>
+        <span style={{ color: '#f14c4c' }}>✦ 폭발</span>
+        <span style={{ color: '#c586c0' }}>L 경량</span>
+        */}
+        {/* legacy incomplete legend
+        <span style={{ color: '#dcdcaa' }}>철벽: 잘 안 밀림</span>
+        <span style={{ color: '#569cd6' }}>빙판: 오래 미끄러짐</span>
+        <span style={{ color: '#f14c4c' }}>폭탄: 충돌 시 넉백</span>
+        <span style={{ color: '#c586c0' }}>경량: 크게 튕김</span>
+        */}
+        <span style={{ color: '#858585' }}>click a stone to inspect</span>
       </div>
 
       <div ref={wrapRef} style={{ minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }}>
@@ -935,8 +1358,9 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
       </div>
 
       <div style={{
-        minHeight: 32,
+        height: 40,
         padding: '4px 10px',
+        boxSizing: 'border-box',
         borderTop: '1px solid #3e3e42',
         background: '#202024',
         color: studyState?.message?.startsWith('ERROR:') ? '#f14c4c' : '#858585',
@@ -946,10 +1370,14 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         gap: 14,
         overflow: 'hidden',
       }}>
-        <span style={{ flexShrink: 0 }}>
+        <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {studyState?.message?.startsWith('ERROR:')
             ? studyState.message
-            : isMyTurn
+            : selectedStone
+              ? selectedSpecial
+                ? `${selectedSpecial.name}: ${selectedSpecial.description}`
+                : '일반 돌: 특수 효과 없음'
+              : isMyTurn
               ? 'Click your stone, pull backward, then release.'
               : 'Wait until every stone stops.'}
         </span>
@@ -963,7 +1391,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
         }}>
           {shotLog.length > 0
             ? shotLog.slice(-4).reverse().map((line, index) => <span key={`${line}-${index}`}>// {line}</span>)
-            : <span>// no shot log</span>}
+            : null}
         </div>
       </div>
     </div>

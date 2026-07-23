@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAttack } from '../../types';
+import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAttack, TetrisPlayerRecord } from '../../types';
 
 const ROWS = 20;
 const COLS = 10;
@@ -32,6 +32,15 @@ type Piece = {
   row: number;
   col: number;
   rotation: number;
+};
+
+type TetrisAttackEvent = {
+  lastCleared: number;
+  attackKey: string;
+  attackLines: number;
+  tspin: boolean;
+  b2b: boolean;
+  perfectClear: boolean;
 };
 
 interface Props {
@@ -253,11 +262,20 @@ const isBoardEmpty = (board: Board) => board.every((row) => row.every((cell) => 
 
 const isTSpin = (board: Board, piece: Piece, lastMoveWasRotate: boolean) => {
   if (!lastMoveWasRotate || piece.type !== 'T') return false;
+  const pivotOffsets = [
+    { row: 1, col: 1 },
+    { row: 1, col: 0 },
+    { row: 0, col: 1 },
+    { row: 1, col: 1 },
+  ];
+  const pivot = pivotOffsets[piece.rotation] ?? pivotOffsets[0];
+  const pivotRow = piece.row + pivot.row;
+  const pivotCol = piece.col + pivot.col;
   const corners = [
-    [piece.row, piece.col],
-    [piece.row, piece.col + 2],
-    [piece.row + 2, piece.col],
-    [piece.row + 2, piece.col + 2],
+    [pivotRow - 1, pivotCol - 1],
+    [pivotRow - 1, pivotCol + 1],
+    [pivotRow + 1, pivotCol - 1],
+    [pivotRow + 1, pivotCol + 1],
   ];
   const blocked = corners.filter(([row, col]) => (
     row < 0 || row >= ROWS || col < 0 || col >= COLS || Boolean(board[row][col])
@@ -296,6 +314,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [dasDelay, setDasDelay] = useState(() => readStoredNumber(TETRIS_DAS_KEY, DAS_DELAY_MS, 70, 220));
   const [arrInterval, setArrInterval] = useState(() => readStoredNumber(TETRIS_ARR_KEY, ARR_INTERVAL_MS, 16, 90));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const [resultDismissed, setResultDismissed] = useState(false);
+  const [localGameInstanceId, setLocalGameInstanceId] = useState('');
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
   const horizontalDirectionRef = useRef<-1 | 1 | null>(null);
@@ -305,8 +326,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const moveRef = useRef<(dr: number, dc: number) => boolean>(() => false);
   const syncPayloadRef = useRef<object>({});
   const attackSeqRef = useRef(0);
-  const lastAttackRef = useRef<{ lastCleared: number; attackKey: string; attackLines: number }>({ lastCleared: 0, attackKey: '', attackLines: 0 });
-  const lastClearMetaRef = useRef({ tspin: false, b2b: false, perfectClear: false });
+  const pendingAttackEventsRef = useRef<TetrisAttackEvent[]>([]);
   const lastMoveWasRotateRef = useRef(false);
   const appliedAttacksRef = useRef<Set<string>>(new Set());
   const seenDistractEventsRef = useRef<Set<string>>(new Set());
@@ -340,6 +360,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       index,
       state,
       board: index === myPlayerIndex ? projectedBoard : state?.board ? removeGhostCells(state.board) : emptyBoard(),
+      record: data?.records?.[name],
       isMe: index === myPlayerIndex,
     };
   });
@@ -348,6 +369,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     ...boardViews.filter((view) => view.isMe),
     ...boardViews.filter((view) => !view.isMe).slice(1),
   ];
+  const myNickname = playerNames[myPlayerIndex] ?? '';
+  const myRecord = data?.records?.[myNickname];
+  const finalRankingNames = (data?.finalRanking ?? [])
+    .map((index) => playerNames[index])
+    .filter((name): name is string => Boolean(name));
 
   useEffect(() => {
     const events = data?.distractEvents ?? [];
@@ -458,9 +484,9 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     setIncomingPulse(0);
     setGarbageImpact(0);
     setShakeBursts(0);
+    setResultDismissed(false);
     lockResetCountRef.current = 0;
-    lastAttackRef.current = { lastCleared: 0, attackKey: '', attackLines: 0 };
-    lastClearMetaRef.current = { tspin: false, b2b: false, perfectClear: false };
+    pendingAttackEventsRef.current = [];
     lastMoveWasRotateRef.current = false;
     appliedAttacksRef.current.clear();
     ackAttackIdsRef.current = [];
@@ -476,21 +502,13 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     });
   }, [clearLockDelay, globalPaused, sendMove, sessionId]);
 
-  const requestGlobalRestart = useCallback(() => {
-    clearLockDelay();
-    sendMove({
-      moveType: 'RESTART',
-      data: '',
-      sessionId,
-    });
-  }, [clearLockDelay, sendMove, sessionId]);
-
   useEffect(() => {
     if (!gameInstanceId) return;
     if (gameInstanceRef.current && gameInstanceRef.current !== gameInstanceId) {
       reset();
     }
     gameInstanceRef.current = gameInstanceId;
+    setLocalGameInstanceId(gameInstanceId);
   }, [gameInstanceId, reset]);
 
   const lockPiece = useCallback((targetPiece = piece) => {
@@ -499,7 +517,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     const merged = mergePiece(boardRef.current, targetPiece);
     const result = clearLines(merged);
     const nextCombo = result.cleared > 0 ? clearCombo + 1 : 0;
-    const tspin = isTSpin(merged, targetPiece, lastMoveWasRotateRef.current);
+    const tspin = isTSpin(boardRef.current, targetPiece, lastMoveWasRotateRef.current);
     const difficultClear = result.cleared > 0 && (tspin || result.cleared >= 4);
     const nextBackToBack = result.cleared > 0 ? (difficultClear ? true : false) : backToBack;
     const b2bAwarded = difficultClear && backToBack;
@@ -551,12 +569,14 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       const gained = scoreForClear(result.cleared, tspin, b2bAwarded, perfectClear);
       const spawned = takeNextPiece();
       attackSeqRef.current += 1;
-      lastAttackRef.current = {
+      pendingAttackEventsRef.current.push({
         lastCleared: result.cleared,
         attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
         attackLines: outgoingAttackLines,
-      };
-      lastClearMetaRef.current = { tspin, b2b: b2bAwarded, perfectClear };
+        tspin,
+        b2b: b2bAwarded,
+        perfectClear,
+      });
       lastMoveWasRotateRef.current = false;
 
       pendingGarbageRef.current = nextPendingGarbage;
@@ -700,36 +720,34 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   }, [active, move, speed]);
 
   useEffect(() => {
+    if (!gameInstanceId || localGameInstanceId !== gameInstanceId) return;
     const ackAttackIds = ackAttackIdsRef.current;
     const payload = {
+      instanceId: gameInstanceId,
       board: publicBoard,
       score,
       lines,
       cycle,
       running,
       gameOver,
-      lastCleared: lastAttackRef.current.lastCleared,
-      attackKey: lastAttackRef.current.attackKey,
-      attackLines: lastAttackRef.current.attackLines,
-      tspin: lastClearMetaRef.current.tspin,
-      b2b: lastClearMetaRef.current.b2b,
-      perfectClear: lastClearMetaRef.current.perfectClear,
       ackAttackIds,
     };
     syncPayloadRef.current = payload;
-  }, [cycle, gameOver, lines, publicBoard, running, score]);
+  }, [cycle, gameInstanceId, gameOver, lines, localGameInstanceId, publicBoard, running, score]);
 
   useEffect(() => {
-    if (studyState?.status !== 'PLAYING' || myPlayerIndex < 0) return undefined;
+    if (
+      studyState?.status !== 'PLAYING'
+      || myPlayerIndex < 0
+      || !gameInstanceId
+      || localGameInstanceId !== gameInstanceId
+    ) return undefined;
     const sync = () => {
+      const attackEvents = pendingAttackEventsRef.current;
+      pendingAttackEventsRef.current = [];
       const payload = {
         ...(syncPayloadRef.current as object),
-        lastCleared: lastAttackRef.current.lastCleared,
-        attackKey: lastAttackRef.current.attackKey,
-        attackLines: lastAttackRef.current.attackLines,
-        tspin: lastClearMetaRef.current.tspin,
-        b2b: lastClearMetaRef.current.b2b,
-        perfectClear: lastClearMetaRef.current.perfectClear,
+        attackEvents,
         ackAttackIds: ackAttackIdsRef.current,
       };
       sendMove({
@@ -738,14 +756,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         sessionId,
         payload,
       });
-      lastAttackRef.current = { lastCleared: 0, attackKey: '', attackLines: 0 };
-      lastClearMetaRef.current = { tspin: false, b2b: false, perfectClear: false };
       ackAttackIdsRef.current = [];
     };
     sync();
     const timer = window.setInterval(sync, SYNC_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [gameOver, myPlayerIndex, sendMove, sessionId, studyState?.status]);
+  }, [gameInstanceId, gameOver, localGameInstanceId, myPlayerIndex, sendMove, sessionId, studyState?.status]);
 
   useEffect(() => {
     if (studyState?.status === 'FINISHED') {
@@ -793,7 +809,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       setGhostEnabled((value) => !value);
       return;
     }
-    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P', 'r', 'R'];
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'c', 'C', 'p', 'P'];
     if (!keys.includes(event.key)) return;
     event.preventDefault();
     if (event.key === 'ArrowLeft') startHorizontalHold(-1);
@@ -802,12 +818,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     if (event.key === 'ArrowUp') rotate();
     if (event.key === ' ') hardDrop();
     if (event.key.toLowerCase() === 'c') hold();
-    if (event.key.toLowerCase() === 'p') {
+    if (event.key.toLowerCase() === 'p' && isHost) {
       clearLockDelay();
       toggleGlobalPause();
     }
-    if (event.key.toLowerCase() === 'r' && isHost) requestGlobalRestart();
-  }, [hardDrop, hold, isHost, move, requestGlobalRestart, rotate, startHorizontalHold, toggleGlobalPause]);
+  }, [hardDrop, hold, isHost, move, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -863,19 +878,28 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         <MetricsPanel
           paused={globalPaused}
           open={settingsOpen}
+          recordsOpen={recordsOpen}
           dasDelay={dasDelay}
           arrInterval={arrInterval}
           cellAlpha={cellAlpha}
-          onToggle={() => setSettingsOpen((open) => !open)}
+          nickname={myNickname}
+          record={myRecord}
+          onToggle={() => {
+            setRecordsOpen(false);
+            setSettingsOpen((open) => !open);
+          }}
+          onRecordsToggle={() => {
+            setSettingsOpen(false);
+            setRecordsOpen((open) => !open);
+          }}
           onCellAlpha={setCellAlpha}
           onDasDelay={updateDasDelay}
           onArrInterval={updateArrInterval}
           onPause={toggleGlobalPause}
-          onRestart={requestGlobalRestart}
-          canRestart={isHost}
+          canPause={isHost}
         />
         <div className="tetris-board-row">
-          {centeredBoardViews.map(({ name, index, state, board: viewBoard, isMe }) => (
+          {centeredBoardViews.map(({ name, index, state, board: viewBoard, record, isMe }) => (
             <div key={index} className={`tetris-player-stack ${isMe ? 'mine' : ''}`}>
               {isMe && <HoldRail holdPiece={holdPiece} />}
               <BoardShell
@@ -887,6 +911,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               status={isMe ? (gameOver ? 'overflow' : countdown > 0 ? `${countdown}` : globalPaused ? 'paused' : running ? 'running' : 'stopped') : state?.gameOver ? 'overflow' : globalPaused ? 'paused' : state ? 'running' : 'waiting'}
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
               winner={studyState?.winner === index}
+              record={record}
               isMe={isMe}
               shakeKey={isMe ? shakeBursts : 0}
               sendPulseKey={isMe ? sendPulse : 0}
@@ -903,6 +928,19 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
         </div>
       </div>
 
+      {!resultDismissed && (
+        (studyState?.status === 'FINISHED' && (data?.aborted || finalRankingNames.length > 0))
+        || Boolean(data?.previousAbortReason)
+      ) && (
+        <TetrisResultDialog
+          aborted={Boolean(data?.aborted || data?.previousAbortReason)}
+          abortReason={data?.abortReason || data?.previousAbortReason || ''}
+          ranking={finalRankingNames}
+          records={data?.records ?? {}}
+          nickname={myNickname}
+          onClose={() => setResultDismissed(true)}
+        />
+      )}
       {globalPaused && <TetrisWorkCover />}
     </div>
   );
@@ -971,30 +1009,42 @@ function HoldRail({ holdPiece }: { holdPiece: Piece | null }) {
 }
 
 function MetricsPanel({
-  paused, open, dasDelay, arrInterval,
-  cellAlpha, onToggle, onCellAlpha, onDasDelay, onArrInterval, onPause, onRestart, canRestart,
+  paused, open, recordsOpen, dasDelay, arrInterval,
+  cellAlpha, nickname, record, onToggle, onRecordsToggle, onCellAlpha, onDasDelay, onArrInterval, onPause, canPause,
 }: {
   paused: boolean;
   open: boolean;
+  recordsOpen: boolean;
   dasDelay: number;
   arrInterval: number;
   cellAlpha: number;
+  nickname: string;
+  record?: TetrisPlayerRecord;
   onToggle: () => void;
+  onRecordsToggle: () => void;
   onCellAlpha: (value: number) => void;
   onDasDelay: (value: number) => void;
   onArrInterval: (value: number) => void;
   onPause: () => void;
-  onRestart: () => void;
-  canRestart: boolean;
+  canPause: boolean;
 }) {
   return (
     <div className="tetris-controls-dock">
       <div className="tetris-actions">
-        <button className="btn-secondary" onClick={onPause}>
+        <button className="btn-secondary" onClick={onPause} disabled={!canPause}>
           {paused ? 'resume' : 'pause'}
         </button>
-        <button className="btn-primary" onClick={onRestart} disabled={!canRestart}>restart</button>
         <button className="btn-secondary" onClick={onToggle} aria-expanded={open}>tune</button>
+        <button
+          className={`btn-secondary tetris-record-button ${recordsOpen ? 'active' : ''}`}
+          onClick={onRecordsToggle}
+          aria-expanded={recordsOpen}
+          aria-controls="tetris-record-panel"
+          title="내 종합 전적과 상대별 전적 보기"
+        >
+          <span>{recordsOpen ? '전적 닫기' : '전적 보기'}</span>
+          <b>{record?.wins ?? 0}W {record?.losses ?? 0}L</b>
+        </button>
       </div>
       {open && (
         <div className="tetris-settings-popover">
@@ -1014,12 +1064,134 @@ function MetricsPanel({
           </div>
         </div>
       )}
+      {recordsOpen && <TetrisRecordPanel nickname={nickname} record={record} onClose={onRecordsToggle} />}
+    </div>
+  );
+}
+
+const recordRate = (wins: number, losses: number) => {
+  const total = wins + losses;
+  return total > 0 ? `${((wins / total) * 100).toFixed(1)}%` : '—';
+};
+
+function TetrisRecordPanel({
+  nickname, record, onClose,
+}: {
+  nickname: string;
+  record?: TetrisPlayerRecord;
+  onClose: () => void;
+}) {
+  return (
+    <div id="tetris-record-panel" className="tetris-record-popover" role="region" aria-label="테트리스 전적">
+      <div className="tetris-record-title">
+        <div>
+          <strong>내 테트리스 전적</strong>
+          <span>{nickname || 'player'}</span>
+        </div>
+        <button type="button" onClick={onClose} aria-label="전적 패널 닫기">×</button>
+      </div>
+      <TetrisRecordDetails record={record} showGuide />
+    </div>
+  );
+}
+
+function TetrisRecordDetails({
+  record, showGuide = false,
+}: {
+  record?: TetrisPlayerRecord;
+  showGuide?: boolean;
+}) {
+  const opponents = Object.entries(record?.opponents ?? {});
+  return (
+    <>
+      {showGuide && <p className="tetris-record-guide">정상 종료된 2인 이상 경기만 승패에 반영됩니다.</p>}
+      <div className="tetris-record-summary">
+        <span><small>전체 경기</small><b>{record?.matches ?? 0}</b></span>
+        <span><small>승리</small><b className="win">{record?.wins ?? 0}</b></span>
+        <span><small>패배</small><b className="loss">{record?.losses ?? 0}</b></span>
+        <span><small>승률</small><b>{recordRate(record?.wins ?? 0, record?.losses ?? 0)}</b></span>
+      </div>
+      <h4 className="tetris-opponent-title">상대별 전적</h4>
+      <div className="tetris-opponent-list">
+        <div className="tetris-opponent-row header">
+          <span>상대</span><span>승</span><span>패</span><span>승률</span>
+        </div>
+        {opponents.map(([opponent, result]) => (
+          <div className="tetris-opponent-row" key={opponent}>
+            <span>{opponent}</span>
+            <span className="typ">{result.wins}</span>
+            <span className="str">{result.losses}</span>
+            <span>{recordRate(result.wins, result.losses)}</span>
+          </div>
+        ))}
+        {opponents.length === 0 && (
+          <div className="tetris-record-empty">
+            <strong>아직 상대 전적이 없습니다.</strong>
+            <span>2인 이상 경기를 정상 완료하면 여기에 표시됩니다.</span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function TetrisResultDialog({
+  aborted, abortReason, ranking, records, nickname, onClose,
+}: {
+  aborted: boolean;
+  abortReason: string;
+  ranking: string[];
+  records: Record<string, TetrisPlayerRecord>;
+  nickname: string;
+  onClose: () => void;
+}) {
+  const myRecord = records[nickname];
+  return (
+    <div className="tetris-result-backdrop">
+      <section className={`tetris-result-dialog ${aborted ? 'aborted' : ''}`} role="dialog" aria-modal="true">
+        <div className="tetris-result-heading">
+          <span className={aborted ? 'str' : 'typ'}>{aborted ? 'MATCH ABORTED' : 'MATCH FINISHED'}</span>
+          <button type="button" onClick={onClose} aria-label="결과 닫기">×</button>
+        </div>
+        {aborted ? (
+          <div className="tetris-abort-message">
+            <strong>전적에 반영되지 않았습니다.</strong>
+            <span>{abortReason || '경기가 정상적으로 완료되지 않았습니다.'}</span>
+          </div>
+        ) : (
+          <div className="tetris-result-content">
+            <div className="tetris-ranking-section">
+              <h3>최종 순위</h3>
+              <div className="tetris-ranking-list">
+                {ranking.map((rankedNickname, index) => {
+                  const record = records[rankedNickname];
+                  return (
+                    <div className={`tetris-ranking-row rank-${index + 1}`} key={rankedNickname}>
+                      <b>#{index + 1}</b>
+                      <strong>{rankedNickname}</strong>
+                      <span className={index === 0 ? 'typ' : 'str'}>{index === 0 ? 'WIN' : 'LOSS'}</span>
+                      <small>{record?.wins ?? 0}W {record?.losses ?? 0}L</small>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="tetris-result-record-detail">
+              <h3>경기 후 내 전적 <small>{nickname}</small></h3>
+              <TetrisRecordDetails record={myRecord} />
+            </div>
+          </div>
+        )}
+        <div className="tetris-result-actions">
+          <button className="btn-primary" type="button" onClick={onClose}>확인</button>
+        </div>
+      </section>
     </div>
   );
 }
 
 function BoardShell({
-  name, board, score, lines, cycle, status, pending, winner, isMe, shakeKey, sendPulseKey, incomingPulseKey, impactKey, badge, onDistract, clearingRows, style,
+  name, board, score, lines, cycle, status, pending, winner, record, isMe, shakeKey, sendPulseKey, incomingPulseKey, impactKey, badge, onDistract, clearingRows, style,
 }: {
   name: string;
   board: Board;
@@ -1029,6 +1201,7 @@ function BoardShell({
   status: string;
   pending: number;
   winner: boolean;
+  record?: TetrisPlayerRecord;
   isMe: boolean;
   shakeKey: number;
   sendPulseKey: number;
@@ -1051,6 +1224,7 @@ function BoardShell({
     <div className={`tetris-shell ${isMe ? 'mine' : 'peer'} ${onDistract ? 'distractable' : ''}`} onClick={onDistract}>
       <div className="tetris-head">
         <span><span className={isMe ? 'var' : 'str'}>{isMe ? 'me' : `"${name}"`}</span></span>
+        <span className="tetris-compact-record"><span className="typ">{record?.wins ?? 0}W</span><span className="str">{record?.losses ?? 0}L</span></span>
         <span><span className="var">status</span><span className="pct">: </span><span className={winner ? 'typ' : status === 'overflow' ? 'str' : status === 'running' ? 'typ' : 'dim'}>{winner ? 'winner' : status}</span></span>
         <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
       </div>

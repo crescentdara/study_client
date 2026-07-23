@@ -79,6 +79,7 @@ export interface StudyMoveRequest {
   imageUrl?: string;
   fileName?: string;
   fileSize?: number;
+  replyToId?: number;
 }
 
 export interface StudyStateResponse {
@@ -183,6 +184,23 @@ export interface TetrisGameData {
   attackLog?: TetrisAttackLogEntry[];
   distractEvents?: TetrisDistractEvent[];
   paused?: boolean;
+  aborted?: boolean;
+  abortReason?: string;
+  previousAbortReason?: string;
+  finalRanking?: number[];
+  records?: Record<string, TetrisPlayerRecord>;
+}
+
+export interface TetrisOpponentRecord {
+  wins: number;
+  losses: number;
+}
+
+export interface TetrisPlayerRecord {
+  matches: number;
+  wins: number;
+  losses: number;
+  opponents: Record<string, TetrisOpponentRecord>;
 }
 
 export interface TetrisDistractEvent {
@@ -304,6 +322,10 @@ export interface ChatMessage {
   mentionedNickname?: string;
   voiceRequested?: boolean;
   voiceText?: string;
+  id?: number;
+  replyToId?: number;
+  replyToNickname?: string;
+  replyToText?: string;
 }
 
 export interface ChatAttachment {
@@ -368,6 +390,9 @@ export interface AlkkagiStone {
   x: number;
   y: number;
   active: boolean;
+  type?: 'NORMAL' | 'HEAVY' | 'SLIPPERY' | 'BOMB' | 'LIGHT'
+    | 'BLACK_HOLE' | 'WARP' | 'SPLIT' | 'GHOST'
+    | 'LIGHTNING' | 'CURSE' | 'ROULETTE' | 'MINE';
 }
 
 export interface AlkkagiGameData {
@@ -378,7 +403,9 @@ export interface AlkkagiGameData {
   turnStartedAt?: number;
   turnTimeLimitMs?: number;
   shotLog?: string[];
-  mapType?: 'CLASSIC' | 'CENTER_HOLE' | 'CORNER_HOLES' | 'SIDE_POCKETS' | 'PILLARS' | 'BUMPER_FIELD' | 'PINBALL' | 'NARROW_BRIDGE' | 'RIVER' | 'ICE_SAND' | 'ELASTIC_WALLS' | 'MAGNET_FIELD' | 'DONUT_RING' | 'OFFICE_DESK';
+  mapType?: 'CLASSIC' | 'CENTER_HOLE' | 'CORNER_HOLES' | 'SIDE_POCKETS' | 'PILLARS' | 'BUMPER_FIELD' | 'PINBALL' | 'NARROW_BRIDGE' | 'RIVER' | 'ICE_SAND' | 'ELASTIC_WALLS' | 'MAGNET_FIELD' | 'DONUT_RING' | 'OFFICE_DESK' | 'HEX_ARENA' | 'HEX_TYPHOON' | 'HEX_RUINS' | 'ROULETTE_ARENA' | 'TYPHOON_ISLAND' | 'PORTAL_MAZE' | 'COLLAPSE_ICE';
+  mapSeed?: number;
+  mapPhase?: number;
   stones: AlkkagiStone[];
   activeShot?: {
     id: number;
@@ -387,6 +414,8 @@ export interface AlkkagiGameData {
     vx: number;
     vy: number;
   } | null;
+  activeShotStartedAt?: number;
+  shotResultTimeoutMs?: number;
 }
 
 export interface WordChainGameData {

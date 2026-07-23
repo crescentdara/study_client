@@ -16,7 +16,7 @@ interface ChatProps {
   myNickname: string;
   myEmoji: string;
   sessionId: string;
-  onSend: (text: string, sessionId: string, attachment?: ChatAttachment) => void;
+  onSend: (text: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number) => void;
   onClearMessages?: () => void;
   playerNames?: string[];
 }
@@ -79,6 +79,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [unreadCount, setUnreadCount] = useState(0);
   const [previewImage, setPreviewImage] = useState<{ url: string; fileName?: string } | null>(null);
   const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -143,10 +144,13 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
       setMentionQuery(null);
       return;
     }
-    onSend(text, sessionId);
+    onSend(text, sessionId, undefined, replyTarget?.id);
     setInput("");
     setMentionQuery(null);
+    setReplyTarget(null);
   };
+
+  const cancelReply = () => setReplyTarget(null);
 
   const addSystemMessage = (text: string) => {
     const message: ChatMessage = {
@@ -258,7 +262,8 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
         throw new Error(text || "Failed to upload image.");
       }
       const uploaded = (await response.json()) as Omit<ChatAttachment, "type">;
-      onSend("", sessionId, { type: "IMAGE", ...uploaded });
+      onSend("", sessionId, { type: "IMAGE", ...uploaded }, replyTarget?.id);
+      setReplyTarget(null);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Failed to upload image.");
     } finally {
@@ -352,6 +357,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               myNickname={myNickname}
               myEmoji={myEmoji}
               onPreview={setPreviewImage}
+              onReply={setReplyTarget}
               onNicknameClick={(nickname, event) => {
                 event.stopPropagation();
                 setNicknameMenu({ nickname, x: event.clientX, y: event.clientY });
@@ -543,6 +549,48 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
 
       {open && (
         <div style={{ flexShrink: 0 }}>
+          {replyTarget && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "5px 10px",
+                borderTop: "1px solid #3e3e42",
+                background: "#252526",
+              }}
+            >
+              <span style={{ color: "#569cd6", fontSize: "11px", flexShrink: 0 }}>↩</span>
+              <span style={{ color: "#9cdcfe", fontSize: "11px", flexShrink: 0 }}>{replyTarget.nickname}</span>
+              <span
+                style={{
+                  color: "#858585",
+                  fontSize: "11px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                }}
+              >
+                {replyTarget.type === "IMAGE" ? "사진" : replyTarget.text}
+              </span>
+              <button
+                onClick={cancelReply}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#858585",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  padding: "0 3px",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           {showOpacity && (
             <div
               style={{
@@ -766,6 +814,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myNickname,
   myEmoji,
   onPreview,
+  onReply,
   onNicknameClick,
 }: {
   message: ChatMessage;
@@ -774,6 +823,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myNickname: string;
   myEmoji: string;
   onPreview: (image: { url: string; fileName?: string }) => void;
+  onReply: (message: ChatMessage) => void;
   onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
 }) {
   const isMe = message.nickname === myNickname;
@@ -799,6 +849,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   const isGrouped = !!prev && prev.nickname === message.nickname && prevTime === time;
   const mentionsMe = message.mentionedNickname === myNickname;
   const isLastInGroup = !next || next.nickname !== message.nickname || nextTime !== time;
+  const accentColor = mentionsMe ? "#ff9e3b" : isMe ? "#4ec9b0" : "#9cdcfe";
 
   if (message.nickname === "system") {
     return (
@@ -850,6 +901,11 @@ const ChatMessageItem = memo(function ChatMessageItem({
         }}
       >
         <div
+          onClick={(event) => {
+            event.stopPropagation();
+            if (message.id != null) onReply(message);
+          }}
+          title={message.id != null ? "클릭하여 답글 달기" : undefined}
           style={{
             maxWidth: "80%",
             background: mentionsMe
@@ -859,8 +915,39 @@ const ChatMessageItem = memo(function ChatMessageItem({
             padding: "5px 10px",
             borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",
             wordBreak: "break-word",
+            cursor: message.id != null ? "pointer" : "default",
           }}
         >
+          {message.replyToId != null && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1px",
+                padding: "3px 7px",
+                marginBottom: "4px",
+                borderLeft: `2px solid ${accentColor}`,
+                background: "rgba(0,0,0,0.18)",
+                borderRadius: "4px",
+              }}
+            >
+              <span style={{ fontSize: "10px", fontWeight: 700, color: accentColor }}>
+                {message.replyToNickname ?? "알 수 없음"}
+              </span>
+              <span
+                style={{
+                  fontSize: "10.5px",
+                  color: "#a8a8a8",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "220px",
+                }}
+              >
+                {message.replyToText ?? "삭제되었거나 찾을 수 없는 메시지"}
+              </span>
+            </div>
+          )}
           {mentionsMe && (
             <div style={{ color: "#ff9e3b", fontSize: "9px", marginBottom: 2, fontWeight: 700 }}>
               Mentioned you
@@ -871,6 +958,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
               href={message.imageUrl}
               onClick={(event) => {
                 event.preventDefault();
+                event.stopPropagation();
                 onPreview({ url: message.imageUrl || "", fileName: message.fileName });
               }}
               style={{ textDecoration: "none", cursor: "zoom-in" }}

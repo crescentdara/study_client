@@ -163,7 +163,7 @@ function StudyRoom({
                 </div>
 
                 {/* 상태 메시지 */}
-                {studyState?.message && !studyState.message.startsWith('ROOM_CLOSED:') && (
+                {studyState?.message && !isAlkkagi && !studyState.message.startsWith('ROOM_CLOSED:') && (
                     <div className={`msg-bar ${studyState.message.startsWith('ERROR') ? 'error' : ''}`}>
                         <span className="cmt">{'> '}</span>
                         {studyState.message.replace('ERROR: ', '')}

@@ -39,7 +39,7 @@ export function useLobbyChat({ onMessage, onHistory }: UsLobbyChatOptions) {
     return () => { client.deactivate(); };
   }, []);
 
-  const sendChat = useCallback((text: string, nickname: string, emoji: string, sessionId: string, attachment?: ChatAttachment) => {
+  const sendChat = useCallback((text: string, nickname: string, emoji: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number) => {
     const c = clientRef.current;
     if (!c?.connected) return;
     c.publish({
@@ -50,6 +50,7 @@ export function useLobbyChat({ onMessage, onHistory }: UsLobbyChatOptions) {
         nickname,
         emoji,
         sessionId,
+        replyToId,
         ...(attachment ?? { type: 'TEXT' }),
       }),
     });

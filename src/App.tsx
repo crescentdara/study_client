@@ -93,8 +93,8 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     }, [onMention]);
     const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
     const noopSend = useCallback(() => {}, []);
-    const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment) => {
-        sendChat(text, nickname, emoji, sessionId, attachment);
+    const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
+        sendChat(text, nickname, emoji, sessionId, attachment, replyToId);
     }, [sendChat, nickname, emoji, sessionId]);
     const handleClear = useCallback(() => setMessages([]), []);
 
