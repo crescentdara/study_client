@@ -77,13 +77,15 @@ interface SmokingDeskOpacity {
     pack: number;
 }
 
-const DEFAULT_SMOKING_OPACITY: SmokingDeskOpacity = { cigarette: 1, pack: .94 };
+const DEFAULT_SMOKING_OPACITY: SmokingDeskOpacity = { cigarette: 1, pack: 0.94 };
 
 function loadSmokingOpacity(): SmokingDeskOpacity {
     try {
-        const stored = JSON.parse(localStorage.getItem('study.smokingDeskOpacity') ?? 'null') as Partial<SmokingDeskOpacity> | null;
+        const stored = JSON.parse(
+            localStorage.getItem('study.smokingDeskOpacity') ?? 'null',
+        ) as Partial<SmokingDeskOpacity> | null;
         if (stored) {
-            const clamp = (value: unknown, fallback: number) => Math.max(.15, Math.min(1, Number(value) || fallback));
+            const clamp = (value: unknown, fallback: number) => Math.max(0.15, Math.min(1, Number(value) || fallback));
             return {
                 cigarette: clamp(stored.cigarette, DEFAULT_SMOKING_OPACITY.cigarette),
                 pack: clamp(stored.pack, DEFAULT_SMOKING_OPACITY.pack),
@@ -101,6 +103,8 @@ interface LobbyChatPanelProps {
     sessionId: string;
     playerNames: string[];
     onIncomingMessage: (msg: ChatMessage) => void;
+    bubbleColor: string;
+    onMention: (msg: ChatMessage) => void;
 }
 
 const LobbyChatPanel = memo(function LobbyChatPanel({
@@ -109,20 +113,28 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     sessionId,
     playerNames,
     onIncomingMessage,
+    bubbleColor,
+    onMention,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const handleHistory = useCallback((history: ChatMessage[]) => {
         setMessages(history.slice(-MAX_CHAT_MESSAGES));
     }, []);
-    const handleMessage = useCallback((msg: ChatMessage) => {
-        setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
-        onIncomingMessage(msg);
-    }, [onIncomingMessage]);
+    const handleMessage = useCallback(
+        (msg: ChatMessage) => {
+            setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
+            onIncomingMessage(msg);
+        },
+        [onIncomingMessage],
+    );
     const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
     const noopSend = useCallback(() => {}, []);
-    const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
-        sendChat(text, nickname, emoji, sessionId, attachment, replyToId);
-    }, [sendChat, nickname, emoji, sessionId]);
+    const handleSend = useCallback(
+        (text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
+            sendChat(text, nickname, emoji, sessionId, attachment, replyToId, bubbleColor); // bubbleColor 추가
+        },
+        [sendChat, nickname, emoji, sessionId, bubbleColor],
+    );
     const handleClear = useCallback(() => setMessages([]), []);
 
     return (
@@ -153,24 +165,37 @@ function App() {
     const nicknameRef = useRef(nickname);
     nicknameRef.current = nickname;
 
-    const checkMention = useCallback((msg: ChatMessage) => {
-        if (msg.nickname !== nicknameRef.current && msg.mentionedNickname && msg.mentionedNickname === nicknameRef.current) {
-            const trimmed = msg.text.trim();
-            const mentionBody = trimmed.startsWith('@') && trimmed.includes(' ')
-                ? trimmed.slice(trimmed.indexOf(' ') + 1)
-                : trimmed;
-            const content = msg.voiceRequested && msg.voiceText ? `/voice ${msg.voiceText}` : mentionBody;
-            addToast(msg.emoji || '💬', msg.nickname, content);
-        }
-    }, [addToast]);
-    const handleIncomingChat = useCallback((msg: ChatMessage) => {
-        notifyIncomingChat(msg);
-        checkMention(msg);
-    }, [checkMention, notifyIncomingChat]);
+    const checkMention = useCallback(
+        (msg: ChatMessage) => {
+            if (
+                msg.nickname !== nicknameRef.current &&
+                msg.mentionedNickname &&
+                msg.mentionedNickname === nicknameRef.current
+            ) {
+                const trimmed = msg.text.trim();
+                const mentionBody =
+                    trimmed.startsWith('@') && trimmed.includes(' ')
+                        ? trimmed.slice(trimmed.indexOf(' ') + 1)
+                        : trimmed;
+                const content = msg.voiceRequested && msg.voiceText ? `/voice ${msg.voiceText}` : mentionBody;
+                addToast(msg.emoji || '💬', msg.nickname, content);
+            }
+        },
+        [addToast],
+    );
+    const handleIncomingChat = useCallback(
+        (msg: ChatMessage) => {
+            notifyIncomingChat(msg);
+            checkMention(msg);
+        },
+        [checkMention, notifyIncomingChat],
+    );
 
     // ── 로비 채팅 ──────────────────────────────────────────────────────────────
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
-    const [chatWidth, setChatWidth] = useState(() => Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))));
+    const [chatWidth, setChatWidth] = useState(() =>
+        Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))),
+    );
 
     // ── 뿌요뿌요 / 스도쿠 / 워드레인 ──────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
@@ -180,7 +205,7 @@ function App() {
     const [vendingOn, setVendingOn] = useState(false);
     const [vendingOpacity, setVendingOpacity] = useState(() => {
         const stored = Number(localStorage.getItem('study.vendingOpacity'));
-        return stored >= .2 && stored <= 1 ? stored : .94;
+        return stored >= 0.2 && stored <= 1 ? stored : 0.94;
     });
     const [wordRainOn, setWordRainOn] = useState(false);
     const [wordRainVisible, setWordRainVisible] = useState(true);
@@ -198,7 +223,6 @@ function App() {
     const [roomsExpanded, setRoomsExpanded] = useState(true);
     const [activePanel, setActivePanel] = useState<'explorer' | 'profile'>('explorer');
     const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
-
 
     // ── 터미널 상태 ────────────────────────────────────────────────────────────
     const [termOpen, setTermOpen] = useState(true);
@@ -227,7 +251,7 @@ function App() {
     // ESC 보스키 — 게임 실행 중일 때만 오버레이 표시/숨기기
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && wordRainOn) setWordRainVisible(v => !v);
+            if (e.key === 'Escape' && wordRainOn) setWordRainVisible((v) => !v);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -235,9 +259,10 @@ function App() {
 
     // ── 유틸 함수 ──────────────────────────────────────────────────────────────
 
-    const scrollTerm = () => setTimeout(() => {
-        if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
-    }, 30);
+    const scrollTerm = () =>
+        setTimeout(() => {
+            if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
+        }, 30);
 
     const handleTermCmd = (cmd: string) => {
         const trimmed = cmd.trim();
@@ -249,14 +274,12 @@ function App() {
             return;
         }
 
-        const lines: { type: 'cmd' | 'out' | 'err'; text: string }[] = [
-            { type: 'cmd', text: trimmed },
-        ];
+        const lines: { type: 'cmd' | 'out' | 'err'; text: string }[] = [{ type: 'cmd', text: trimmed }];
 
         // 게임 종료 커맨드는 라우팅 이전에 항상 처리
         if (trimmed === 'wordrain stop') {
             lines.push({ type: 'out', text: 'info: symbol-resolver daemon stopped' });
-            setTermHistory(prev => [...prev, ...lines]);
+            setTermHistory((prev) => [...prev, ...lines]);
             setTermInput('');
             scrollTerm();
             setWordRainOn(false);
@@ -266,7 +289,7 @@ function App() {
 
         // 게임 실행 중엔 나머지 입력을 게임으로 라우팅
         if (wordRainOn) {
-            setTermHistory(prev => [...prev, { type: 'cmd' as const, text: trimmed }]);
+            setTermHistory((prev) => [...prev, { type: 'cmd' as const, text: trimmed }]);
             wordRainHandlerRef.current?.(trimmed);
             setTermInput('');
             scrollTerm();
@@ -311,7 +334,7 @@ function App() {
             lines.push({ type: 'err', text: `bash: ${trimmed}: command not found` });
         }
 
-        setTermHistory(prev => [...prev, ...lines]);
+        setTermHistory((prev) => [...prev, ...lines]);
         setTermInput('');
         scrollTerm();
     };
@@ -370,7 +393,10 @@ function App() {
 
     const saveProfile = () => {
         const nextName = draftNickname.trim();
-        if (!nextName) { setLobbyError('Nickname is required.'); return; }
+        if (!nextName) {
+            setLobbyError('Nickname is required.');
+            return;
+        }
         handleNicknameChange(nextName);
         handleEmojiChange(draftEmoji);
         setProfileEditing(false);
@@ -398,22 +424,30 @@ function App() {
     const handleStudyState = useCallback((s: StudyStateResponse) => {
         setStudyState(s);
         if (s.status) {
-            setCurrentRoom((room) => room && room.roomId === s.roomId
-                ? {
-                    ...room,
-                    status: s.status,
-                    studyType: s.studyType ?? room.studyType,
-                    playerNames: s.playerNames ?? room.playerNames,
-                    playerCount: s.playerNames?.length ?? room.playerCount,
-                }
-                : room);
+            setCurrentRoom((room) =>
+                room && room.roomId === s.roomId
+                    ? {
+                          ...room,
+                          status: s.status,
+                          studyType: s.studyType ?? room.studyType,
+                          playerNames: s.playerNames ?? room.playerNames,
+                          playerCount: s.playerNames?.length ?? room.playerCount,
+                      }
+                    : room,
+            );
         }
     }, []);
 
     const handleJoin = useCallback(
         async (roomId: string) => {
-            if (profileEditing) { setLobbyError('Save your profile first.'); return; }
-            if (!nickname.trim()) { setLobbyError('Enter a nickname first.'); return; }
+            if (profileEditing) {
+                setLobbyError('Save your profile first.');
+                return;
+            }
+            if (!nickname.trim()) {
+                setLobbyError('Enter a nickname first.');
+                return;
+            }
             try {
                 const body: JoinRoomRequest = { nickname: nickname.trim(), sessionId };
                 const res = await fetch(`/api/rooms/${roomId}/join`, {
@@ -431,88 +465,139 @@ function App() {
     );
 
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
-    const tabLabel = showPuyo && !currentRoom
-        ? 'puyo_puyo.ts'
-        : showSudoku && !currentRoom
-        ? 'sudoku.ts'
-        : currentRoom
-        ? `${currentRoom.roomName}.${
-              currentRoom.studyType === 'BASEBALL'
-                  ? 'bs'
-                  : currentRoom.studyType === 'OMOK'
-                    ? 'omok'
-                    : currentRoom.studyType === 'TETRIS'
-                      ? 'tetris'
+    const tabLabel =
+        showPuyo && !currentRoom
+            ? 'puyo_puyo.ts'
+            : showSudoku && !currentRoom
+              ? 'sudoku.ts'
+              : currentRoom
+                ? `${currentRoom.roomName}.${
+                      currentRoom.studyType === 'BASEBALL'
+                          ? 'bs'
+                          : currentRoom.studyType === 'OMOK'
+                            ? 'omok'
+                            : currentRoom.studyType === 'TETRIS'
+                              ? 'tetris'
                               : currentRoom.studyType === 'OLDMAID'
                                 ? 'cards'
                                 : currentRoom.studyType === 'ALKKAGI'
                                   ? 'ak'
-                                : currentRoom.studyType === 'INCIDENT_AVOID'
-                          ? 'risk'
-                          : currentRoom.studyType === 'BREAKOUT'
-                            ? 'flow'
-                            : currentRoom.studyType === 'CATCHMIND'
-                              ? 'draw'
-                            : 'bg'
-          }`
-        : 'lobby.ts';
+                                  : currentRoom.studyType === 'INCIDENT_AVOID'
+                                    ? 'risk'
+                                    : currentRoom.studyType === 'BREAKOUT'
+                                      ? 'flow'
+                                      : currentRoom.studyType === 'CATCHMIND'
+                                        ? 'draw'
+                                        : 'bg'
+                  }`
+                : 'lobby.ts';
 
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
     const [showByebye, setShowByebye] = useState(false);
-    const chatPlayerNames = useMemo(() => (
-        (currentRoom
-            ? (currentRoom.playerNames ?? [])
-            : rooms.flatMap(r => r.playerNames ?? [])
-        ).filter((n, i, a) => n !== nickname && a.indexOf(n) === i)
-    ), [currentRoom, rooms, nickname]);
+    const chatPlayerNames = useMemo(
+        () =>
+            (currentRoom ? (currentRoom.playerNames ?? []) : rooms.flatMap((r) => r.playerNames ?? [])).filter(
+                (n, i, a) => n !== nickname && a.indexOf(n) === i,
+            ),
+        [currentRoom, rooms, nickname],
+    );
 
     const [overlayOpacity, setOverlayOpacity] = useState(0.6);
 
     const [noiseOn, setNoiseOn] = useState(false);
 
+    //채팅창 꾸미기
+    const [chatBgImage, setChatBgImage] = useState<string | null>(() => localStorage.getItem('study.chatBg'));
+    const [bubbleColor, setBubbleColor] = useState(() => localStorage.getItem('study.bubbleColor') ?? '#2d2d30');
+    const [chatFont, setChatFont] = useState(() => localStorage.getItem('study.chatFont') ?? 'inherit');
+
+    const handleChatBgUpload = useCallback((file: File) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result as string;
+            setChatBgImage(dataUrl);
+            localStorage.setItem('study.chatBg', dataUrl);
+        };
+        reader.readAsDataURL(file);
+    }, []);
+
+    const handleBubbleColorChange = useCallback((color: string) => {
+        setBubbleColor(color);
+        localStorage.setItem('study.bubbleColor', color);
+    }, []);
+
+    const handleChatFontChange = useCallback((font: string) => {
+        setChatFont(font);
+        localStorage.setItem('study.chatFont', font);
+    }, []);
+
+    const [customizeOpen, setCustomizeOpen] = useState(false);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             {noiseOn && <div className="noise"></div>}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
-            {smokingDeskOn && (
-                <SmokingWidget
-                    nickname={nickname}
-                    sessionId={sessionId}
-                    opacity={smokingOpacity}
-                />
-            )}
-            {vendingOn && (
-                <VendingMachineWidget nickname={nickname} sessionId={sessionId} opacity={vendingOpacity} />
-            )}
+            {smokingDeskOn && <SmokingWidget nickname={nickname} sessionId={sessionId} opacity={smokingOpacity} />}
+            {vendingOn && <VendingMachineWidget nickname={nickname} sessionId={sessionId} opacity={vendingOpacity} />}
             {(smokingDeskOn || vendingOn) && <DeskTrashBin />}
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
-            <div style={{ background: '#323233', borderBottom: '1px solid #3e3e42', padding: '2px 12px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '32px', flexShrink: 0, position: 'relative' }}>
+            <div
+                style={{
+                    background: '#323233',
+                    borderBottom: '1px solid #3e3e42',
+                    padding: '2px 12px',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    height: '32px',
+                    flexShrink: 0,
+                    position: 'relative',
+                }}
+            >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#888' }}>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
                         {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'].map((m) => (
-                            <li key={m} style={{ color: '#888', fontSize: '12px' }}>{m}</li>
+                            <li key={m} style={{ color: '#888', fontSize: '12px' }}>
+                                {m}
+                            </li>
                         ))}
                     </ul>
                     {/* 퇴사축하 팝업 */}
                     <div style={{ position: 'relative' }}>
                         <span
                             style={{ color: '#888', fontSize: '12px', cursor: 'pointer' }}
-                            onClick={() => setShowByebye(v => !v)}
+                            onClick={() => setShowByebye((v) => !v)}
                         >
                             dalbit
                         </span>
                         {showByebye && (
-                            <div style={{
-                                background: '#3f3f3f', color: '#888', fontSize: '12px',
-                                padding: '3px 8px', width: '500px', borderRadius: '6px',
-                                position: 'absolute', left: '50%', top: '32px',
-                                transform: 'translateX(-50%)', zIndex: 1000
-                            }}>
+                            <div
+                                style={{
+                                    background: '#3f3f3f',
+                                    color: '#888',
+                                    fontSize: '12px',
+                                    padding: '3px 8px',
+                                    width: '500px',
+                                    borderRadius: '6px',
+                                    position: 'absolute',
+                                    left: '50%',
+                                    top: '32px',
+                                    transform: 'translateX(-50%)',
+                                    zIndex: 1000,
+                                }}
+                            >
                                 <button
                                     className="btn-primary"
-                                    style={{ fontSize: '9px', padding: '1px 5px', position: 'absolute', right: '8px', top: '3px' }}
+                                    style={{
+                                        fontSize: '9px',
+                                        padding: '1px 5px',
+                                        position: 'absolute',
+                                        right: '8px',
+                                        top: '3px',
+                                    }}
                                     onClick={() => setShowByebye(false)}
                                 >
                                     Close
@@ -526,56 +611,185 @@ function App() {
                     <span
                         style={{ cursor: 'pointer', opacity: noiseOn ? 1 : 0.4, userSelect: 'none' }}
                         title="Toggle noise effect"
-                        onClick={() => setNoiseOn(v => !v)}
+                        onClick={() => setNoiseOn((v) => !v)}
                     >
                         noise {noiseOn ? 'on' : 'off'}
                     </span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: '10px',
+                        alignItems: 'center',
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                    }}
+                >
                     <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0 }}>
                         <li style={{ color: '#888', fontSize: '12px' }}>←</li>
                         <div style={{ marginLeft: '10px' }}></div>
                         <li style={{ color: '#888', fontSize: '12px' }}>→</li>
                     </ul>
-                    <div style={{ background: '#3f3f3f', color: '#888', fontSize: '12px', padding: '3px 8px', width: '500px', borderRadius: '6px' }}>study-platform</div>
+                    <div
+                        style={{
+                            background: '#3f3f3f',
+                            color: '#888',
+                            fontSize: '12px',
+                            padding: '3px 8px',
+                            width: '500px',
+                            borderRadius: '6px',
+                        }}
+                    >
+                        study-platform
+                    </div>
                 </div>
-                <ul style={{ display: 'flex', gap: '30px', listStyle: 'none', margin: 0, padding: 0, fontSize: '14px', color: '#888', alignItems: 'center' }}>
+                <ul
+                    style={{
+                        display: 'flex',
+                        gap: '30px',
+                        listStyle: 'none',
+                        margin: 0,
+                        padding: 0,
+                        fontSize: '14px',
+                        color: '#888',
+                        alignItems: 'center',
+                    }}
+                >
                     <li style={{ width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ background: '#888', width: '16px', display: 'block', height: '2px', borderRadius: '2px' }}></span>
+                        <span
+                            style={{
+                                background: '#888',
+                                width: '16px',
+                                display: 'block',
+                                height: '2px',
+                                borderRadius: '2px',
+                            }}
+                        ></span>
                     </li>
                     <li style={{ width: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg style={{ fill: '#888' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M544 144L256 144C247.2 144 240 151.2 240 160L240 176L192 176L192 160C192 124.7 220.7 96 256 96L544 96C579.3 96 608 124.7 608 160L608 352C608 387.3 579.3 416 544 416L496 416L496 368L544 368C552.8 368 560 360.8 560 352L560 160C560 151.2 552.8 144 544 144zM400 352L80 352L80 480C80 488.8 87.2 496 96 496L384 496C392.8 496 400 488.8 400 480L400 352zM96 224L384 224C419.3 224 448 252.7 448 288L448 480C448 515.3 419.3 544 384 544L96 544C60.7 544 32 515.3 32 480L32 288C32 252.7 60.7 224 96 224z" /></svg>
+                        <svg style={{ fill: '#888' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+                            <path d="M544 144L256 144C247.2 144 240 151.2 240 160L240 176L192 176L192 160C192 124.7 220.7 96 256 96L544 96C579.3 96 608 124.7 608 160L608 352C608 387.3 579.3 416 544 416L496 416L496 368L544 368C552.8 368 560 360.8 560 352L560 160C560 151.2 552.8 144 544 144zM400 352L80 352L80 480C80 488.8 87.2 496 96 496L384 496C392.8 496 400 488.8 400 480L400 352zM96 224L384 224C419.3 224 448 252.7 448 288L448 480C448 515.3 419.3 544 384 544L96 544C60.7 544 32 515.3 32 480L32 288C32 252.7 60.7 224 96 224z" />
+                        </svg>
                     </li>
                     <li style={{ width: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg style={{ fill: '#888' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.2 320L137.9 457.4C125.4 469.9 125.4 490.2 137.9 502.7C150.4 515.2 170.7 515.2 183.2 502.7L320.5 365.3L457.9 502.6C470.4 515.1 490.7 515.1 503.2 502.6C515.7 490.1 515.7 469.8 503.2 457.3L365.8 320L503.1 182.6C515.6 170.1 515.6 149.8 503.1 137.3C490.6 124.8 470.3 124.8 457.8 137.3L320.5 274.7L183.1 137.4z" /></svg>
+                        <svg style={{ fill: '#888' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+                            <path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.2 320L137.9 457.4C125.4 469.9 125.4 490.2 137.9 502.7C150.4 515.2 170.7 515.2 183.2 502.7L320.5 365.3L457.9 502.6C470.4 515.1 490.7 515.1 503.2 502.6C515.7 490.1 515.7 469.8 503.2 457.3L365.8 320L503.1 182.6C515.6 170.1 515.6 149.8 503.1 137.3C490.6 124.8 470.3 124.8 457.8 137.3L320.5 274.7L183.1 137.4z" />
+                        </svg>
                     </li>
                 </ul>
             </div>
 
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-
                 {/* ── ACTIVITY BAR ── */}
-                <div style={{ width: '36px', flexShrink: 0, background: '#333333', borderRight: '1px solid #252526', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '6px', gap: '15px', marginBottom: '5px' }}>
+                <div
+                    style={{
+                        width: '36px',
+                        flexShrink: 0,
+                        background: '#333333',
+                        borderRight: '1px solid #252526',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        paddingTop: '6px',
+                        gap: '15px',
+                        marginBottom: '5px',
+                    }}
+                >
                     {(['explorer', 'profile'] as const).map((panel) => (
                         <div
                             key={panel}
                             title={panel === 'explorer' ? 'Explorer' : 'Profile'}
-                            onClick={() => { setActivePanel(panel); setShowPuyo(false); }}
-                            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', cursor: 'pointer', borderRadius: '4px', background: activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: activePanel === panel && !showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}
+                            onClick={() => {
+                                setActivePanel(panel);
+                                setShowPuyo(false);
+                            }}
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                background:
+                                    activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                borderLeft:
+                                    activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent',
+                                opacity: activePanel === panel && !showPuyo ? 1 : 0.45,
+                                transition: 'all 0.12s',
+                            }}
                         >
-                            {panel === 'explorer' ? <img src={imgSideIcon1} style={{ width: 18, }} /> : <img src={imgSideIcon2} style={{ width: 18,  }} />}
+                            {panel === 'explorer' ? (
+                                <img src={imgSideIcon1} style={{ width: 18 }} />
+                            ) : (
+                                <img src={imgSideIcon2} style={{ width: 18 }} />
+                            )}
                         </div>
                     ))}
-                    <ul style={{ width: "100%", display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '15px', listStyle: 'none', margin: 0, padding: 0 }}>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon3} style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon4} style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon5} style={{ width: 18,  }} /></li>
-                        <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon6} style={{ width: 18,  }} /></li>
+                    <ul
+                        style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexDirection: 'column',
+                            gap: '15px',
+                            listStyle: 'none',
+                            margin: 0,
+                            padding: 0,
+                        }}
+                    >
+                        <li
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <img src={imgSideIcon3} style={{ width: 18 }} />
+                        </li>
+                        <li
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <img src={imgSideIcon4} style={{ width: 18 }} />
+                        </li>
+                        <li
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <img src={imgSideIcon5} style={{ width: 18 }} />
+                        </li>
+                        <li
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <img src={imgSideIcon6} style={{ width: 18 }} />
+                        </li>
                         <li
                             className="smoking-activity-control"
                             title={smokingDeskOn ? 'Close smoking desk' : 'Open smoking desk'}
-                            onClick={() => setSmokingDeskOn(value => !value)}
+                            onClick={() => setSmokingDeskOn((value) => !value)}
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -587,29 +801,52 @@ function App() {
                                 background: smokingDeskOn ? 'rgba(255,255,255,0.08)' : 'transparent',
                                 borderLeft: smokingDeskOn ? '2px solid #ccc' : '2px solid transparent',
                                 color: '#c5c5c5',
-                                opacity: smokingDeskOn ? 1 : .45,
+                                opacity: smokingDeskOn ? 1 : 0.45,
                                 transition: 'all .12s',
                                 position: 'relative',
                             }}
                         >
                             <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-                                <path d="M3.5 16h18.8v6H3.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                                <path
+                                    d="M3.5 16h18.8v6H3.5z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinejoin="round"
+                                />
                                 <path d="M17.2 16h5.1v6h-5.1z" fill="currentColor" opacity=".75" />
-                                <path d="M3.5 16 1.2 17.35v3.3L3.5 22" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                                <path d="M8.2 13.1C4.5 10.9 9.4 9 6.5 5.8M14.4 13.1c-3.7-2.2 1.2-4.1-1.7-7.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                <path d="M24.7 16v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".65" />
+                                <path
+                                    d="M3.5 16 1.2 17.35v3.3L3.5 22"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinejoin="round"
+                                />
+                                <path
+                                    d="M8.2 13.1C4.5 10.9 9.4 9 6.5 5.8M14.4 13.1c-3.7-2.2 1.2-4.1-1.7-7.3"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M24.7 16v6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    opacity=".65"
+                                />
                             </svg>
                             {smokingDeskOn && (
                                 <div
                                     className="smoking-opacity-panel"
-                                    onClick={event => event.stopPropagation()}
-                                    onPointerDown={event => event.stopPropagation()}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
                                 >
                                     <strong>DESK OPACITY</strong>
-                                    {([
-                                        ['cigarette', 'CIG'],
-                                        ['pack', 'PACK'],
-                                    ] as const).map(([kind, label]) => (
+                                    {(
+                                        [
+                                            ['cigarette', 'CIG'],
+                                            ['pack', 'PACK'],
+                                        ] as const
+                                    ).map(([kind, label]) => (
                                         <label key={kind}>
                                             <span>{label}</span>
                                             <input
@@ -617,10 +854,16 @@ function App() {
                                                 min="15"
                                                 max="100"
                                                 value={Math.round(smokingOpacity[kind] * 100)}
-                                                onChange={event => {
-                                                    const next = { ...smokingOpacity, [kind]: Number(event.target.value) / 100 };
+                                                onChange={(event) => {
+                                                    const next = {
+                                                        ...smokingOpacity,
+                                                        [kind]: Number(event.target.value) / 100,
+                                                    };
                                                     setSmokingOpacity(next);
-                                                    localStorage.setItem('study.smokingDeskOpacity', JSON.stringify(next));
+                                                    localStorage.setItem(
+                                                        'study.smokingDeskOpacity',
+                                                        JSON.stringify(next),
+                                                    );
                                                 }}
                                             />
                                             <small>{Math.round(smokingOpacity[kind] * 100)}</small>
@@ -632,7 +875,7 @@ function App() {
                         <li
                             className="vending-activity-control"
                             title={vendingOn ? 'Close vending machine' : 'Open vending machine'}
-                            onClick={() => setVendingOn(value => !value)}
+                            onClick={() => setVendingOn((value) => !value)}
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -644,14 +887,30 @@ function App() {
                                 background: vendingOn ? 'rgba(255,255,255,0.08)' : 'transparent',
                                 borderLeft: vendingOn ? '2px solid #ccc' : '2px solid transparent',
                                 color: '#c5c5c5',
-                                opacity: vendingOn ? 1 : .45,
+                                opacity: vendingOn ? 1 : 0.45,
                                 transition: 'all .12s',
                                 position: 'relative',
                             }}
                         >
                             <svg width="25" height="25" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-                                <rect x="5" y="2.5" width="18" height="23" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                                <rect x="8" y="5.5" width="12" height="4" rx=".7" stroke="currentColor" strokeWidth="1.4" />
+                                <rect
+                                    x="5"
+                                    y="2.5"
+                                    width="18"
+                                    height="23"
+                                    rx="2"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                />
+                                <rect
+                                    x="8"
+                                    y="5.5"
+                                    width="12"
+                                    height="4"
+                                    rx=".7"
+                                    stroke="currentColor"
+                                    strokeWidth="1.4"
+                                />
                                 <circle cx="10" cy="13" r="1.5" fill="currentColor" />
                                 <circle cx="15" cy="13" r="1.5" fill="currentColor" />
                                 <circle cx="10" cy="17.5" r="1.5" fill="currentColor" />
@@ -661,8 +920,8 @@ function App() {
                             {vendingOn && (
                                 <div
                                     className="smoking-opacity-panel vending-opacity-panel"
-                                    onClick={event => event.stopPropagation()}
-                                    onPointerDown={event => event.stopPropagation()}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
                                 >
                                     <strong>VENDING OPACITY</strong>
                                     <label>
@@ -672,7 +931,7 @@ function App() {
                                             min="20"
                                             max="100"
                                             value={Math.round(vendingOpacity * 100)}
-                                            onChange={event => {
+                                            onChange={(event) => {
                                                 const next = Number(event.target.value) / 100;
                                                 setVendingOpacity(next);
                                                 localStorage.setItem('study.vendingOpacity', String(next));
@@ -684,18 +943,66 @@ function App() {
                             )}
                         </li>
                     </ul>
-                    
+
                     {/* 게임 버튼 */}
                     {currentRoom === null && (
-                        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-                            <div title="Puyo Puyo"
-                                onClick={() => { setShowPuyo(v => !v); setShowSudoku(false); setWordRainOn(false); setWordRainVisible(true); }}
-                                style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent', opacity: showPuyo ? 1 : 0.45, transition: 'all 0.12s' }}>
+                        <div
+                            style={{
+                                marginTop: 'auto',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                marginBottom: '8px',
+                            }}
+                        >
+                            <div
+                                title="Puyo Puyo"
+                                onClick={() => {
+                                    setShowPuyo((v) => !v);
+                                    setShowSudoku(false);
+                                    setWordRainOn(false);
+                                    setWordRainVisible(true);
+                                }}
+                                style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '17px',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    background: showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    borderLeft: showPuyo ? '2px solid #ccc' : '2px solid transparent',
+                                    opacity: showPuyo ? 1 : 0.45,
+                                    transition: 'all 0.12s',
+                                }}
+                            >
                                 🩵
                             </div>
-                            <div title="Sudoku"
-                                onClick={() => { setShowSudoku(v => !v); setShowPuyo(false); setWordRainOn(false); setWordRainVisible(true); }}
-                                style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', cursor: 'pointer', borderRadius: '4px', background: showSudoku ? 'rgba(255,255,255,0.08)' : 'transparent', borderLeft: showSudoku ? '2px solid #ccc' : '2px solid transparent', opacity: showSudoku ? 1 : 0.45, transition: 'all 0.12s' }}>
+                            <div
+                                title="Sudoku"
+                                onClick={() => {
+                                    setShowSudoku((v) => !v);
+                                    setShowPuyo(false);
+                                    setWordRainOn(false);
+                                    setWordRainVisible(true);
+                                }}
+                                style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '17px',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    background: showSudoku ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    borderLeft: showSudoku ? '2px solid #ccc' : '2px solid transparent',
+                                    opacity: showSudoku ? 1 : 0.45,
+                                    transition: 'all 0.12s',
+                                }}
+                            >
                                 🔢
                             </div>
                         </div>
@@ -703,8 +1010,28 @@ function App() {
                 </div>
 
                 {/* ── SIDEBAR ── */}
-                <div style={{ width: '240px', flexShrink: 0, background: '#252526', borderRight: '1px solid #3e3e42', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '8px 14px 5px', flexShrink: 0 }}>
+                <div
+                    style={{
+                        width: '240px',
+                        flexShrink: 0,
+                        background: '#252526',
+                        borderRight: '1px solid #3e3e42',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#bbb',
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            padding: '8px 14px 5px',
+                            flexShrink: 0,
+                        }}
+                    >
                         {activePanel === 'explorer' ? 'Explorer' : 'Profile'}
                     </div>
 
@@ -712,105 +1039,332 @@ function App() {
                     {activePanel === 'explorer' && (
                         <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                             {/* USER */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '11px', color: '#bbb', cursor: 'pointer', userSelect: 'none' }}
-                                onClick={() => setUserExpanded((v) => !v)}>
-                                <span style={{ fontSize: '9px', color: '#666', display: 'inline-block', transition: 'transform 0.15s', transform: userExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '3px 10px',
+                                    fontSize: '11px',
+                                    color: '#bbb',
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                }}
+                                onClick={() => setUserExpanded((v) => !v)}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: '9px',
+                                        color: '#666',
+                                        display: 'inline-block',
+                                        transition: 'transform 0.15s',
+                                        transform: userExpanded ? 'rotate(90deg)' : 'none',
+                                    }}
+                                >
+                                    ▶
+                                </span>
                                 <span>USER</span>
                             </div>
                             {userExpanded && (
                                 <div style={{ padding: '2px 0 8px', flexShrink: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 14px 3px 22px', fontSize: '12px' }}>
-                                        {currentAvatar?.src
-                                            ? <img src={currentAvatar.src} style={{ width: 14, height: 14, objectFit: 'contain' }} />
-                                            : <span style={{ fontSize: '14px' }}>{currentAvatar?.label ?? '🐱'}</span>
-                                        }
-                                        <span style={{ color: nickname.trim() ? '#4ec9b0' : '#858585' }}>{nickname.trim() || 'not set'}</span>
-                                        {nickname.trim() && <span style={{ color: '#6a9955', fontSize: '10px' }}>✓</span>}
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '3px 14px 3px 22px',
+                                            fontSize: '12px',
+                                        }}
+                                    >
+                                        {currentAvatar?.src ? (
+                                            <img
+                                                src={currentAvatar.src}
+                                                style={{ width: 14, height: 14, objectFit: 'contain' }}
+                                            />
+                                        ) : (
+                                            <span style={{ fontSize: '14px' }}>{currentAvatar?.label ?? '🐱'}</span>
+                                        )}
+                                        <span style={{ color: nickname.trim() ? '#4ec9b0' : '#858585' }}>
+                                            {nickname.trim() || 'not set'}
+                                        </span>
+                                        {nickname.trim() && (
+                                            <span style={{ color: '#6a9955', fontSize: '10px' }}>✓</span>
+                                        )}
                                     </div>
-                                    <div style={{ padding: '2px 14px 2px 28px', fontSize: '11px', color: '#569cd6', cursor: 'pointer' }}
-                                        onClick={() => { setActivePanel('profile'); setProfileEditing(true); }}>
-                                        {profileEditing ? <span style={{ color: '#ce9178' }}>● editing...</span> : '✎ editProfile()'}
+                                    <div
+                                        style={{
+                                            padding: '2px 14px 2px 28px',
+                                            fontSize: '11px',
+                                            color: '#569cd6',
+                                            cursor: 'pointer',
+                                        }}
+                                        onClick={() => {
+                                            setActivePanel('profile');
+                                            setProfileEditing(true);
+                                        }}
+                                    >
+                                        {profileEditing ? (
+                                            <span style={{ color: '#ce9178' }}>● editing...</span>
+                                        ) : (
+                                            '✎ editProfile()'
+                                        )}
                                     </div>
                                 </div>
                             )}
 
                             {/* ROOMS */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '11px', color: '#bbb', cursor: 'pointer', userSelect: 'none', borderTop: '1px solid #3e3e42' }}
-                                onClick={() => setRoomsExpanded((v) => !v)}>
-                                <span style={{ fontSize: '9px', color: '#666', display: 'inline-block', transition: 'transform 0.15s', transform: roomsExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '3px 10px',
+                                    fontSize: '11px',
+                                    color: '#bbb',
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                    borderTop: '1px solid #3e3e42',
+                                }}
+                                onClick={() => setRoomsExpanded((v) => !v)}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: '9px',
+                                        color: '#666',
+                                        display: 'inline-block',
+                                        transition: 'transform 0.15s',
+                                        transform: roomsExpanded ? 'rotate(90deg)' : 'none',
+                                    }}
+                                >
+                                    ▶
+                                </span>
                                 <span>ROOMS</span>
-                                <span style={{ marginLeft: 'auto', color: loading ? '#569cd6' : '#555', fontSize: '10px' }}>{loading ? '↻' : rooms.length}</span>
+                                <span
+                                    style={{
+                                        marginLeft: 'auto',
+                                        color: loading ? '#569cd6' : '#555',
+                                        fontSize: '10px',
+                                    }}
+                                >
+                                    {loading ? '↻' : rooms.length}
+                                </span>
                             </div>
                             {roomsExpanded && (
                                 <>
                                     <div style={{ flex: 1, overflow: 'auto', minHeight: '40px' }}>
-                                        {rooms.length === 0 && <div style={{ padding: '4px 14px 4px 24px', fontSize: '11px', color: '#555' }}>// no rooms yet</div>}
+                                        {rooms.length === 0 && (
+                                            <div
+                                                style={{
+                                                    padding: '4px 14px 4px 24px',
+                                                    fontSize: '11px',
+                                                    color: '#555',
+                                                }}
+                                            >
+                                                // no rooms yet
+                                            </div>
+                                        )}
                                         {rooms.map((room) => (
-                                            <div key={room.roomId}
-                                                style={{ display: 'flex', alignItems: 'center', padding: '3px 8px 3px 22px', fontSize: '12px', background: hoveredRoom === room.roomId ? 'rgba(255,255,255,0.06)' : 'transparent', cursor: 'pointer', gap: '5px' }}
+                                            <div
+                                                key={room.roomId}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    padding: '3px 8px 3px 22px',
+                                                    fontSize: '12px',
+                                                    background:
+                                                        hoveredRoom === room.roomId
+                                                            ? 'rgba(255,255,255,0.06)'
+                                                            : 'transparent',
+                                                    cursor: 'pointer',
+                                                    gap: '5px',
+                                                }}
                                                 onMouseEnter={() => setHoveredRoom(room.roomId)}
                                                 onMouseLeave={() => setHoveredRoom(null)}
                                                 onClick={() => handleJoin(room.roomId)}
                                             >
-                                                <span style={{ fontSize: '11px', flexShrink: 0 }}>{GAME_ICONS[room.studyType] ?? '!'}</span>
-                                                <span style={{ color: '#d4d4d4', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.roomName}</span>
-                                                <span style={{ color: '#ce9178', fontSize: '10px', flexShrink: 0 }}>{GAME_EXT[room.studyType]}</span>
-                                                <span style={{ color: '#858585', fontSize: '10px', flexShrink: 0 }}>{room.playerCount}/{room.studyType === 'TETRIS' ? 3 : room.maxPlayers}</span>
+                                                <span style={{ fontSize: '11px', flexShrink: 0 }}>
+                                                    {GAME_ICONS[room.studyType] ?? '!'}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        color: '#d4d4d4',
+                                                        flex: 1,
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {room.roomName}
+                                                </span>
+                                                <span style={{ color: '#ce9178', fontSize: '10px', flexShrink: 0 }}>
+                                                    {GAME_EXT[room.studyType]}
+                                                </span>
+                                                <span style={{ color: '#858585', fontSize: '10px', flexShrink: 0 }}>
+                                                    {room.playerCount}/
+                                                    {room.studyType === 'TETRIS' ? 3 : room.maxPlayers}
+                                                </span>
                                                 {hoveredRoom === room.roomId && (
-                                                    <button className="btn-primary" style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}
-                                                        onClick={(e) => { e.stopPropagation(); handleJoin(room.roomId); }}>join</button>
+                                                    <button
+                                                        className="btn-primary"
+                                                        style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleJoin(room.roomId);
+                                                        }}
+                                                    >
+                                                        join
+                                                    </button>
                                                 )}
                                             </div>
                                         ))}
                                     </div>
-                                    <div style={{ display: 'flex', gap: '4px', padding: '5px 8px', borderTop: '1px solid #3e3e42', flexShrink: 0 }}>
-                                        <button className="btn-secondary" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={fetchRooms} disabled={loading}>{loading ? '…' : '↺'}</button>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            gap: '4px',
+                                            padding: '5px 8px',
+                                            borderTop: '1px solid #3e3e42',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <button
+                                            className="btn-secondary"
+                                            style={{ fontSize: '10px', padding: '2px 8px' }}
+                                            onClick={fetchRooms}
+                                            disabled={loading}
+                                        >
+                                            {loading ? '…' : '↺'}
+                                        </button>
                                     </div>
                                 </>
                             )}
-
                         </div>
                     )}
 
                     {/* PROFILE */}
                     {activePanel === 'profile' && (
                         <div style={{ flex: 1, overflow: 'auto', padding: '0 0 8px' }}>
-                            <div style={{ padding: '4px 12px', fontSize: '10px', color: '#6a9955' }}>// select avatar</div>
-                            <div style={{ padding: '0 10px 8px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                            <div style={{ padding: '4px 12px', fontSize: '10px', color: '#6a9955' }}>
+                                // select avatar
+                            </div>
+                            <div
+                                style={{
+                                    padding: '0 10px 8px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                    gap: '4px',
+                                }}
+                            >
                                 {PLAYER_AVATARS.map((a) => {
                                     const isSel = draftEmoji === a.id;
                                     return (
-                                        <div key={a.id} onClick={() => profileEditing && setDraftEmoji(a.id)}
-                                            style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSel ? 'rgba(14,99,156,0.5)' : 'rgba(255,255,255,0.03)', border: isSel ? '1px solid #0e639c' : '1px solid #3e3e42', borderRadius: '3px', cursor: profileEditing ? 'pointer' : 'default', opacity: isSel ? 1 : 0.55, transition: 'all 0.12s', position: 'relative' }}>
-                                            {a.src
-                                                ? <img src={a.src} alt={a.label} style={{ width: 32, height: 32, objectFit: 'contain' }} />
-                                                : <span style={{ fontSize: '24px', lineHeight: '1' }}>{a.label}</span>
-                                            }
-                                            {isSel && <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, background: '#4ec9b0', border: '1px solid #1e1e1e', borderRadius: '50%' }} />}
+                                        <div
+                                            key={a.id}
+                                            onClick={() => profileEditing && setDraftEmoji(a.id)}
+                                            style={{
+                                                height: '42px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                background: isSel ? 'rgba(14,99,156,0.5)' : 'rgba(255,255,255,0.03)',
+                                                border: isSel ? '1px solid #0e639c' : '1px solid #3e3e42',
+                                                borderRadius: '3px',
+                                                cursor: profileEditing ? 'pointer' : 'default',
+                                                opacity: isSel ? 1 : 0.55,
+                                                transition: 'all 0.12s',
+                                                position: 'relative',
+                                            }}
+                                        >
+                                            {a.src ? (
+                                                <img
+                                                    src={a.src}
+                                                    alt={a.label}
+                                                    style={{ width: 32, height: 32, objectFit: 'contain' }}
+                                                />
+                                            ) : (
+                                                <span style={{ fontSize: '24px', lineHeight: '1' }}>{a.label}</span>
+                                            )}
+                                            {isSel && (
+                                                <span
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: -3,
+                                                        right: -3,
+                                                        width: 8,
+                                                        height: 8,
+                                                        background: '#4ec9b0',
+                                                        border: '1px solid #1e1e1e',
+                                                        borderRadius: '50%',
+                                                    }}
+                                                />
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
-                            <div style={{ padding: '4px 12px', fontSize: '10px', color: '#6a9955', borderTop: '1px solid #3e3e42' }}>// nickname</div>
+                            <div
+                                style={{
+                                    padding: '4px 12px',
+                                    fontSize: '10px',
+                                    color: '#6a9955',
+                                    borderTop: '1px solid #3e3e42',
+                                }}
+                            >
+                                // nickname
+                            </div>
                             <div style={{ padding: '2px 10px 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {currentAvatar?.src
-                                    ? <img src={currentAvatar.src} style={{ width: 14, height: 14, objectFit: 'contain' }} />
-                                    : <span style={{ fontSize: '14px' }}>{currentAvatar?.label}</span>
-                                }
+                                {currentAvatar?.src ? (
+                                    <img
+                                        src={currentAvatar.src}
+                                        style={{ width: 14, height: 14, objectFit: 'contain' }}
+                                    />
+                                ) : (
+                                    <span style={{ fontSize: '14px' }}>{currentAvatar?.label}</span>
+                                )}
                                 <input
-                                    style={{ flex: 1, fontSize: '12px', padding: '3px 6px', border: nickname.trim() ? '1px solid #4ec9b0' : '1px solid #3e3e42', outline: 'none', background: '#1e1e1e', color: '#d4d4d4' }}
-                                    placeholder="nickname" value={draftNickname} onChange={(e) => setDraftNickname(e.target.value)}
-                                    disabled={!profileEditing} maxLength={12} onKeyDown={(e) => e.key === 'Enter' && saveProfile()}
+                                    style={{
+                                        flex: 1,
+                                        fontSize: '12px',
+                                        padding: '3px 6px',
+                                        border: nickname.trim() ? '1px solid #4ec9b0' : '1px solid #3e3e42',
+                                        outline: 'none',
+                                        background: '#1e1e1e',
+                                        color: '#d4d4d4',
+                                    }}
+                                    placeholder="nickname"
+                                    value={draftNickname}
+                                    onChange={(e) => setDraftNickname(e.target.value)}
+                                    disabled={!profileEditing}
+                                    maxLength={12}
+                                    onKeyDown={(e) => e.key === 'Enter' && saveProfile()}
                                 />
                             </div>
                             <div style={{ padding: '0 10px 6px', display: 'flex', gap: '4px' }}>
                                 {profileEditing ? (
                                     <>
-                                        <button className="btn-primary" style={{ flex: 1, fontSize: '11px', padding: '3px 0' }} onClick={saveProfile}>save()</button>
-                                        <button className="btn-secondary" style={{ flex: 1, fontSize: '11px', padding: '3px 0' }} onClick={cancelProfileEdit}>cancel</button>
+                                        <button
+                                            className="btn-primary"
+                                            style={{ flex: 1, fontSize: '11px', padding: '3px 0' }}
+                                            onClick={saveProfile}
+                                        >
+                                            save()
+                                        </button>
+                                        <button
+                                            className="btn-secondary"
+                                            style={{ flex: 1, fontSize: '11px', padding: '3px 0' }}
+                                            onClick={cancelProfileEdit}
+                                        >
+                                            cancel
+                                        </button>
                                     </>
                                 ) : (
-                                    <button className="btn-secondary" style={{ flex: 1, fontSize: '11px', padding: '3px 0' }} onClick={() => setProfileEditing(true)}>✎ edit</button>
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ flex: 1, fontSize: '11px', padding: '3px 0' }}
+                                        onClick={() => setProfileEditing(true)}
+                                    >
+                                        ✎ edit
+                                    </button>
                                 )}
                             </div>
                         </div>
@@ -818,15 +1372,28 @@ function App() {
                 </div>
 
                 {/* ── 에디터 + 터미널 컬럼 ──────────────────────────────── */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#1e1e1e', minWidth: 0 }}>
-
+                <div
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        background: '#1e1e1e',
+                        minWidth: 0,
+                    }}
+                >
                     {/* 탭 바 (사이드바 헤더와 같은 높이) */}
                     <div className="tab-bar" style={{ flexShrink: 0 }}>
                         <div className="tab active">
                             <span style={{ color: '#569cd6', fontSize: '11px' }}>▶</span>
                             <span>{tabLabel}</span>
                             {currentRoom && (
-                                <span className="tab-close" onClick={() => (leaveRef.current ? leaveRef.current() : handleLeaveRoom())}>✕</span>
+                                <span
+                                    className="tab-close"
+                                    onClick={() => (leaveRef.current ? leaveRef.current() : handleLeaveRoom())}
+                                >
+                                    ✕
+                                </span>
                             )}
                         </div>
                         <div className="tab" style={{ color: '#555', fontSize: '11px', padding: '8px 10px' }}>
@@ -835,7 +1402,16 @@ function App() {
                     </div>
 
                     {/* 콘텐츠 영역 */}
-                    <div style={{ flex: 1, overflowY: 'scroll', display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+                    <div
+                        style={{
+                            flex: 1,
+                            overflowY: 'scroll',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            minWidth: 0,
+                            position: 'relative',
+                        }}
+                    >
                         {/* 오페시티 적용 */}
                         <div
                             style={{
@@ -857,7 +1433,7 @@ function App() {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '10px',
-                                    opacity: '0.3'
+                                    opacity: '0.3',
                                 }}
                             >
                                 <span>Opacity</span>
@@ -866,9 +1442,7 @@ function App() {
                                     min={20}
                                     max={100}
                                     value={overlayOpacity * 100}
-                                    onChange={(e) =>
-                                    setOverlayOpacity(Number(e.target.value) / 100)
-                                    }
+                                    onChange={(e) => setOverlayOpacity(Number(e.target.value) / 100)}
                                 />
                                 <span>{Math.round(overlayOpacity * 100)}%</span>
                             </div>
@@ -903,11 +1477,14 @@ function App() {
                                     wordRainOn={wordRainOn}
                                 />
                             ) : (
-                                <div style={{
-                                    flex: 1,
-                                    overflow: 'auto',
-                                    padding: currentRoom.studyType === 'ALKKAGI' ? '0 4px 4px 4px' : '0 24px 20px 24px',
-                                }}>
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        overflow: 'auto',
+                                        padding:
+                                            currentRoom.studyType === 'ALKKAGI' ? '0 4px 4px 4px' : '0 24px 20px 24px',
+                                    }}
+                                >
                                     <StudyRoom
                                         room={currentRoom}
                                         nickname={nickname}
@@ -916,31 +1493,47 @@ function App() {
                                         studyState={studyState}
                                         onStudyState={handleStudyState}
                                         onLeave={handleLeaveRoom}
-                                    leaveRef={leaveRef}
-                                />
+                                        leaveRef={leaveRef}
+                                    />
                                 </div>
                             )}
                         </div>
                         {/* 워드레인 오버레이 — 게임 실행 중 항상 마운트, display로만 표시/숨김 */}
                         {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && (
-                            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5, display: wordRainVisible ? 'block' : 'none' }}>
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    pointerEvents: 'none',
+                                    zIndex: 5,
+                                    display: wordRainVisible ? 'block' : 'none',
+                                }}
+                            >
                                 <WordRain
                                     key={wordRainKey}
                                     visible={wordRainVisible}
-                                    registerHandler={(fn) => { wordRainHandlerRef.current = fn; }}
+                                    registerHandler={(fn) => {
+                                        wordRainHandlerRef.current = fn;
+                                    }}
                                     onClose={() => {
                                         setWordRainOn(false);
                                         setWordRainVisible(true);
-                                        setTermHistory(prev => [...prev, { type: 'out', text: 'info: symbol-resolver daemon stopped' }]);
+                                        setTermHistory((prev) => [
+                                            ...prev,
+                                            { type: 'out', text: 'info: symbol-resolver daemon stopped' },
+                                        ]);
                                         scrollTerm();
                                     }}
                                     onRestart={() => {
-                                        setWordRainKey(k => k + 1);
-                                        setTermHistory(prev => [...prev, { type: 'out', text: 'info: symbol-resolver daemon restarted' }]);
+                                        setWordRainKey((k) => k + 1);
+                                        setTermHistory((prev) => [
+                                            ...prev,
+                                            { type: 'out', text: 'info: symbol-resolver daemon restarted' },
+                                        ]);
                                         scrollTerm();
                                     }}
                                     onTermOutput={(line) => {
-                                        setTermHistory(prev => [...prev, line]);
+                                        setTermHistory((prev) => [...prev, line]);
                                         scrollTerm();
                                     }}
                                 />
@@ -950,33 +1543,92 @@ function App() {
 
                     {/* 터미널 패널 */}
                     {termOpen && (
-                        <div style={{ height: TERMINAL_HEIGHT, flexShrink: 0, borderTop: '1px solid #3e3e42', background: '#1e1e1e', display: 'flex', flexDirection: 'column', fontFamily: "'Consolas','Courier New',monospace" }}>
-                            <div style={{ display: 'flex', alignItems: 'center', background: '#252526', borderBottom: '1px solid #3e3e42', flexShrink: 0, height: '26px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 14px', height: '100%', background: '#1e1e1e', borderRight: '1px solid #3e3e42', fontSize: '11px', color: '#ccc' }}>
+                        <div
+                            style={{
+                                height: TERMINAL_HEIGHT,
+                                flexShrink: 0,
+                                borderTop: '1px solid #3e3e42',
+                                background: '#1e1e1e',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                fontFamily: "'Consolas','Courier New',monospace",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    background: '#252526',
+                                    borderBottom: '1px solid #3e3e42',
+                                    flexShrink: 0,
+                                    height: '26px',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0 14px',
+                                        height: '100%',
+                                        background: '#1e1e1e',
+                                        borderRight: '1px solid #3e3e42',
+                                        fontSize: '11px',
+                                        color: '#ccc',
+                                    }}
+                                >
                                     <span style={{ color: '#6a9955', fontSize: '11px' }}>⬤</span>
                                     <span>TERMINAL</span>
                                     <span style={{ color: '#858585', fontSize: '10px' }}>bash</span>
                                 </div>
                                 <div style={{ flex: 1, height: '100%' }} />
                                 <div style={{ display: 'flex', gap: '2px', paddingRight: '8px' }}>
-                                    <span style={{ fontSize: '14px', color: '#555', cursor: 'pointer', padding: '0 4px', lineHeight: '1' }} title="Close terminal" onClick={() => setTermOpen(false)}>✕</span>
+                                    <span
+                                        style={{
+                                            fontSize: '14px',
+                                            color: '#555',
+                                            cursor: 'pointer',
+                                            padding: '0 4px',
+                                            lineHeight: '1',
+                                        }}
+                                        title="Close terminal"
+                                        onClick={() => setTermOpen(false)}
+                                    >
+                                        ✕
+                                    </span>
                                 </div>
                             </div>
-                            <div ref={termRef} style={{ flex: 1, overflow: 'auto', padding: '6px 12px 2px', fontSize: '12px', lineHeight: '1.5' }}>
+                            <div
+                                ref={termRef}
+                                style={{
+                                    flex: 1,
+                                    overflow: 'auto',
+                                    padding: '6px 12px 2px',
+                                    fontSize: '12px',
+                                    lineHeight: '1.5',
+                                }}
+                            >
                                 {termHistory.map((line, i) => (
                                     <div key={i} style={{ display: 'flex', gap: '6px' }}>
                                         {line.type === 'cmd' && (
                                             <>
                                                 <span style={{ color: '#00d48e', userSelect: 'none' }}>
-                                                    PC024@STUDY-PLATFORM <span style={{ color: '#ff63ff' }}>MINGW64</span>{' '}
+                                                    PC024@STUDY-PLATFORM{' '}
+                                                    <span style={{ color: '#ff63ff' }}>MINGW64</span>{' '}
                                                     <span style={{ color: '#f1ff2f' }}>~/study-platform</span>
                                                 </span>
                                                 <span style={{ color: '#49cbff' }}>(main)</span>
                                                 <span style={{ color: '#d4d4d4' }}>{line.text}</span>
                                             </>
                                         )}
-                                        {line.type === 'out' && <span style={{ color: '#d4d4d4', paddingLeft: '2px' }}>{line.text || ' '}</span>}
-                                        {line.type === 'err' && <span style={{ color: '#f44747', paddingLeft: '2px' }}>{line.text}</span>}
+                                        {line.type === 'out' && (
+                                            <span style={{ color: '#d4d4d4', paddingLeft: '2px' }}>
+                                                {line.text || ' '}
+                                            </span>
+                                        )}
+                                        {line.type === 'err' && (
+                                            <span style={{ color: '#f44747', paddingLeft: '2px' }}>{line.text}</span>
+                                        )}
                                     </div>
                                 ))}
                                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
@@ -986,28 +1638,79 @@ function App() {
                                     </span>
                                     <span style={{ color: '#49cbff' }}>(main)</span>
                                     <input
-                                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#d4d4d4', fontSize: '12px', fontFamily: 'inherit', caretColor: '#d4d4d4' }}
+                                        style={{
+                                            flex: 1,
+                                            background: 'transparent',
+                                            border: 'none',
+                                            outline: 'none',
+                                            color: '#d4d4d4',
+                                            fontSize: '12px',
+                                            fontFamily: 'inherit',
+                                            caretColor: '#d4d4d4',
+                                        }}
                                         value={termInput}
                                         onChange={(e) => setTermInput(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleTermCmd(termInput); }}
-                                        placeholder="" spellCheck={false} autoComplete="off"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleTermCmd(termInput);
+                                        }}
+                                        placeholder=""
+                                        spellCheck={false}
+                                        autoComplete="off"
                                     />
                                 </div>
                             </div>
                         </div>
                     )}
                     {!termOpen && (
-                        <div style={{ flexShrink: 0, borderTop: '1px solid #3e3e42', background: '#252526', padding: '3px 12px', fontSize: '11px', color: '#555', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            onClick={() => setTermOpen(true)}>
+                        <div
+                            style={{
+                                flexShrink: 0,
+                                borderTop: '1px solid #3e3e42',
+                                background: '#252526',
+                                padding: '3px 12px',
+                                fontSize: '11px',
+                                color: '#555',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                            }}
+                            onClick={() => setTermOpen(true)}
+                        >
                             <span style={{ color: '#6a9955' }}>⬤</span> TERMINAL
                         </div>
                     )}
                 </div>
 
                 {/* ── 전역 채팅 패널 ──────────────────────────────────── */}
-                <div style={{ width: chatWidth, flexShrink: 0, borderLeft: '1px solid #3e3e42', position: 'relative', display: 'flex' }}>
+                <div
+                    style={
+                        {
+                            width: chatWidth,
+                            flexShrink: 0,
+                            borderLeft: '1px solid #3e3e42',
+                            position: 'relative',
+                            display: 'flex',
+                            backgroundImage: chatBgImage ? `url(${chatBgImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            ['--chat-bubble-color' as string]: bubbleColor,
+                            ['--chat-font' as string]: chatFont,
+                        } as React.CSSProperties
+                    }
+                >
+                    {/* resize handle */}
                     <div
-                        style={{ width: '4px', flexShrink: 0, cursor: 'ew-resize', position: 'absolute', left: -2, top: 0, bottom: 0, zIndex: 2 }}
+                        style={{
+                            width: '4px',
+                            flexShrink: 0,
+                            cursor: 'ew-resize',
+                            position: 'absolute',
+                            left: -2,
+                            top: 0,
+                            bottom: 0,
+                            zIndex: 2,
+                        }}
                         onMouseDown={(e) => {
                             const startX = e.clientX;
                             const startW = chatWidth;
@@ -1024,21 +1727,189 @@ function App() {
                             window.addEventListener('mouseup', onUp);
                         }}
                     />
+
+                    {/* 커스텀 설정 버튼 */}
+                    <button
+                        onClick={() => setCustomizeOpen((v) => !v)}
+                        title="채팅창 꾸미기"
+                        style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            zIndex: 4,
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: customizeOpen ? '#0e639c' : 'rgba(45,45,48,0.85)',
+                            border: '1px solid #3e3e42',
+                            borderRadius: '4px',
+                            color: '#ccc',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        ⚙️
+                    </button>
+
+                    {/* 커스텀 설정 팝업 */}
+                    {customizeOpen && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: 32,
+                                right: 6,
+                                zIndex: 5,
+                                width: 180,
+                                background: '#252526',
+                                border: '1px solid #3e3e42',
+                                borderRadius: '6px',
+                                padding: '10px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: '11px',
+                                    color: '#bbb',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                채팅창 꾸미기
+                                <span
+                                    style={{ cursor: 'pointer', color: '#858585' }}
+                                    onClick={() => setCustomizeOpen(false)}
+                                >
+                                    ✕
+                                </span>
+                            </div>
+
+                            <label
+                                style={{
+                                    fontSize: '11px',
+                                    color: '#ccc',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px',
+                                }}
+                            >
+                                배경 이미지
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ fontSize: '10px', color: '#ccc' }}
+                                    onChange={(e) => e.target.files?.[0] && handleChatBgUpload(e.target.files[0])}
+                                />
+                                {chatBgImage && (
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ fontSize: '10px', padding: '2px 0' }}
+                                        onClick={() => {
+                                            setChatBgImage(null);
+                                            localStorage.removeItem('study.chatBg');
+                                        }}
+                                    >
+                                        배경 제거
+                                    </button>
+                                )}
+                            </label>
+
+                            <label
+                                style={{
+                                    fontSize: '11px',
+                                    color: '#ccc',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                말풍선 색상
+                                <input
+                                    type="color"
+                                    value={bubbleColor}
+                                    onChange={(e) => handleBubbleColorChange(e.target.value)}
+                                    style={{
+                                        width: 24,
+                                        height: 20,
+                                        padding: 0,
+                                        border: 'none',
+                                        background: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                />
+                            </label>
+
+                            <label
+                                style={{
+                                    fontSize: '11px',
+                                    color: '#ccc',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px',
+                                }}
+                            >
+                                폰트
+                                <select
+                                    value={chatFont}
+                                    onChange={(e) => handleChatFontChange(e.target.value)}
+                                    style={{
+                                        fontSize: '11px',
+                                        background: '#1e1e1e',
+                                        color: '#ccc',
+                                        border: '1px solid #3e3e42',
+                                        padding: '3px',
+                                    }}
+                                >
+                                    <option value="inherit">기본</option>
+                                    <option value="'Pretendard', sans-serif">Pretendard</option>
+                                    <option value="'Nanum Gothic', sans-serif">나눔고딕</option>
+                                    <option value="'Consolas', monospace">고정폭</option>
+                                </select>
+                            </label>
+                        </div>
+                    )}
+
+                    {/* 닉네임 미입력 안내 오버레이 */}
                     {!nickname.trim() && (
-                        <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'rgba(30,30,30,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#858585', fontFamily: 'monospace', pointerEvents: 'none' }}>
+                        <div
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                zIndex: 1,
+                                background: 'rgba(30,30,30,0.88)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                fontSize: '12px',
+                                color: '#858585',
+                                fontFamily: 'monospace',
+                                pointerEvents: 'none',
+                            }}
+                        >
                             <span style={{ color: '#569cd6' }}>// 채팅하려면</span>
                             <span>닉네임을 먼저 입력해주세요</span>
                         </div>
                     )}
+
                     <LobbyChatPanel
                         nickname={nickname}
                         emoji={emoji}
                         sessionId={sessionId}
                         playerNames={chatPlayerNames}
                         onIncomingMessage={handleIncomingChat}
+                        bubbleColor={bubbleColor}
+                        onMention={checkMention}
                     />
                 </div>
-
             </div>
 
             {/* ── VS Code 상태 바 ─────────────────────────────────────── */}
@@ -1057,13 +1928,13 @@ function App() {
                                   ? 'BREAKOUT - 420x520'
                                   : currentRoom.studyType === 'CATCHMIND'
                                     ? 'CATCHMIND - drawing quiz'
-                                  : currentRoom.studyType === 'INCIDENT_AVOID'
-                                    ? 'INCIDENT_AVOID - 360x520'
-                                    : currentRoom.studyType === 'OLDMAID'
-                                      ? '🃏 Old Maid'
-                                      : currentRoom.studyType === 'ALKKAGI'
-                                        ? 'ALKKAGI · drag shot'
-                                        : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
+                                    : currentRoom.studyType === 'INCIDENT_AVOID'
+                                      ? 'INCIDENT_AVOID - 360x520'
+                                      : currentRoom.studyType === 'OLDMAID'
+                                        ? '🃏 Old Maid'
+                                        : currentRoom.studyType === 'ALKKAGI'
+                                          ? 'ALKKAGI · drag shot'
+                                          : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
                     </span>
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
