@@ -667,7 +667,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
 
         const vaN = a.vx * nx + a.vy * ny;
         const vbN = b.vx * nx + b.vy * ny;
-        const bounce = 0.94;
+        const bounce = a.type === 'BOUNCY' || b.type === 'BOUNCY' ? 1.48 : 0.94;
         const impact = Math.abs(vaN - vbN);
         if (impact > 1.4) {
           addEffect((ax + bx) / 2, (ay + by) / 2, impact > 8 ? 'heavy' : 'hit', '#dcdcaa');
@@ -692,6 +692,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
   }
 
   function triggerImpactEffect(source: SimStone, target: SimStone, list: SimStone[]) {
+    if (source.type === 'BOUNCY') return;
     if (source.type === 'MINE') {
       source.mineHits = (source.mineHits ?? 0) + 1;
       if (source.mineHits >= 2 && !source.triggered) {
@@ -703,7 +704,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     if (source.triggered || !source.type || source.type === 'NORMAL') return;
     source.triggered = true;
     const effect = source.type === 'ROULETTE'
-      ? ['BOMB', 'BLACK_HOLE', 'WARP', 'SPLIT', 'LIGHTNING', 'CURSE'][(source.id + target.id + (game?.shotCount ?? 0)) % 6]
+      ? ['BOMB', 'BLACK_HOLE', 'WARP', 'SPLIT', 'LIGHTNING', 'CURSE', 'SPRING'][(source.id + target.id + (game?.shotCount ?? 0)) % 7]
       : source.type;
     runImpactEffect(effect, source, target, list);
   }
@@ -714,6 +715,7 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     if (effect === 'WARP') warpStone(source, target);
     if (effect === 'SPLIT') splitBurst(source, list);
     if (effect === 'LIGHTNING') lightningStrike(source, target, list);
+    if (effect === 'SPRING') blastFrom(source, list, 240, 34, '#4ec9b0');
     if (effect === 'CURSE') {
       target.cursed = true;
       target.vx *= 1.9;
@@ -1230,6 +1232,8 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     if (type === 'CURSE') return { icon: 'C', label: '\uC800\uC8FC', color: '#b065c6' };
     if (type === 'ROULETTE') return { icon: 'R', label: '\uB8F0\uB81B', color: '#4ec9b0' };
     if (type === 'MINE') return { icon: 'M', label: '\uC9C0\uB8B0', color: '#f14c4c' };
+    if (type === 'BOUNCY') return { icon: 'B', label: '\uACE0\uBB34', color: '#ff9e3b' };
+    if (type === 'SPRING') return { icon: 'SP', label: '\uC2A4\uD504\uB9C1', color: '#4ec9b0' };
     /* legacy labels
     if (type === 'HEAVY') return { icon: 'H', label: '철벽', color: '#dcdcaa' };
     if (type === 'SLIPPERY') return { icon: 'ICE', label: '빙판', color: '#569cd6' };
@@ -1288,6 +1292,8 @@ export default function Alkkagi({ studyState, myPlayerIndex, sessionId, sendMove
     { name: '\uC800\uC8FC', description: '\uC0C1\uB300\uB97C \uBBF8\uB044\uB7FD\uAC8C', color: '#b065c6' },
     { name: '\uB8F0\uB81B', description: '\uD6A8\uACFC \uBB34\uC791\uC704', color: '#4ec9b0' },
     { name: '\uC9C0\uB8B0', description: '2\uD68C \uCDA9\uB3CC \uD3ED\uBC1C', color: '#f14c4c' },
+    { name: '\uACE0\uBB34', description: '\uCDA9\uB3CC\uD560 \uB54C\uB9C8\uB2E4 \uD06C\uAC8C \uD280\uAE40', color: '#ff9e3b' },
+    { name: '\uC2A4\uD504\uB9C1', description: '\uCCAB \uCDA9\uB3CC\uC5D0 \uB300\uD3ED\uBC1C', color: '#4ec9b0' },
   ];
   const selectedStone = selectedStoneId == null ? null : stones.find(stone => stone.id === selectedStoneId) ?? null;
   const selectedSpecial = selectedStone?.type && selectedStone.type !== 'NORMAL'

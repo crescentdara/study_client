@@ -63,6 +63,7 @@ export interface StudyMoveRequest {
     | 'DAVINCI_PLACE'
     | 'DAVINCI_GUESS'
     | 'DAVINCI_PASS'
+    | 'DAVINCI_FINISHER'
     | 'RUSH_MOVE'
     | 'UBONGO_PLACE'
     | 'UBONGO_REMOVE'
@@ -176,6 +177,7 @@ export interface TetrisGameData {
   rows: number;
   cols: number;
   numPlayers: number;
+  rankedMatch?: boolean;
   instanceId?: string;
   playerStates: Record<string, TetrisPlayerState>;
   garbageQueues?: Record<string, TetrisGarbageAttack[]>;
@@ -200,6 +202,17 @@ export interface TetrisPlayerRecord {
   matches: number;
   wins: number;
   losses: number;
+  placementGames: number;
+  placementRequired: number;
+  ranked: boolean;
+  tier: 'UNRANKED' | 'IRON' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'EMERALD' | 'DIAMOND' | 'MASTER' | 'GRANDMASTER' | 'CHALLENGER';
+  division: '' | 'IV' | 'III' | 'II' | 'I';
+  rp: number;
+  lastRankDelta: number;
+  lastRankChanged: boolean;
+  lastRankBefore: string;
+  lastRankAfter: string;
+  lastRankMatchId: string;
   opponents: Record<string, TetrisOpponentRecord>;
 }
 
@@ -336,6 +349,15 @@ export interface ChatAttachment {
 }
 
 export interface DaVinciGameData {
+  gameId: string;
+  messageEventId: number;
+  eliminationEventId: number;
+  executionEventId: number;
+  lastEliminatedPlayer: number;
+  lastEliminatorPlayer: number;
+  finisherPending: boolean;
+  executionStyle: 'TERMINATE' | 'TRASH' | 'SHRED' | 'ACCESS_DENIED' | '';
+  executionTaunt: string;
   numPlayers: number;
   currentTurn: number;
   winner: number;
@@ -392,7 +414,8 @@ export interface AlkkagiStone {
   active: boolean;
   type?: 'NORMAL' | 'HEAVY' | 'SLIPPERY' | 'BOMB' | 'LIGHT'
     | 'BLACK_HOLE' | 'WARP' | 'SPLIT' | 'GHOST'
-    | 'LIGHTNING' | 'CURSE' | 'ROULETTE' | 'MINE';
+    | 'LIGHTNING' | 'CURSE' | 'ROULETTE' | 'MINE'
+    | 'BOUNCY' | 'SPRING';
 }
 
 export interface AlkkagiGameData {

@@ -60,7 +60,7 @@ function StudyRoom({
     const isRushHour = room.studyType === 'RUSH_HOUR';
     const isUbongo   = room.studyType === 'UBONGO';
     const isAlkkagi = room.studyType === 'ALKKAGI';
-    const maxPlayers = isTetris ? 4 : isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
+    const maxPlayers = isTetris ? 3 : isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
     const hasGameData = Boolean(studyState?.gameData);
@@ -328,6 +328,7 @@ function StudyRoom({
                     ) : isDaVinci ? (
                         <DaVinci
                             studyState={studyState}
+                            secretState={secretState}
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}

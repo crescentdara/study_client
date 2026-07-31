@@ -89,82 +89,6 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
   );
 }
 
-// ── Tab title flash ───────────────────────────────────────────────────────
-
-const ORIGINAL_TITLE = document.title;
-let _flashInterval: ReturnType<typeof setInterval> | null = null;
-let _unreadCount = 0;
-
-function startTitleFlash(senderNickname: string) {
-  _unreadCount++;
-  updateFaviconBadge(_unreadCount);
-
-  if (_flashInterval) return; // already flashing
-  let toggle = false;
-  _flashInterval = setInterval(() => {
-    document.title = toggle
-      ? `📣 ${senderNickname}의 멘션!`
-      : `(${_unreadCount}) ${ORIGINAL_TITLE}`;
-    toggle = !toggle;
-  }, 1000);
-}
-
-function stopTitleFlash() {
-  if (_flashInterval) { clearInterval(_flashInterval); _flashInterval = null; }
-  document.title = ORIGINAL_TITLE;
-  _unreadCount = 0;
-  updateFaviconBadge(0);
-}
-
-// ── Favicon badge ─────────────────────────────────────────────────────────
-
-let _faviconLink: HTMLLinkElement | null = null;
-
-function getFaviconLink(): HTMLLinkElement {
-  if (!_faviconLink) {
-    _faviconLink = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
-      ?? (() => {
-        const el = document.createElement('link');
-        el.rel = 'icon'; document.head.appendChild(el); return el;
-      })();
-  }
-  return _faviconLink;
-}
-
-function updateFaviconBadge(count: number) {
-  const link = getFaviconLink();
-
-  if (count === 0) {
-    link.href = '/favicon.png';
-    return;
-  }
-
-  // Load original favicon, draw badge on top
-  const img = new Image();
-  img.src = '/favicon.png';
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32; canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(img, 0, 0, 32, 32);
-
-    // Red badge circle
-    ctx.fillStyle = '#e74c3c';
-    ctx.beginPath();
-    ctx.arc(24, 8, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(count > 9 ? '9+' : String(count), 24, 8);
-
-    link.href = canvas.toDataURL();
-  };
-}
-
 // Voice notification. Only runs for explicit /voice mentions.
 let _lastVoiceAt = 0;
 
@@ -208,13 +132,6 @@ function speakMention(text: string) {
   }
 }
 
-// Stop flash when user returns to tab
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') stopTitleFlash();
-  });
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────
 
 let _nextId = 1;
@@ -232,9 +149,6 @@ export function useToast() {
       speakMention(spokenText);
     } else {
       playMentionSound();
-    }
-    if (document.visibilityState !== 'visible') {
-      startTitleFlash(senderNickname);
     }
   }, []);
 

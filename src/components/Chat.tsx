@@ -98,10 +98,10 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
 
   const allMessages = useMemo(() => [...messages, ...localMessages], [messages, localMessages]);
   const visibleMessages = useMemo(() => allMessages.slice(-CHAT_RENDER_LIMIT), [allMessages]);
-  const latestMessageKey = useMemo(() => {
-    const latest = allMessages[allMessages.length - 1];
-    return latest ? `${latest.timestamp}-${latest.nickname}-${latest.text}-${latest.imageUrl ?? ""}` : "";
-  }, [allMessages]);
+  const latestMessage = allMessages[allMessages.length - 1];
+  const latestMessageKey = latestMessage
+    ? `${latestMessage.timestamp}-${latestMessage.nickname}-${latestMessage.text}-${latestMessage.imageUrl ?? ""}`
+    : "";
   const mentionCandidates = useMemo(() => (
     mentionQuery !== null
       ? playerNames.filter(n => n !== myNickname && n.toLowerCase().startsWith(mentionQuery.toLowerCase()))
@@ -116,12 +116,19 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     const hasNewLatest = latestMessageKey !== "" && latestMessageKey !== previousLatestMessageKeyRef.current;
     previousLatestMessageKeyRef.current = latestMessageKey;
 
-    if (stickToBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ block: "end" });
-    } else if (hasNewLatest) {
-      setUnreadCount((count) => count + 1);
+    if (!hasNewLatest) {
+      if (open && stickToBottomRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
+      return;
     }
-  }, [latestMessageKey, visibleMessages.length]);
+    const isUnreadCandidate = latestMessage
+      && latestMessage.nickname !== myNickname
+      && latestMessage.nickname !== "system";
+    if (isUnreadCandidate && (!open || !stickToBottomRef.current)) {
+      setUnreadCount((count) => count + 1);
+    } else {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [latestMessage, latestMessageKey, myNickname, open, visibleMessages.length]);
 
   const updateStickToBottom = () => {
     const el = scrollRef.current;
@@ -134,6 +141,14 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     stickToBottomRef.current = true;
     setUnreadCount(0);
     bottomRef.current?.scrollIntoView({ block: "end" });
+  };
+
+  const toggleChat = () => {
+    setOpen((value) => {
+      const next = !value;
+      if (next) window.setTimeout(scrollToBottom, 0);
+      return next;
+    });
   };
 
   const handleSend = () => {
@@ -319,9 +334,27 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
       >
         <span>
           <span style={{ color: "#569cd6" }}>// </span>CHAT
+          {unreadCount > 0 && (
+            <b style={{
+              display: "inline-flex",
+              minWidth: 18,
+              height: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: 7,
+              padding: "0 5px",
+              borderRadius: 9,
+              background: "#e74c3c",
+              color: "#ffffff",
+              fontSize: "10px",
+              letterSpacing: 0,
+            }}>
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </b>
+          )}
         </span>
         <button
-          onClick={() => setOpen((value) => !value)}
+          onClick={toggleChat}
           style={{
             marginLeft: "auto",
             background: "transparent",

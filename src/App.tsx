@@ -6,7 +6,11 @@ import PuyoPuyo from './components/games/PuyoPuyo';
 import Sudoku from './components/games/Sudoku';
 import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
+import SmokingWidget from './components/SmokingWidget';
+import VendingMachineWidget from './components/VendingMachineWidget';
+import DeskTrashBin from './components/DeskTrashBin';
 import { useLobbyChat } from './hooks/useLobbyChat';
+import { useChatTabNotification } from './hooks/useChatTabNotification';
 import { ToastContainer, useToast } from './components/Toast';
 import imgImage from './assets/images/image.png';
 import imgSideIcon1 from './assets/images/side_icon1.png';
@@ -68,12 +72,35 @@ const GAME_EXT: Record<StudyType, string> = {
 const MAX_CHAT_MESSAGES = 200;
 const TERMINAL_HEIGHT = 160;
 
+interface SmokingDeskOpacity {
+    cigarette: number;
+    pack: number;
+}
+
+const DEFAULT_SMOKING_OPACITY: SmokingDeskOpacity = { cigarette: 1, pack: .94 };
+
+function loadSmokingOpacity(): SmokingDeskOpacity {
+    try {
+        const stored = JSON.parse(localStorage.getItem('study.smokingDeskOpacity') ?? 'null') as Partial<SmokingDeskOpacity> | null;
+        if (stored) {
+            const clamp = (value: unknown, fallback: number) => Math.max(.15, Math.min(1, Number(value) || fallback));
+            return {
+                cigarette: clamp(stored.cigarette, DEFAULT_SMOKING_OPACITY.cigarette),
+                pack: clamp(stored.pack, DEFAULT_SMOKING_OPACITY.pack),
+            };
+        }
+    } catch {
+        // Restore defaults when a previous preference is malformed.
+    }
+    return DEFAULT_SMOKING_OPACITY;
+}
+
 interface LobbyChatPanelProps {
     nickname: string;
     emoji: string;
     sessionId: string;
     playerNames: string[];
-    onMention: (msg: ChatMessage) => void;
+    onIncomingMessage: (msg: ChatMessage) => void;
 }
 
 const LobbyChatPanel = memo(function LobbyChatPanel({
@@ -81,7 +108,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     emoji,
     sessionId,
     playerNames,
-    onMention,
+    onIncomingMessage,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const handleHistory = useCallback((history: ChatMessage[]) => {
@@ -89,8 +116,8 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     }, []);
     const handleMessage = useCallback((msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
-        onMention(msg);
-    }, [onMention]);
+        onIncomingMessage(msg);
+    }, [onIncomingMessage]);
     const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
@@ -119,6 +146,7 @@ function App() {
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
     const leaveRef = useRef<(() => void) | null>(null);
     const [studyState, setStudyState] = useState<StudyStateResponse | null>(null);
+    const { notifyIncomingChat } = useChatTabNotification(nickname);
 
     // ── 토스트 ─────────────────────────────────────────────────────────────────
     const { toasts, addToast, dismiss } = useToast();
@@ -135,6 +163,10 @@ function App() {
             addToast(msg.emoji || '💬', msg.nickname, content);
         }
     }, [addToast]);
+    const handleIncomingChat = useCallback((msg: ChatMessage) => {
+        notifyIncomingChat(msg);
+        checkMention(msg);
+    }, [checkMention, notifyIncomingChat]);
 
     // ── 로비 채팅 ──────────────────────────────────────────────────────────────
     // ── 로비 채팅 창 너비 ──────────────────────────────────────────────────────────────
@@ -143,6 +175,13 @@ function App() {
     // ── 뿌요뿌요 / 스도쿠 / 워드레인 ──────────────────────────────────────────
     const [showPuyo, setShowPuyo] = useState(false);
     const [showSudoku, setShowSudoku] = useState(false);
+    const [smokingDeskOn, setSmokingDeskOn] = useState(false);
+    const [smokingOpacity, setSmokingOpacity] = useState<SmokingDeskOpacity>(loadSmokingOpacity);
+    const [vendingOn, setVendingOn] = useState(false);
+    const [vendingOpacity, setVendingOpacity] = useState(() => {
+        const stored = Number(localStorage.getItem('study.vendingOpacity'));
+        return stored >= .2 && stored <= 1 ? stored : .94;
+    });
     const [wordRainOn, setWordRainOn] = useState(false);
     const [wordRainVisible, setWordRainVisible] = useState(true);
     const [wordRainKey, setWordRainKey] = useState(0);
@@ -436,6 +475,17 @@ function App() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             {noiseOn && <div className="noise"></div>}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            {smokingDeskOn && (
+                <SmokingWidget
+                    nickname={nickname}
+                    sessionId={sessionId}
+                    opacity={smokingOpacity}
+                />
+            )}
+            {vendingOn && (
+                <VendingMachineWidget nickname={nickname} sessionId={sessionId} opacity={vendingOpacity} />
+            )}
+            {(smokingDeskOn || vendingOn) && <DeskTrashBin />}
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div style={{ background: '#323233', borderBottom: '1px solid #3e3e42', padding: '2px 12px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '32px', flexShrink: 0, position: 'relative' }}>
@@ -522,6 +572,117 @@ function App() {
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon4} style={{ width: 18,  }} /></li>
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon5} style={{ width: 18,  }} /></li>
                         <li style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><img src={imgSideIcon6} style={{ width: 18,  }} /></li>
+                        <li
+                            className="smoking-activity-control"
+                            title={smokingDeskOn ? 'Close smoking desk' : 'Open smoking desk'}
+                            onClick={() => setSmokingDeskOn(value => !value)}
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                background: smokingDeskOn ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                borderLeft: smokingDeskOn ? '2px solid #ccc' : '2px solid transparent',
+                                color: '#c5c5c5',
+                                opacity: smokingDeskOn ? 1 : .45,
+                                transition: 'all .12s',
+                                position: 'relative',
+                            }}
+                        >
+                            <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                                <path d="M3.5 16h18.8v6H3.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                                <path d="M17.2 16h5.1v6h-5.1z" fill="currentColor" opacity=".75" />
+                                <path d="M3.5 16 1.2 17.35v3.3L3.5 22" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                                <path d="M8.2 13.1C4.5 10.9 9.4 9 6.5 5.8M14.4 13.1c-3.7-2.2 1.2-4.1-1.7-7.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path d="M24.7 16v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".65" />
+                            </svg>
+                            {smokingDeskOn && (
+                                <div
+                                    className="smoking-opacity-panel"
+                                    onClick={event => event.stopPropagation()}
+                                    onPointerDown={event => event.stopPropagation()}
+                                >
+                                    <strong>DESK OPACITY</strong>
+                                    {([
+                                        ['cigarette', 'CIG'],
+                                        ['pack', 'PACK'],
+                                    ] as const).map(([kind, label]) => (
+                                        <label key={kind}>
+                                            <span>{label}</span>
+                                            <input
+                                                type="range"
+                                                min="15"
+                                                max="100"
+                                                value={Math.round(smokingOpacity[kind] * 100)}
+                                                onChange={event => {
+                                                    const next = { ...smokingOpacity, [kind]: Number(event.target.value) / 100 };
+                                                    setSmokingOpacity(next);
+                                                    localStorage.setItem('study.smokingDeskOpacity', JSON.stringify(next));
+                                                }}
+                                            />
+                                            <small>{Math.round(smokingOpacity[kind] * 100)}</small>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </li>
+                        <li
+                            className="vending-activity-control"
+                            title={vendingOn ? 'Close vending machine' : 'Open vending machine'}
+                            onClick={() => setVendingOn(value => !value)}
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                background: vendingOn ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                borderLeft: vendingOn ? '2px solid #ccc' : '2px solid transparent',
+                                color: '#c5c5c5',
+                                opacity: vendingOn ? 1 : .45,
+                                transition: 'all .12s',
+                                position: 'relative',
+                            }}
+                        >
+                            <svg width="25" height="25" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                                <rect x="5" y="2.5" width="18" height="23" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                                <rect x="8" y="5.5" width="12" height="4" rx=".7" stroke="currentColor" strokeWidth="1.4" />
+                                <circle cx="10" cy="13" r="1.5" fill="currentColor" />
+                                <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+                                <circle cx="10" cy="17.5" r="1.5" fill="currentColor" />
+                                <circle cx="15" cy="17.5" r="1.5" fill="currentColor" />
+                                <path d="M9 22h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                            </svg>
+                            {vendingOn && (
+                                <div
+                                    className="smoking-opacity-panel vending-opacity-panel"
+                                    onClick={event => event.stopPropagation()}
+                                    onPointerDown={event => event.stopPropagation()}
+                                >
+                                    <strong>VENDING OPACITY</strong>
+                                    <label>
+                                        <span>BODY</span>
+                                        <input
+                                            type="range"
+                                            min="20"
+                                            max="100"
+                                            value={Math.round(vendingOpacity * 100)}
+                                            onChange={event => {
+                                                const next = Number(event.target.value) / 100;
+                                                setVendingOpacity(next);
+                                                localStorage.setItem('study.vendingOpacity', String(next));
+                                            }}
+                                        />
+                                        <small>{Math.round(vendingOpacity * 100)}</small>
+                                    </label>
+                                </div>
+                            )}
+                        </li>
                     </ul>
                     
                     {/* 게임 버튼 */}
@@ -594,7 +755,7 @@ function App() {
                                                 <span style={{ fontSize: '11px', flexShrink: 0 }}>{GAME_ICONS[room.studyType] ?? '!'}</span>
                                                 <span style={{ color: '#d4d4d4', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.roomName}</span>
                                                 <span style={{ color: '#ce9178', fontSize: '10px', flexShrink: 0 }}>{GAME_EXT[room.studyType]}</span>
-                                                <span style={{ color: '#858585', fontSize: '10px', flexShrink: 0 }}>{room.playerCount}/{room.maxPlayers}</span>
+                                                <span style={{ color: '#858585', fontSize: '10px', flexShrink: 0 }}>{room.playerCount}/{room.studyType === 'TETRIS' ? 3 : room.maxPlayers}</span>
                                                 {hoveredRoom === room.roomId && (
                                                     <button className="btn-primary" style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}
                                                         onClick={(e) => { e.stopPropagation(); handleJoin(room.roomId); }}>join</button>
@@ -874,7 +1035,7 @@ function App() {
                         emoji={emoji}
                         sessionId={sessionId}
                         playerNames={chatPlayerNames}
-                        onMention={checkMention}
+                        onIncomingMessage={handleIncomingChat}
                     />
                 </div>
 
@@ -907,7 +1068,7 @@ function App() {
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
                     {currentRoom
-                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' ? 4 : currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
+                        ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
                         : 'Lobby'}
                 </span>
             </div>

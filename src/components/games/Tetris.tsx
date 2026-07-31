@@ -14,6 +14,9 @@ const COUNTDOWN_SECONDS = 3;
 const CLEAR_ANIMATION_MS = 170;
 const TETRIS_DAS_KEY = 'study.tetrisDasDelay';
 const TETRIS_ARR_KEY = 'study.tetrisArrInterval';
+const TETRIS_VIEW_MODE_KEY = 'study.tetrisViewMode';
+
+type TetrisViewMode = 'classic' | 'sheet';
 
 const SHAPES: Record<string, number[][]> = {
   I: [[1, 1, 1, 1]],
@@ -43,6 +46,15 @@ type TetrisAttackEvent = {
   perfectClear: boolean;
 };
 
+type TetrisBoardView = {
+  name: string;
+  index: number;
+  state: TetrisGameData['playerStates'][string] | undefined;
+  board: Board;
+  record: TetrisPlayerRecord | undefined;
+  isMe: boolean;
+};
+
 interface Props {
   studyState: StudyStateResponse | null;
   sessionId: string;
@@ -51,6 +63,16 @@ interface Props {
 }
 
 const emptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill('') as string[]);
+
+const isValidBoard = (value: unknown): value is Board => (
+  Array.isArray(value)
+  && value.length === ROWS
+  && value.every((row) => (
+    Array.isArray(row)
+    && row.length === COLS
+    && row.every((cell) => typeof cell === 'string')
+  ))
+);
 
 const createPiece = (type: string): Piece => {
   const shape = SHAPES[type].map((row) => [...row]);
@@ -90,6 +112,11 @@ const readStoredNumber = (key: string, fallback: number, min: number, max: numbe
   const parsed = Number(localStorage.getItem(key));
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(min, Math.min(max, parsed));
+};
+
+const readViewMode = (): TetrisViewMode => {
+  const stored = localStorage.getItem(TETRIS_VIEW_MODE_KEY);
+  return stored === 'sheet' || stored === 'ide' ? 'sheet' : 'classic';
 };
 
 const rotateShape = (shape: number[][]) =>
@@ -315,6 +342,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [arrInterval, setArrInterval] = useState(() => readStoredNumber(TETRIS_ARR_KEY, ARR_INTERVAL_MS, 16, 90));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<TetrisViewMode>(readViewMode);
   const [resultDismissed, setResultDismissed] = useState(false);
   const [localGameInstanceId, setLocalGameInstanceId] = useState('');
   const horizontalHoldRef = useRef<number | null>(null);
@@ -341,6 +369,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const gameInstanceId = data?.instanceId ?? '';
   const isHost = myPlayerIndex === 0;
   const playerNames = studyState?.playerNames ?? [];
+  const rankedMatch = data?.rankedMatch ?? ((data?.numPlayers ?? playerNames.length) >= 2);
   const active = running && !gameOver && !globalPaused && countdown <= 0 && !resolvingClear;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
@@ -353,13 +382,17 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     () => mergePiece(mergeGhostPiece(board, piece, ghostEnabled), piece),
     [board, ghostEnabled, piece],
   );
-  const boardViews = playerNames.map((name, index) => {
+  const boardViews: TetrisBoardView[] = playerNames.map((name, index) => {
     const state = data?.playerStates?.[String(index)];
     return {
       name,
       index,
       state,
-      board: index === myPlayerIndex ? projectedBoard : state?.board ? removeGhostCells(state.board) : emptyBoard(),
+      board: index === myPlayerIndex
+        ? projectedBoard
+        : isValidBoard(state?.board)
+          ? removeGhostCells(state.board)
+          : emptyBoard(),
       record: data?.records?.[name],
       isMe: index === myPlayerIndex,
     };
@@ -804,6 +837,15 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
       || target instanceof HTMLTextAreaElement
       || Boolean(target?.isContentEditable);
     if (isTyping) return;
+    if (event.key === 'F8') {
+      event.preventDefault();
+      setViewMode((current) => {
+        const next = current === 'classic' ? 'sheet' : 'classic';
+        localStorage.setItem(TETRIS_VIEW_MODE_KEY, next);
+        return next;
+      });
+      return;
+    }
     if (!isTyping && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'g') {
       event.preventDefault();
       setGhostEnabled((value) => !value);
@@ -853,6 +895,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     localStorage.setItem(TETRIS_ARR_KEY, String(value));
   }, []);
 
+  const updateViewMode = useCallback((mode: TetrisViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(TETRIS_VIEW_MODE_KEY, mode);
+  }, []);
+
   const sendDistract = useCallback((target: number) => {
     if (target === myPlayerIndex || studyState?.status !== 'PLAYING') return;
     sendMove({
@@ -863,9 +910,48 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
     });
   }, [myPlayerIndex, sendMove, sessionId, studyState?.status]);
 
+  const myStatus = gameOver
+    ? 'overflow'
+    : countdown > 0
+      ? `${countdown}`
+      : globalPaused
+        ? 'paused'
+        : running
+          ? 'running'
+          : 'stopped';
+
+  const controls = (
+    <MetricsPanel
+      paused={globalPaused}
+      open={settingsOpen}
+      recordsOpen={recordsOpen}
+      viewMode={viewMode}
+      dasDelay={dasDelay}
+      arrInterval={arrInterval}
+      cellAlpha={cellAlpha}
+      nickname={myNickname}
+      record={myRecord}
+      onToggle={() => {
+        setRecordsOpen(false);
+        setSettingsOpen((open) => !open);
+      }}
+      onRecordsToggle={() => {
+        setSettingsOpen(false);
+        setRecordsOpen((open) => !open);
+      }}
+      onViewMode={updateViewMode}
+      onCellAlpha={setCellAlpha}
+      onDasDelay={updateDasDelay}
+      onArrInterval={updateArrInterval}
+      onPause={toggleGlobalPause}
+      canPause={isHost}
+    />
+  );
+
   return (
-    <div className="tetris-workspace" tabIndex={0}>
-      <div className="code-block tetris-main">
+    <div className={`tetris-workspace mode-${viewMode}`} tabIndex={0}>
+      {viewMode === 'classic' ? (
+        <div className="code-block tetris-main">
         <CL ln={1}>
           <span className="cmt">{'// TETRIS queue monitor'}</span>
         </CL>
@@ -875,29 +961,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           <span className="pct">.</span><span className="fn">observe</span>
           <span className="pct">(</span><span className="num">{data?.rows ?? ROWS}x{data?.cols ?? COLS}</span><span className="pct">)</span>
         </CL>
-        <MetricsPanel
-          paused={globalPaused}
-          open={settingsOpen}
-          recordsOpen={recordsOpen}
-          dasDelay={dasDelay}
-          arrInterval={arrInterval}
-          cellAlpha={cellAlpha}
-          nickname={myNickname}
-          record={myRecord}
-          onToggle={() => {
-            setRecordsOpen(false);
-            setSettingsOpen((open) => !open);
-          }}
-          onRecordsToggle={() => {
-            setSettingsOpen(false);
-            setRecordsOpen((open) => !open);
-          }}
-          onCellAlpha={setCellAlpha}
-          onDasDelay={updateDasDelay}
-          onArrInterval={updateArrInterval}
-          onPause={toggleGlobalPause}
-          canPause={isHost}
-        />
+        {controls}
+        {!rankedMatch && <div className="tetris-practice-notice">PRACTICE · 배치 및 전적 미반영</div>}
         <div className="tetris-board-row">
           {centeredBoardViews.map(({ name, index, state, board: viewBoard, record, isMe }) => (
             <div key={index} className={`tetris-player-stack ${isMe ? 'mine' : ''}`}>
@@ -908,7 +973,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
               score={isMe ? score : state?.score ?? 0}
               lines={isMe ? lines : state?.lines ?? 0}
               cycle={isMe ? cycle : state?.cycle ?? 1}
-              status={isMe ? (gameOver ? 'overflow' : countdown > 0 ? `${countdown}` : globalPaused ? 'paused' : running ? 'running' : 'stopped') : state?.gameOver ? 'overflow' : globalPaused ? 'paused' : state ? 'running' : 'waiting'}
+              status={isMe ? myStatus : state?.gameOver ? 'overflow' : globalPaused ? 'paused' : state ? 'running' : 'waiting'}
               pending={isMe ? pendingGarbage : data?.garbageQueues?.[String(index)]?.reduce((sum, attack) => sum + Math.max(0, attack.lines), 0) ?? 0}
               winner={studyState?.winner === index}
               record={record}
@@ -926,7 +991,28 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      ) : (
+        <TetrisSpreadsheetView
+          controls={controls}
+          views={centeredBoardViews}
+          myPlayerIndex={myPlayerIndex}
+          score={score}
+          lines={lines}
+          cycle={cycle}
+          status={myStatus}
+          pending={pendingGarbage}
+          holdPiece={holdPiece}
+          nextQueue={nextQueue}
+          winner={studyState?.winner ?? -1}
+          badge={flashBadge}
+          clearingRows={clearingRows}
+          boardStyle={boardStyle}
+          globalPaused={globalPaused}
+          rankedMatch={rankedMatch}
+          onDistract={sendDistract}
+        />
+      )}
 
       {!resultDismissed && (
         (studyState?.status === 'FINISHED' && (data?.aborted || finalRankingNames.length > 0))
@@ -938,6 +1024,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           ranking={finalRankingNames}
           records={data?.records ?? {}}
           nickname={myNickname}
+          matchId={gameInstanceId}
           onClose={() => setResultDismissed(true)}
         />
       )}
@@ -946,43 +1033,359 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   );
 }
 
+const spreadsheetValue = (row: number, col: number) => {
+  const compactValues = ['OK', '42', '검토', '91%', '1.2', '완료', '07', '정상'];
+  return compactValues[(row * 3 + col) % compactValues.length];
+};
+
+const reportValue = (row: number, col: number) => {
+  if (col === 0) return `OP-${310 + row}`;
+  if (col === 1) return `2026-07-${String((row % 28) + 1).padStart(2, '0')}`;
+  if (col === 2) return ['운영1팀', '운영2팀', '지원팀'][row % 3];
+  if (col === 3) return (1280 + row * 137).toLocaleString('ko-KR');
+  if (col === 4) return `${82 + (row % 14)}%`;
+  return ['정상', '완료', '검토중'][row % 3];
+};
+
+function TetrisSpreadsheetView({
+  controls, views, myPlayerIndex, score, lines, cycle, status, pending,
+  holdPiece, nextQueue, winner, badge, clearingRows, boardStyle, globalPaused, rankedMatch, onDistract,
+}: {
+  controls: ReactNode;
+  views: TetrisBoardView[];
+  myPlayerIndex: number;
+  score: number;
+  lines: number;
+  cycle: number;
+  status: string;
+  pending: number;
+  holdPiece: Piece | null;
+  nextQueue: Piece[];
+  winner: number;
+  badge: string;
+  clearingRows: number[];
+  boardStyle: CSSProperties;
+  globalPaused: boolean;
+  rankedMatch: boolean;
+  onDistract: (target: number) => void;
+}) {
+  const mine = views.find((view) => view.index === myPlayerIndex);
+  const peers = views.filter((view) => view.index !== myPlayerIndex);
+  return (
+    <section className="tetris-sheet" style={boardStyle} aria-label="스프레드시트 플레이 화면">
+      <header className="tetris-sheet-titlebar">
+        <span className="tetris-sheet-appmark">▦</span>
+        <span>2026년 하반기 운영실적_최종.xlsx</span>
+        {controls}
+      </header>
+      <div className="tetris-sheet-ribbon">
+        <div className="tetris-sheet-tabs"><b>파일</b><span>홈</span><span>삽입</span><span>페이지 레이아웃</span><span>수식</span><span>데이터</span><span>검토</span><span>보기</span></div>
+        <div className="tetris-sheet-tools" aria-hidden="true"><span>붙여넣기</span><span>글꼴　맑은 고딕　10</span><span>맞춤</span><span>표시 형식　일반</span><span>조건부 서식</span><span>정렬 및 필터</span></div>
+      </div>
+      <div className="tetris-sheet-formula"><b>F8</b><span>fx</span><span>=SUMIFS(운영실적[처리건수], 운영실적[상태], "정상")</span></div>
+      <div className="tetris-sheet-body">
+        <aside className="tetris-sheet-summary">
+          <h3>운영 현황 요약</h3>
+          {!rankedMatch && <div className="tetris-sheet-practice">연습 모드 · 배치 및 전적 미반영</div>}
+          <div className="tetris-sheet-kpi"><span>처리 건수</span><b>{score.toLocaleString('ko-KR')}</b></div>
+          <div className="tetris-sheet-kpi"><span>정리 완료 행</span><b>{lines}</b></div>
+          <div className="tetris-sheet-kpi"><span>보고서 버전</span><b>v{cycle}.0</b></div>
+          <div className="tetris-sheet-kpi warning"><span>확인 필요</span><b>{pending}</b></div>
+          <div className="tetris-sheet-task-list">
+            <SheetPieceToken label="보류 항목" piece={holdPiece} />
+            {nextQueue.slice(0, 3).map((next, index) => (
+              <SheetPieceToken key={`${next.type}-${index}`} label={index === 0 ? '다음 작업' : `예정 ${index + 1}`} piece={next} />
+            ))}
+          </div>
+        </aside>
+        <main className="tetris-sheet-grid-wrap">
+          <SheetDataBlock columns={['C', 'D']} offset={0} />
+          <SheetBoard board={mine?.board ?? emptyBoard()} status={status} pending={pending} badge={badge} clearingRows={clearingRows} />
+          <SheetDataBlock columns={['P', 'Q', 'R']} offset={3} />
+        </main>
+        <aside className="tetris-sheet-peers">
+          <h3>부서별 진행 현황</h3>
+          {peers.map((view) => (
+            <SheetPeerPanel key={view.index} view={view} winner={winner === view.index} paused={globalPaused} onClick={() => onDistract(view.index)} />
+          ))}
+          {peers.length === 0 && <div className="tetris-sheet-empty">연결된 부서 없음</div>}
+          <div className="tetris-sheet-chart" aria-hidden="true"><b>주간 처리 추이</b><span style={{ height: '38%' }} /><span style={{ height: '61%' }} /><span style={{ height: '48%' }} /><span style={{ height: '76%' }} /><span style={{ height: '66%' }} /></div>
+        </aside>
+      </div>
+      <footer className="tetris-sheet-statusbar">
+        <span className="active">운영실적</span><span>Raw Data</span><span>요약</span><span>Archive</span><i />
+        <small>{globalPaused ? '계산 일시 중지' : '준비'}　　보기: 100%　　F8 화면 전환</small>
+      </footer>
+    </section>
+  );
+}
+
+function SheetDataBlock({ columns, offset }: { columns: string[]; offset: number }) {
+  return (
+    <div className="tetris-sheet-data-block" style={{ '--sheet-data-columns': columns.length } as CSSProperties}>
+      {columns.map((column) => <b className="tetris-sheet-col" key={column}>{column}</b>)}
+      {Array.from({ length: ROWS }, (_, row) => columns.map((_, col) => (
+        <i key={`${row}-${col}`}>{reportValue(row, offset + col)}</i>
+      )))}
+    </div>
+  );
+}
+
+function SheetBoard({ board, status, pending, badge, clearingRows }: {
+  board: Board;
+  status: string;
+  pending: number;
+  badge: string;
+  clearingRows: number[];
+}) {
+  const clearingRowSet = useMemo(() => new Set(clearingRows), [clearingRows]);
+  return (
+    <div className="tetris-sheet-board">
+      <div className="tetris-sheet-corner" />
+      {Array.from({ length: COLS }, (_, col) => <b className="tetris-sheet-col" key={col}>{String.fromCharCode(70 + col)}</b>)}
+      {/^\d+$/.test(status) && <div className="tetris-sheet-countdown">데이터 새로 고침 중… {status}</div>}
+      {badge && <div className="tetris-sheet-notice">✓ {badge.split('_').join(' ')}</div>}
+      {pending > 0 && <div className="tetris-sheet-warning">검토 필요 {pending}건</div>}
+      {board.map((row, rowIndex) => (
+        <div className={`tetris-sheet-data-row ${clearingRowSet.has(rowIndex) ? 'clearing' : ''}`} key={rowIndex}>
+          <b className="tetris-sheet-rownum">{8 + rowIndex}</b>
+          <span className="tetris-sheet-rowcells">
+            {row.map((cell, colIndex) => {
+              const ghost = cell.startsWith('ghost-');
+              const type = ghost ? cell.slice(6) : cell;
+              return <i key={colIndex} className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''}`} title={`${8 + rowIndex}행 ${String.fromCharCode(70 + colIndex)}열`}>{type === 'G' ? '#N/A' : spreadsheetValue(rowIndex, colIndex)}</i>;
+            })}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SheetPieceToken({ label, piece }: { label: string; piece: Piece | null }) {
+  return <div className="tetris-sheet-task"><small>{label}</small><span>{piece ? `WK-${piece.type}${piece.shape.length}${piece.shape[0].length}` : '미배정'}</span></div>;
+}
+
+function SheetPeerPanel({ view, winner, paused, onClick }: { view: TetrisBoardView; winner: boolean; paused: boolean; onClick: () => void }) {
+  const status = view.state?.gameOver ? '중단' : paused ? '보류' : winner ? '완료' : '진행중';
+  return (
+    <button type="button" className="tetris-sheet-peer" onClick={onClick} title="현황 새로 고침">
+      <span className="tetris-sheet-peer-head"><strong><TetrisRankEmblem tier={view.record?.ranked ? view.record.tier : 'UNRANKED'} compact />{view.name}</strong><small className={winner ? 'winner' : ''}>{status}</small></span>
+      <span className="tetris-sheet-peer-board">{view.board.flatMap((row, rowIndex) => row.map((cell, colIndex) => <i key={`${rowIndex}-${colIndex}`} className={cell ? `filled t-${cell.replace('ghost-', '')}` : ''} />))}</span>
+      <span className="tetris-sheet-peer-meta">처리 {(view.state?.score ?? 0).toLocaleString('ko-KR')}건 · 정리 {view.state?.lines ?? 0}행</span>
+    </button>
+  );
+}
+
+function TetrisIdeView({
+  controls, views, myPlayerIndex, score, lines, cycle, status, pending,
+  holdPiece, nextQueue, winner, badge, clearingRows, boardStyle, globalPaused, onDistract,
+}: {
+  controls: ReactNode;
+  views: TetrisBoardView[];
+  myPlayerIndex: number;
+  score: number;
+  lines: number;
+  cycle: number;
+  status: string;
+  pending: number;
+  holdPiece: Piece | null;
+  nextQueue: Piece[];
+  winner: number;
+  badge: string;
+  clearingRows: number[];
+  boardStyle: CSSProperties;
+  globalPaused: boolean;
+  onDistract: (target: number) => void;
+}) {
+  const mine = views.find((view) => view.index === myPlayerIndex);
+  const peers = views.filter((view) => view.index !== myPlayerIndex);
+
+  return (
+    <section className="tetris-ide" style={boardStyle} aria-label="VS Code 플레이 화면">
+      <header className="tetris-ide-titlebar">
+        <span className="tetris-ide-appmark">◇</span>
+        <span>queue.worker.ts — study-platform — Visual Studio Code</span>
+        {controls}
+      </header>
+      <div className="tetris-ide-body">
+        <nav className="tetris-ide-activity" aria-hidden="true">
+          <span className="active">▱</span><span>⌕</span><span>⑂</span><span>▷</span><span>▦</span>
+        </nav>
+        <aside className="tetris-ide-explorer">
+          <b>EXPLORER</b>
+          <div className="tetris-ide-project">⌄ STUDY-PLATFORM</div>
+          <span>⌄ src</span>
+          <span>　⌄ services</span>
+          <span className="active">　　TS queue.worker.ts</span>
+          <span>　　TS sessionStore.ts</span>
+          <span>　⌄ workers</span>
+          <span>　　TS syncPipeline.ts</span>
+          <div className="tetris-ide-outline-title">OUTLINE</div>
+          <div className="tetris-ide-symbol"><span>◇ reconcileWorkspace</span><small>Ln {120 + lines}</small></div>
+          <div className="tetris-ide-symbol"><span>◇ commitSnapshot</span><small>{score} refs</small></div>
+          <div className="tetris-ide-piece-list">
+            <IdePieceToken label="STAGED" piece={holdPiece} />
+            {nextQueue.slice(0, 3).map((next, index) => (
+              <IdePieceToken key={`${next.type}-${index}`} label={index === 0 ? 'NEXT TASK' : `QUEUE ${index + 1}`} piece={next} />
+            ))}
+          </div>
+        </aside>
+        <main className="tetris-ide-main">
+          <div className="tetris-ide-tabs">
+            <span className="active">TS　queue.worker.ts　×</span>
+            <span>TS　sessionStore.ts　×</span>
+            <span>◫　indexer.log　×</span>
+          </div>
+          <div className="tetris-ide-breadcrumb">src　›　services　›　queue.worker.ts　›　<span>reconcileWorkspace</span></div>
+          <div className="tetris-ide-workarea">
+            <div className="tetris-ide-editor">
+              <CL ln={116}><span className="kw">export async function </span><span className="fn">reconcileWorkspace</span><span className="pct">{'() {'}</span></CL>
+              <CL ln={117}>　<span className="kw">const </span><span className="var">snapshot</span><span className="pct"> = await </span><span className="fn">createSnapshot</span><span className="pct">({'{'}</span></CL>
+              <IdeBoard
+                board={mine?.board ?? emptyBoard()}
+                status={status}
+                pending={pending}
+                badge={badge}
+                clearingRows={clearingRows}
+              />
+              <CL ln={138}>　<span className="pct">{'});'}</span></CL>
+              <CL ln={139}>　<span className="kw">return </span><span className="var">snapshot</span><span className="pct">;</span></CL>
+              <CL ln={140}><span className="pct">{'}'}</span></CL>
+            </div>
+            <aside className="tetris-ide-minimap">
+              <b>REMOTE WORKSPACES</b>
+              {peers.map((view) => (
+                <IdePeerPanel
+                  key={view.index}
+                  view={view}
+                  winner={winner === view.index}
+                  paused={globalPaused}
+                  onClick={() => onDistract(view.index)}
+                />
+              ))}
+              {peers.length === 0 && <span className="tetris-ide-no-peers">No remote sessions</span>}
+            </aside>
+          </div>
+        </main>
+      </div>
+      <footer className="tetris-ide-statusbar">
+        <span>⑂ main*</span>
+        <span>↻ sync</span>
+        <span className={pending > 0 ? 'warning' : ''}>ⓧ 0　△ {pending}</span>
+        <span className="spacer" />
+        <span>Ln {120 + lines}, Col {cycle}</span>
+        <span>Spaces: 2</span>
+        <span>UTF-8</span>
+        <span>TypeScript</span>
+        <span>F8: view</span>
+      </footer>
+    </section>
+  );
+}
+
+function IdeBoard({
+  board, status, pending, badge, clearingRows,
+}: {
+  board: Board;
+  status: string;
+  pending: number;
+  badge: string;
+  clearingRows: number[];
+}) {
+  const clearingRowSet = useMemo(() => new Set(clearingRows), [clearingRows]);
+  return (
+    <div className="tetris-ide-board-frame">
+      {/^\d+$/.test(status) && <div className="tetris-ide-countdown">Indexing… {status}</div>}
+      {badge && <div className="tetris-ide-diagnostic">✓ {badge.toLowerCase().split('_').join(' ')}</div>}
+      {pending > 0 && <div className="tetris-ide-problems">△ {pending} pending changes</div>}
+      {board.map((row, rowIndex) => (
+        <div className="tetris-ide-code-row" key={rowIndex}>
+          <span className="ln">{118 + rowIndex}</span>
+          <span className="tetris-ide-indent">│</span>
+          <span className={`tetris-ide-code-grid ${clearingRowSet.has(rowIndex) ? 'clearing' : ''}`}>
+            {row.map((cell, colIndex) => {
+              const ghost = cell.startsWith('ghost-');
+              const type = ghost ? cell.slice(6) : cell;
+              return (
+                <i
+                  key={colIndex}
+                  className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''}`}
+                  title={`slot ${rowIndex + 1}.${colIndex + 1}`}
+                >{type ? '■' : '·'}</i>
+              );
+            })}
+          </span>
+          <span className="tetris-ide-comment">{rowIndex === 0 ? '// snapshot buffer' : ''}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IdePieceToken({ label, piece }: { label: string; piece: Piece | null }) {
+  return (
+    <div className="tetris-ide-piece-token">
+      <small>{label}</small>
+      <span>{piece ? piece.shape.flatMap((row) => row).map((cell) => (cell ? '■' : '·')).join('') : 'unassigned'}</span>
+    </div>
+  );
+}
+
+function IdePeerPanel({
+  view, winner, paused, onClick,
+}: {
+  view: TetrisBoardView;
+  winner: boolean;
+  paused: boolean;
+  onClick: () => void;
+}) {
+  const pendingStatus = view.state?.gameOver ? 'offline' : paused ? 'paused' : view.state ? 'watching' : 'connecting';
+  return (
+    <button type="button" className="tetris-ide-peer" onClick={onClick} title="원격 세션에 흔들기 이벤트 보내기">
+      <span className="tetris-ide-peer-head">
+        <strong>{view.name}</strong>
+        <small className={winner ? 'winner' : ''}>{winner ? 'merged' : pendingStatus}</small>
+      </span>
+      <span className="tetris-ide-peer-board">
+        {view.board.flatMap((row, rowIndex) => row.map((cell, colIndex) => (
+          <i key={`${rowIndex}-${colIndex}`} className={cell ? `filled t-${cell.replace('ghost-', '')}` : ''} />
+        )))}
+      </span>
+      <span className="tetris-ide-peer-meta">{view.state?.score ?? 0} changes · {view.state?.lines ?? 0} commits</span>
+    </button>
+  );
+}
+
+// Keep the previous renderer type-checked while the spreadsheet theme fully replaces it in the UI.
+void TetrisIdeView;
+
 function TetrisWorkCover() {
   return (
     <div className="tetris-work-cover" aria-hidden="true">
       <div className="tetris-work-cover-tabs">
-        <span className="active">queue.worker.ts</span>
-        <span>sessionStore.ts</span>
-        <span>indexer.log</span>
+        <span className="active">운영실적</span>
+        <span>Raw Data</span>
+        <span>월간 요약</span>
       </div>
       <div className="tetris-work-cover-body">
         <aside>
-          <b>EXPLORER</b>
-          <span>src</span>
-          <span>services</span>
-          <span className="active">queue.worker.ts</span>
-          <span>sessionStore.ts</span>
-          <span>tasks</span>
-          <span>syncPipeline.ts</span>
+          <b>보고서 필터</b>
+          <span>기간　2026 하반기</span>
+          <span>구분　전체</span>
+          <span className="active">상태　정상</span>
+          <span>담당　운영팀</span>
+          <span>지역　전체</span>
         </aside>
         <main>
-          <CL ln={1}><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">createBatch</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">'./syncPipeline'</span><span className="pct">;</span></CL>
-          <CL ln={2}><span className="kw">import </span><span className="pct">{'{ '}</span><span className="var">commitSnapshot</span><span className="pct">{' }'}</span><span className="kw"> from </span><span className="str">'./sessionStore'</span><span className="pct">;</span></CL>
-          <CL ln={3}>{' '}</CL>
-          <CL ln={4}><span className="kw">export async function </span><span className="fn">reconcileWorkspace</span><span className="pct">{'() {'}</span></CL>
-          <CL ln={5}>  <span className="kw">const </span><span className="var">batch</span><span className="pct"> = await </span><span className="fn">createBatch</span><span className="pct">();</span></CL>
-          <CL ln={6}>  <span className="kw">const </span><span className="var">snapshot</span><span className="pct"> = await </span><span className="fn">commitSnapshot</span><span className="pct">(</span><span className="var">batch</span><span className="pct">);</span></CL>
-          <CL ln={7}>  <span className="kw">return </span><span className="pct">{'{ '}</span><span className="var">status</span><span className="pct">: </span><span className="str">'watching'</span><span className="pct">, </span><span className="var">snapshot</span><span className="pct">{' };'}</span></CL>
-          <CL ln={8}><span className="pct">{'}'}</span></CL>
-          <CL ln={9}>{' '}</CL>
-          <CL ln={10}><span className="cmt">{'// watching for file changes...'}</span></CL>
-          <CL ln={11}><span className="cmt">{'// TypeScript: 0 errors'}</span></CL>
+          <div className="tetris-cover-row header"><b>관리번호</b><b>기준일</b><b>부서</b><b>처리건수</b><b>달성률</b><b>상태</b></div>
+          {Array.from({ length: 12 }, (_, index) => <div className="tetris-cover-row" key={index}><span>P-{310 + index}</span><span>2026-07-{String(index + 1).padStart(2, '0')}</span><span>{index % 3 === 0 ? '운영1팀' : index % 3 === 1 ? '운영2팀' : '지원팀'}</span><span>{(1280 + index * 137).toLocaleString('ko-KR')}</span><span>{82 + (index % 14)}%</span><span>정상</span></div>)}
         </main>
       </div>
       <div className="tetris-work-cover-status">
-        <span>main</span>
-        <span>UTF-8</span>
-        <span>TypeScript</span>
-        <span>Prettier</span>
+        <span>준비</span>
+        <span>접근성: 양호</span>
+        <span>보기 100%</span>
       </div>
     </div>
   );
@@ -1009,12 +1412,13 @@ function HoldRail({ holdPiece }: { holdPiece: Piece | null }) {
 }
 
 function MetricsPanel({
-  paused, open, recordsOpen, dasDelay, arrInterval,
-  cellAlpha, nickname, record, onToggle, onRecordsToggle, onCellAlpha, onDasDelay, onArrInterval, onPause, canPause,
+  paused, open, recordsOpen, viewMode, dasDelay, arrInterval,
+  cellAlpha, nickname, record, onToggle, onRecordsToggle, onViewMode, onCellAlpha, onDasDelay, onArrInterval, onPause, canPause,
 }: {
   paused: boolean;
   open: boolean;
   recordsOpen: boolean;
+  viewMode: TetrisViewMode;
   dasDelay: number;
   arrInterval: number;
   cellAlpha: number;
@@ -1022,6 +1426,7 @@ function MetricsPanel({
   record?: TetrisPlayerRecord;
   onToggle: () => void;
   onRecordsToggle: () => void;
+  onViewMode: (mode: TetrisViewMode) => void;
   onCellAlpha: (value: number) => void;
   onDasDelay: (value: number) => void;
   onArrInterval: (value: number) => void;
@@ -1032,9 +1437,9 @@ function MetricsPanel({
     <div className="tetris-controls-dock">
       <div className="tetris-actions">
         <button className="btn-secondary" onClick={onPause} disabled={!canPause}>
-          {paused ? 'resume' : 'pause'}
+          {viewMode === 'sheet' ? (paused ? '계산 재개' : '계산 중지') : (paused ? 'resume' : 'pause')}
         </button>
-        <button className="btn-secondary" onClick={onToggle} aria-expanded={open}>tune</button>
+        <button className="btn-secondary" onClick={onToggle} aria-expanded={open}>{viewMode === 'sheet' ? '서식' : 'tune'}</button>
         <button
           className={`btn-secondary tetris-record-button ${recordsOpen ? 'active' : ''}`}
           onClick={onRecordsToggle}
@@ -1042,13 +1447,21 @@ function MetricsPanel({
           aria-controls="tetris-record-panel"
           title="내 종합 전적과 상대별 전적 보기"
         >
-          <span>{recordsOpen ? '전적 닫기' : '전적 보기'}</span>
-          <b>{record?.wins ?? 0}W {record?.losses ?? 0}L</b>
+          <TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} compact />
+          <span>{viewMode === 'sheet' ? (recordsOpen ? '기록 닫기' : '변경 기록') : (recordsOpen ? '전적 닫기' : '전적 보기')}</span>
+          <b>{rankLabel(record)}</b>
         </button>
       </div>
       {open && (
         <div className="tetris-settings-popover">
           <div className="tetris-control-list">
+            <div className="tetris-mode-setting">
+              <span><span className="var">view</span><span className="dim">F8</span></span>
+              <div className="tetris-mode-switch" role="group" aria-label="테트리스 화면 모드">
+                <button type="button" className={viewMode === 'classic' ? 'active' : ''} onClick={() => onViewMode('classic')}>classic</button>
+                <button type="button" className={viewMode === 'sheet' ? 'active' : ''} onClick={() => onViewMode('sheet')}>Spreadsheet</button>
+              </div>
+            </div>
             <label>
               <span><span className="var">visibility</span><span className="num">{cellAlpha}%</span></span>
               <input className="tetris-range" type="range" min={22} max={82} value={cellAlpha} onChange={(event) => onCellAlpha(Number(event.target.value))} />
@@ -1072,6 +1485,64 @@ function MetricsPanel({
 const recordRate = (wins: number, losses: number) => {
   const total = wins + losses;
   return total > 0 ? `${((wins / total) * 100).toFixed(1)}%` : '—';
+};
+
+const TIER_LABELS: Record<TetrisPlayerRecord['tier'], string> = {
+  UNRANKED: '배치 중',
+  IRON: '아이언',
+  BRONZE: '브론즈',
+  SILVER: '실버',
+  GOLD: '골드',
+  PLATINUM: '플래티넘',
+  EMERALD: '에메랄드',
+  DIAMOND: '다이아몬드',
+  MASTER: '마스터',
+  GRANDMASTER: '그랜드마스터',
+  CHALLENGER: '챌린저',
+};
+
+const TIER_LEVELS: Record<TetrisPlayerRecord['tier'], number> = {
+  UNRANKED: 0, IRON: 1, BRONZE: 2, SILVER: 3, GOLD: 4, PLATINUM: 5,
+  EMERALD: 6, DIAMOND: 7, MASTER: 8, GRANDMASTER: 9, CHALLENGER: 10,
+};
+
+function TetrisRankEmblem({ tier, compact = false }: { tier: TetrisPlayerRecord['tier']; compact?: boolean }) {
+  const level = TIER_LEVELS[tier];
+  return (
+    <span className={`tetris-rank-emblem tier-${tier.toLowerCase()} ${compact ? 'compact' : ''}`} aria-label={TIER_LABELS[tier]}>
+      <svg viewBox="0 0 60 64" role="img" aria-hidden="true">
+        {level >= 4 && <><path className="wing" d="M21 22 8 12l5 16-9 7 17 1" /><path className="wing" d="m39 22 13-10-5 16 9 7-17 1" /></>}
+        {level >= 8 && <path className="crown" d="m18 14 4-10 8 8 8-8 4 10-12 7z" />}
+        <path className="shield" d="M30 8 47 18l-3 27-14 14-14-14-3-27z" />
+        <path className="facet" d="m30 15 10 8-4 22-6 8-6-8-4-22z" />
+        <path className="gem" d="m30 22 7 9-7 12-7-12z" />
+        {level >= 2 && <path className="chevron" d="m18 48 12 11 12-11" />}
+        {level >= 6 && <><circle cx="11" cy="41" r="2" /><circle cx="49" cy="41" r="2" /></>}
+        {level === 0 && <text x="30" y="38" textAnchor="middle">?</text>}
+      </svg>
+    </span>
+  );
+}
+
+const rankLabel = (record?: TetrisPlayerRecord) => {
+  if (!record?.ranked) return `배치 ${record?.placementGames ?? 0}/${record?.placementRequired ?? 5}`;
+  return `${TIER_LABELS[record.tier]}${record.division ? ` ${record.division}` : ''}`;
+};
+
+const displayStoredRank = (value: string) => {
+  const [tier, ...division] = value.split(' ');
+  const translated = TIER_LABELS[tier as TetrisPlayerRecord['tier']] ?? tier;
+  return `${translated}${division.length ? ` ${division.join(' ')}` : ''}`;
+};
+
+const TIER_SHORT_LABELS: Record<TetrisPlayerRecord['tier'], string> = {
+  UNRANKED: 'P', IRON: 'I', BRONZE: 'B', SILVER: 'S', GOLD: 'G', PLATINUM: 'P',
+  EMERALD: 'E', DIAMOND: 'D', MASTER: 'M', GRANDMASTER: 'GM', CHALLENGER: 'C',
+};
+
+const compactRankLabel = (record?: TetrisPlayerRecord) => {
+  if (!record?.ranked) return `P ${record?.placementGames ?? 0}/${record?.placementRequired ?? 5}`;
+  return `${TIER_SHORT_LABELS[record.tier]}${record.division ? ` ${record.division}` : ''}`;
 };
 
 function TetrisRecordPanel({
@@ -1102,9 +1573,35 @@ function TetrisRecordDetails({
   showGuide?: boolean;
 }) {
   const opponents = Object.entries(record?.opponents ?? {});
+  const placementRequired = record?.placementRequired ?? 5;
+  const placementGames = record?.placementGames ?? 0;
+  const rankProgress = !record?.ranked
+    ? Math.round((placementGames / placementRequired) * 100)
+    : record.tier === 'CHALLENGER'
+      ? 100
+      : record.tier === 'GRANDMASTER'
+        ? Math.round((Math.max(0, record.rp - 400) / 400) * 100)
+        : record.tier === 'MASTER'
+          ? Math.round((record.rp / 400) * 100)
+          : record.rp;
   return (
     <>
       {showGuide && <p className="tetris-record-guide">정상 종료된 2인 이상 경기만 승패에 반영됩니다.</p>}
+      <div className={`tetris-rank-card tier-${(record?.tier ?? 'UNRANKED').toLowerCase()}`}>
+        <TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} />
+        <div className="tetris-rank-info">
+          <small>{record?.ranked ? '현재 티어' : '배치고사'}</small>
+          <strong>{rankLabel(record)}</strong>
+          <div className="tetris-rank-progress"><i style={{ width: `${Math.min(100, rankProgress)}%` }} /></div>
+          <span>{record?.ranked ? (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(record.tier) ? `${record.rp} RP` : `${record.rp} RP / 100 RP`) : `${placementRequired - placementGames}경기 남음`}</span>
+        </div>
+        {record && record.lastRankDelta !== 0 && (
+          <div className={`tetris-rank-delta ${record.lastRankDelta > 0 ? 'gain' : 'loss'}`}>
+            {record.lastRankDelta > 0 ? '+' : ''}{record.lastRankDelta} RP
+            {record.lastRankChanged && <small>{record.lastRankBefore} → {record.lastRankAfter}</small>}
+          </div>
+        )}
+      </div>
       <div className="tetris-record-summary">
         <span><small>전체 경기</small><b>{record?.matches ?? 0}</b></span>
         <span><small>승리</small><b className="win">{record?.wins ?? 0}</b></span>
@@ -1136,16 +1633,23 @@ function TetrisRecordDetails({
 }
 
 function TetrisResultDialog({
-  aborted, abortReason, ranking, records, nickname, onClose,
+  aborted, abortReason, ranking, records, nickname, matchId, onClose,
 }: {
   aborted: boolean;
   abortReason: string;
   ranking: string[];
   records: Record<string, TetrisPlayerRecord>;
   nickname: string;
+  matchId: string;
   onClose: () => void;
 }) {
   const myRecord = records[nickname];
+  const showPromotion = Boolean(
+    !aborted
+    && myRecord?.lastRankChanged
+    && myRecord.lastRankMatchId === matchId
+    && (myRecord.lastRankDelta > 0 || myRecord.lastRankBefore === 'UNRANKED'),
+  );
   return (
     <div className="tetris-result-backdrop">
       <section className={`tetris-result-dialog ${aborted ? 'aborted' : ''}`} role="dialog" aria-modal="true">
@@ -1153,6 +1657,7 @@ function TetrisResultDialog({
           <span className={aborted ? 'str' : 'typ'}>{aborted ? 'MATCH ABORTED' : 'MATCH FINISHED'}</span>
           <button type="button" onClick={onClose} aria-label="결과 닫기">×</button>
         </div>
+        {showPromotion && myRecord && <TetrisPromotionCelebration record={myRecord} />}
         {aborted ? (
           <div className="tetris-abort-message">
             <strong>전적에 반영되지 않았습니다.</strong>
@@ -1168,9 +1673,9 @@ function TetrisResultDialog({
                   return (
                     <div className={`tetris-ranking-row rank-${index + 1}`} key={rankedNickname}>
                       <b>#{index + 1}</b>
-                      <strong>{rankedNickname}</strong>
+                      <strong className="tetris-ranked-name"><TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} compact /><span>{rankedNickname}</span></strong>
                       <span className={index === 0 ? 'typ' : 'str'}>{index === 0 ? 'WIN' : 'LOSS'}</span>
-                      <small>{record?.wins ?? 0}W {record?.losses ?? 0}L</small>
+                      <small>{rankLabel(record)} · {record?.wins ?? 0}W {record?.losses ?? 0}L</small>
                     </div>
                   );
                 })}
@@ -1186,6 +1691,29 @@ function TetrisResultDialog({
           <button className="btn-primary" type="button" onClick={onClose}>확인</button>
         </div>
       </section>
+    </div>
+  );
+}
+
+function TetrisPromotionCelebration({ record }: { record: TetrisPlayerRecord }) {
+  const placementComplete = record.lastRankBefore === 'UNRANKED';
+  return (
+    <div className={`tetris-promotion tier-${record.tier.toLowerCase()}`}>
+      <div className="tetris-promotion-rays" aria-hidden="true" />
+      <div className="tetris-promotion-particles" aria-hidden="true">
+        {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}
+      </div>
+      <div className="tetris-promotion-emblem">
+        <span className="tetris-promotion-ring" />
+        <TetrisRankEmblem tier={record.tier} />
+      </div>
+      <div className="tetris-promotion-copy">
+        <small>{placementComplete ? 'PLACEMENT COMPLETE' : 'RANK PROMOTION'}</small>
+        <strong>{placementComplete ? '첫 티어 배정' : '승급'}</strong>
+        <h2>{rankLabel(record)}</h2>
+        <span>{displayStoredRank(record.lastRankBefore)} <b>→</b> {displayStoredRank(record.lastRankAfter)}</span>
+        <em>{record.lastRankDelta > 0 ? '+' : ''}{record.lastRankDelta} RP</em>
+      </div>
     </div>
   );
 }
@@ -1223,8 +1751,8 @@ function BoardShell({
   return (
     <div className={`tetris-shell ${isMe ? 'mine' : 'peer'} ${onDistract ? 'distractable' : ''}`} onClick={onDistract}>
       <div className="tetris-head">
-        <span><span className={isMe ? 'var' : 'str'}>{isMe ? 'me' : `"${name}"`}</span></span>
-        <span className="tetris-compact-record"><span className="typ">{record?.wins ?? 0}W</span><span className="str">{record?.losses ?? 0}L</span></span>
+        <span className="tetris-head-name"><span className={isMe ? 'var' : 'str'}>{isMe ? 'me' : `"${name}"`}</span></span>
+        <span className="tetris-compact-record" title={`${rankLabel(record)} · ${record?.wins ?? 0}W ${record?.losses ?? 0}L`}><TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} compact /><b>{compactRankLabel(record)}</b></span>
         <span><span className="var">status</span><span className="pct">: </span><span className={winner ? 'typ' : status === 'overflow' ? 'str' : status === 'running' ? 'typ' : 'dim'}>{winner ? 'winner' : status}</span></span>
         <span><span className="var">cycle</span><span className="pct">: </span><span className="num">{cycle}</span></span>
       </div>
