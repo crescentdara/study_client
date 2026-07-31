@@ -73,6 +73,7 @@ interface LobbyChatPanelProps {
     emoji: string;
     sessionId: string;
     playerNames: string[];
+    bubbleColor: string;
     onMention: (msg: ChatMessage) => void;
 }
 
@@ -81,6 +82,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     emoji,
     sessionId,
     playerNames,
+    bubbleColor,
     onMention,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -94,9 +96,10 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback((text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
-        sendChat(text, nickname, emoji, sessionId, attachment, replyToId);
-    }, [sendChat, nickname, emoji, sessionId]);
+        sendChat(text, nickname, emoji, sessionId, attachment, replyToId, bubbleColor); // bubbleColor 추가
+    }, [sendChat, nickname, emoji, sessionId, bubbleColor]);
     const handleClear = useCallback(() => setMessages([]), []);
+    
 
     return (
         <Chat
@@ -989,6 +992,7 @@ function App() {
                         emoji={emoji}
                         sessionId={sessionId}
                         playerNames={chatPlayerNames}
+                        bubbleColor={bubbleColor}
                         onMention={checkMention}
                     />
                 </div>
