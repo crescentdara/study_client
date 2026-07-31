@@ -326,6 +326,7 @@ export interface ChatMessage {
   replyToId?: number;
   replyToNickname?: string;
   replyToText?: string;
+  bubbleColor?: string;
 }
 
 export interface ChatAttachment {
