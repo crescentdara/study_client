@@ -104,7 +104,6 @@ interface LobbyChatPanelProps {
     playerNames: string[];
     onIncomingMessage: (msg: ChatMessage) => void;
     bubbleColor: string;
-    onMention: (msg: ChatMessage) => void;
 }
 
 const LobbyChatPanel = memo(function LobbyChatPanel({
@@ -114,7 +113,6 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     playerNames,
     onIncomingMessage,
     bubbleColor,
-    onMention,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const handleHistory = useCallback((history: ChatMessage[]) => {
@@ -1907,7 +1905,6 @@ function App() {
                         playerNames={chatPlayerNames}
                         onIncomingMessage={handleIncomingChat}
                         bubbleColor={bubbleColor}
-                        onMention={checkMention}
                     />
                 </div>
             </div>
