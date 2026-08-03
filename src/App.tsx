@@ -12,6 +12,9 @@ import DeskTrashBin from './components/DeskTrashBin';
 import { useLobbyChat } from './hooks/useLobbyChat';
 import { useChatTabNotification } from './hooks/useChatTabNotification';
 import { ToastContainer, useToast } from './components/Toast';
+import ExcelChrome from './components/workspace/ExcelChrome';
+import { WorkspaceMode } from './components/workspace/WorkspaceModeSwitch';
+import ExcelLobby from './components/workspace/ExcelLobby';
 import imgImage from './assets/images/image.png';
 import imgSideIcon1 from './assets/images/side_icon1.png';
 import imgSideIcon2 from './assets/images/side_icon2.png';
@@ -71,6 +74,7 @@ const GAME_EXT: Record<StudyType, string> = {
 };
 const MAX_CHAT_MESSAGES = 200;
 const TERMINAL_HEIGHT = 160;
+const EXCEL_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
 interface SmokingDeskOpacity {
     cigarette: number;
@@ -220,6 +224,9 @@ function App() {
     const [userExpanded, setUserExpanded] = useState(true);
     const [roomsExpanded, setRoomsExpanded] = useState(true);
     const [activePanel, setActivePanel] = useState<'explorer' | 'profile'>('explorer');
+    const [excelSidebarOpen, setExcelSidebarOpen] = useState(() =>
+        localStorage.getItem('study.excelSidebarOpen') === 'true',
+    );
     const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
 
     // ── 터미널 상태 ────────────────────────────────────────────────────────────
@@ -489,7 +496,6 @@ function App() {
                                         : 'bg'
                   }`
                 : 'lobby.ts';
-
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
     const [showByebye, setShowByebye] = useState(false);
@@ -531,9 +537,64 @@ function App() {
     }, []);
 
     const [customizeOpen, setCustomizeOpen] = useState(false);
+    const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() =>
+        localStorage.getItem('study.workspaceMode') === 'excel' ? 'excel' : 'vscode',
+    );
+    const [excelFontFamily, setExcelFontFamily] = useState(() =>
+        localStorage.getItem('study.excelFontFamily') ?? '"Malgun Gothic", "맑은 고딕", sans-serif',
+    );
+    const [excelSheetScrollTop, setExcelSheetScrollTop] = useState(0);
+    const [excelSelection, setExcelSelection] = useState({
+        address: 'A1',
+        rangeEnd: 'A1',
+        value: '주간 운영 업무 현황',
+    });
+
+    const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
+        setWorkspaceMode(mode);
+        localStorage.setItem('study.workspaceMode', mode);
+    }, []);
+
+    const handleExcelFontFamilyChange = useCallback((fontFamily: string) => {
+        setExcelFontFamily(fontFamily);
+        localStorage.setItem('study.excelFontFamily', fontFamily);
+    }, []);
+
+    useEffect(() => {
+        document.documentElement.dataset.workspaceMode = workspaceMode;
+        document.title =
+            workspaceMode === 'excel' ? 'study_platform 업무현황.xlsx - Excel' : 'study-platform - Visual Studio Code';
+        if (workspaceMode === 'excel') setTermOpen(false);
+        return () => {
+            delete document.documentElement.dataset.workspaceMode;
+        };
+    }, [workspaceMode]);
+
+    const selectionStartColumn = EXCEL_COLUMNS.indexOf(excelSelection.address.replace(/\d/g, ''));
+    const selectionEndColumn = EXCEL_COLUMNS.indexOf(excelSelection.rangeEnd.replace(/\d/g, ''));
+    const selectionStartRow = Number(excelSelection.address.replace(/\D/g, ''));
+    const selectionEndRow = Number(excelSelection.rangeEnd.replace(/\D/g, ''));
+    const selectedColumnMin = Math.min(selectionStartColumn, selectionEndColumn);
+    const selectedColumnMax = Math.max(selectionStartColumn, selectionEndColumn);
+    const selectedRowMin = Math.min(selectionStartRow, selectionEndRow);
+    const selectedRowMax = Math.max(selectionStartRow, selectionEndRow);
+    const isExcelColumnSelected = (column: string) => {
+        const index = EXCEL_COLUMNS.indexOf(column);
+        return index >= selectedColumnMin && index <= selectedColumnMax;
+    };
+    const isExcelRowSelected = (row: number) => row >= selectedRowMin && row <= selectedRowMax;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div
+            className={`workspace workspace--${workspaceMode}`}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100vh',
+                ['--excel-sheet-scroll-y' as string]: `${excelSheetScrollTop}px`,
+                ['--excel-ui-font' as string]: excelFontFamily,
+            } as React.CSSProperties}
+        >
             {noiseOn && <div className="noise"></div>}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
             {smokingDeskOn && <SmokingWidget nickname={nickname} sessionId={sessionId} opacity={smokingOpacity} />}
@@ -542,6 +603,7 @@ function App() {
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div
+                className="vscode-titlebar"
                 style={{
                     background: '#323233',
                     borderBottom: '1px solid #3e3e42',
@@ -556,6 +618,18 @@ function App() {
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#888' }}>
+                    <button
+                        className="workspace-mode-trigger workspace-mode-trigger--vscode"
+                        type="button"
+                        onClick={() => handleWorkspaceModeChange('excel')}
+                        title="Excel 화면으로 전환"
+                        aria-label="Excel 화면으로 전환"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m17.4 2.8-9.1 8.1-4-3.1-2.1 1.1v6.2l2.1 1.1 4-3.1 9.1 8.1 4.4-1.8V4.6z" fill="#23a8f2" />
+                            <path d="m17.4 7.3-5.8 4.7 5.8 4.7z" fill="#fff" fillOpacity=".92" />
+                        </svg>
+                    </button>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
                         {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'].map((m) => (
                             <li key={m} style={{ color: '#888', fontSize: '12px' }}>
@@ -630,6 +704,7 @@ function App() {
                         <li style={{ color: '#888', fontSize: '12px' }}>→</li>
                     </ul>
                     <div
+                        className="chat-resize-handle"
                         style={{
                             background: '#3f3f3f',
                             color: '#888',
@@ -678,10 +753,20 @@ function App() {
                 </ul>
             </div>
 
+            <ExcelChrome
+                onModeChange={handleWorkspaceModeChange}
+                workbookName="study_platform 업무현황.xlsx"
+                activeCell={excelSelection.address}
+                formulaText={excelSelection.value}
+                fontFamily={excelFontFamily}
+                onFontFamilyChange={handleExcelFontFamilyChange}
+            />
+
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+            <div className="workspace-body" style={{ flex: 1, display: 'flex', minHeight: 0 }}>
                 {/* ── ACTIVITY BAR ── */}
                 <div
+                    className="vscode-activitybar"
                     style={{
                         width: '36px',
                         flexShrink: 0,
@@ -695,11 +780,48 @@ function App() {
                         marginBottom: '5px',
                     }}
                 >
+                    {workspaceMode === 'excel' && (
+                        <div className="excel-rail-numbers" aria-hidden="true">
+                            {Array.from({ length: 120 }, (_, index) => (
+                                <span
+                                    key={index}
+                                    className={isExcelRowSelected(index + 1) ? 'selected' : ''}
+                                >
+                                    {index + 1}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                     {(['explorer', 'profile'] as const).map((panel) => (
                         <div
+                            className={`activity-panel-button ${
+                                panel === 'explorer' ? 'excel-rail-action-2' : 'excel-rail-action-7'
+                            } ${isExcelRowSelected(panel === 'explorer' ? 2 : 7) ? 'excel-range-header-selected' : ''}`}
                             key={panel}
-                            title={panel === 'explorer' ? 'Explorer' : 'Profile'}
+                            title={
+                                workspaceMode === 'excel'
+                                    ? panel === 'explorer'
+                                        ? excelSidebarOpen
+                                            ? '통합 문서 창 닫기'
+                                            : '통합 문서 창 열기'
+                                        : '사용자 정보'
+                                    : panel === 'explorer'
+                                      ? 'Explorer'
+                                      : 'Profile'
+                            }
                             onClick={() => {
+                                if (workspaceMode === 'excel') {
+                                    if (panel === 'explorer') {
+                                        setExcelSidebarOpen((open) => {
+                                            const next = activePanel !== 'explorer' ? true : !open;
+                                            localStorage.setItem('study.excelSidebarOpen', String(next));
+                                            return next;
+                                        });
+                                    } else {
+                                        setExcelSidebarOpen(true);
+                                        localStorage.setItem('study.excelSidebarOpen', 'true');
+                                    }
+                                }
                                 setActivePanel(panel);
                                 setShowPuyo(false);
                             }}
@@ -713,14 +835,30 @@ function App() {
                                 cursor: 'pointer',
                                 borderRadius: '4px',
                                 background:
-                                    activePanel === panel && !showPuyo ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    activePanel === panel &&
+                                    !showPuyo &&
+                                    (workspaceMode !== 'excel' || panel !== 'explorer' || excelSidebarOpen)
+                                        ? 'rgba(255,255,255,0.08)'
+                                        : 'transparent',
                                 borderLeft:
-                                    activePanel === panel && !showPuyo ? '2px solid #ccc' : '2px solid transparent',
-                                opacity: activePanel === panel && !showPuyo ? 1 : 0.45,
+                                    activePanel === panel &&
+                                    !showPuyo &&
+                                    (workspaceMode !== 'excel' || panel !== 'explorer' || excelSidebarOpen)
+                                        ? '2px solid #ccc'
+                                        : '2px solid transparent',
+                                opacity:
+                                    activePanel === panel &&
+                                    (workspaceMode !== 'excel' || panel !== 'explorer' || excelSidebarOpen)
+                                        ? 1
+                                        : 0.45,
                                 transition: 'all 0.12s',
                             }}
                         >
-                            {panel === 'explorer' ? (
+                            {workspaceMode === 'excel' ? (
+                                <span className="excel-activity-icon" aria-hidden="true">
+                                    {panel === 'explorer' ? '▦' : '♙'}
+                                </span>
+                            ) : panel === 'explorer' ? (
                                 <img src={imgSideIcon1} style={{ width: 18 }} />
                             ) : (
                                 <img src={imgSideIcon2} style={{ width: 18 }} />
@@ -728,6 +866,7 @@ function App() {
                         </div>
                     ))}
                     <ul
+                        className="activity-tool-list"
                         style={{
                             width: '100%',
                             display: 'flex',
@@ -741,6 +880,7 @@ function App() {
                         }}
                     >
                         <li
+                            className="activity-placeholder-tool"
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -749,9 +889,10 @@ function App() {
                                 justifyContent: 'center',
                             }}
                         >
-                            <img src={imgSideIcon3} style={{ width: 18 }} />
+                            {workspaceMode === 'excel' ? <span className="excel-activity-icon">⌕</span> : <img src={imgSideIcon3} style={{ width: 18 }} />}
                         </li>
                         <li
+                            className="activity-placeholder-tool"
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -760,9 +901,10 @@ function App() {
                                 justifyContent: 'center',
                             }}
                         >
-                            <img src={imgSideIcon4} style={{ width: 18 }} />
+                            {workspaceMode === 'excel' ? <span className="excel-activity-icon">＋</span> : <img src={imgSideIcon4} style={{ width: 18 }} />}
                         </li>
                         <li
+                            className="activity-placeholder-tool"
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -771,9 +913,10 @@ function App() {
                                 justifyContent: 'center',
                             }}
                         >
-                            <img src={imgSideIcon5} style={{ width: 18 }} />
+                            {workspaceMode === 'excel' ? <span className="excel-activity-icon">⟳</span> : <img src={imgSideIcon5} style={{ width: 18 }} />}
                         </li>
                         <li
+                            className="activity-placeholder-tool"
                             style={{
                                 width: '32px',
                                 height: '32px',
@@ -782,10 +925,10 @@ function App() {
                                 justifyContent: 'center',
                             }}
                         >
-                            <img src={imgSideIcon6} style={{ width: 18 }} />
+                            {workspaceMode === 'excel' ? <span className="excel-activity-icon">▤</span> : <img src={imgSideIcon6} style={{ width: 18 }} />}
                         </li>
                         <li
-                            className="smoking-activity-control"
+                            className={`smoking-activity-control excel-rail-action-10 ${isExcelRowSelected(10) ? 'excel-range-header-selected' : ''}`}
                             title={smokingDeskOn ? 'Close smoking desk' : 'Open smoking desk'}
                             onClick={() => setSmokingDeskOn((value) => !value)}
                             style={{
@@ -871,7 +1014,7 @@ function App() {
                             )}
                         </li>
                         <li
-                            className="vending-activity-control"
+                            className={`vending-activity-control excel-rail-action-14 ${isExcelRowSelected(14) ? 'excel-range-header-selected' : ''}`}
                             title={vendingOn ? 'Close vending machine' : 'Open vending machine'}
                             onClick={() => setVendingOn((value) => !value)}
                             style={{
@@ -945,6 +1088,7 @@ function App() {
                     {/* 게임 버튼 */}
                     {currentRoom === null && (
                         <div
+                            className="activity-game-tools"
                             style={{
                                 marginTop: 'auto',
                                 display: 'flex',
@@ -954,6 +1098,7 @@ function App() {
                             }}
                         >
                             <div
+                                className={`activity-game-button excel-rail-action-18 ${isExcelRowSelected(18) ? 'excel-range-header-selected' : ''}`}
                                 title="Puyo Puyo"
                                 onClick={() => {
                                     setShowPuyo((v) => !v);
@@ -979,6 +1124,7 @@ function App() {
                                 🩵
                             </div>
                             <div
+                                className={`activity-game-button excel-rail-action-22 ${isExcelRowSelected(22) ? 'excel-range-header-selected' : ''}`}
                                 title="Sudoku"
                                 onClick={() => {
                                     setShowSudoku((v) => !v);
@@ -1009,6 +1155,9 @@ function App() {
 
                 {/* ── SIDEBAR ── */}
                 <div
+                    className={`vscode-sidebar${
+                        workspaceMode === 'excel' && !excelSidebarOpen ? ' excel-sidebar-collapsed' : ''
+                    }`}
                     style={{
                         width: '240px',
                         flexShrink: 0,
@@ -1030,7 +1179,13 @@ function App() {
                             flexShrink: 0,
                         }}
                     >
-                        {activePanel === 'explorer' ? 'Explorer' : 'Profile'}
+                        {workspaceMode === 'excel'
+                            ? activePanel === 'explorer'
+                                ? '통합 문서'
+                                : '사용자 정보'
+                            : activePanel === 'explorer'
+                              ? 'Explorer'
+                              : 'Profile'}
                     </div>
 
                     {/* EXPLORER */}
@@ -1061,7 +1216,7 @@ function App() {
                                 >
                                     ▶
                                 </span>
-                                <span>USER</span>
+                                <span>{workspaceMode === 'excel' ? '작성자' : 'USER'}</span>
                             </div>
                             {userExpanded && (
                                 <div style={{ padding: '2px 0 8px', flexShrink: 0 }}>
@@ -1083,7 +1238,7 @@ function App() {
                                             <span style={{ fontSize: '14px' }}>{currentAvatar?.label ?? '🐱'}</span>
                                         )}
                                         <span style={{ color: nickname.trim() ? '#4ec9b0' : '#858585' }}>
-                                            {nickname.trim() || 'not set'}
+                                            {nickname.trim() || (workspaceMode === 'excel' ? '미지정' : 'not set')}
                                         </span>
                                         {nickname.trim() && (
                                             <span style={{ color: '#6a9955', fontSize: '10px' }}>✓</span>
@@ -1102,7 +1257,9 @@ function App() {
                                         }}
                                     >
                                         {profileEditing ? (
-                                            <span style={{ color: '#ce9178' }}>● editing...</span>
+                                            <span style={{ color: '#ce9178' }}>
+                                                ● {workspaceMode === 'excel' ? '정보 입력 중' : 'editing...'}
+                                            </span>
                                         ) : (
                                             '✎ editProfile()'
                                         )}
@@ -1136,7 +1293,7 @@ function App() {
                                 >
                                     ▶
                                 </span>
-                                <span>ROOMS</span>
+                                <span>{workspaceMode === 'excel' ? '업무 시트' : 'ROOMS'}</span>
                                 <span
                                     style={{
                                         marginLeft: 'auto',
@@ -1158,7 +1315,7 @@ function App() {
                                                     color: '#555',
                                                 }}
                                             >
-                                                // no rooms yet
+                                                {workspaceMode === 'excel' ? '등록된 실시간 업무 없음' : '// no rooms yet'}
                                             </div>
                                         )}
                                         {rooms.map((room) => (
@@ -1371,6 +1528,7 @@ function App() {
 
                 {/* ── 에디터 + 터미널 컬럼 ──────────────────────────────── */}
                 <div
+                    className="workspace-document"
                     style={{
                         flex: 1,
                         display: 'flex',
@@ -1380,27 +1538,33 @@ function App() {
                         minWidth: 0,
                     }}
                 >
-                    {/* 탭 바 (사이드바 헤더와 같은 높이) */}
-                    <div className="tab-bar" style={{ flexShrink: 0 }}>
-                        <div className="tab active">
-                            <span style={{ color: '#569cd6', fontSize: '11px' }}>▶</span>
-                            <span>{tabLabel}</span>
-                            {currentRoom && (
-                                <span
-                                    className="tab-close"
-                                    onClick={() => (leaveRef.current ? leaveRef.current() : handleLeaveRoom())}
-                                >
-                                    ✕
-                                </span>
-                            )}
+                    {/* VS Code 탭 / Excel 열 머리글 */}
+                    {workspaceMode !== 'excel' && (
+                        <div className="tab-bar" style={{ flexShrink: 0 }}>
+                            <div className="tab active">
+                                <span style={{ color: '#569cd6', fontSize: '11px' }}>▶</span>
+                                <span>{tabLabel}</span>
+                                {currentRoom && (
+                                    <span
+                                        className="tab-close"
+                                        onClick={() => (leaveRef.current ? leaveRef.current() : handleLeaveRoom())}
+                                    >
+                                        ✕
+                                    </span>
+                                )}
+                            </div>
+                            <div className="tab" style={{ color: '#555', fontSize: '11px', padding: '8px 10px' }}>
+                                {currentRoom ? 'lobby.ts' : ''}
+                            </div>
                         </div>
-                        <div className="tab" style={{ color: '#555', fontSize: '11px', padding: '8px 10px' }}>
-                            {currentRoom ? 'lobby.ts' : ''}
-                        </div>
-                    </div>
+                    )}
 
                     {/* 콘텐츠 영역 */}
                     <div
+                        className="content-scroll"
+                        onScroll={(event) => {
+                            if (workspaceMode === 'excel') setExcelSheetScrollTop(event.currentTarget.scrollTop);
+                        }}
                         style={{
                             flex: 1,
                             overflowY: 'scroll',
@@ -1411,7 +1575,22 @@ function App() {
                         }}
                     >
                         {/* 오페시티 적용 */}
+                        {workspaceMode === 'excel' && (
+                            <div className="excel-global-columnbar" aria-label="워크시트 열 머리글">
+                                {EXCEL_COLUMNS.map((column) => (
+                                    <span
+                                        key={column}
+                                        className={`excel-column-header ${
+                                            isExcelColumnSelected(column) ? 'selected' : ''
+                                        }`}
+                                    >
+                                        {column}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                         <div
+                            className="opacity-toolbar"
                             style={{
                                 // position: 'absolute',
                                 // top: 12,
@@ -1447,9 +1626,10 @@ function App() {
                         </div>
                         {/* 오페시티 적용 */}
                         <div
+                            className="content-surface"
                             style={{
                                 flex: 1,
-                                opacity: overlayOpacity,
+                                opacity: workspaceMode === 'excel' ? 1 : overlayOpacity,
                                 transition: 'opacity .15s ease',
                             }}
                         >
@@ -1457,6 +1637,25 @@ function App() {
                                 <PuyoPuyo onClose={() => setShowPuyo(false)} />
                             ) : currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
+                            ) : currentRoom === null && workspaceMode === 'excel' ? (
+                                <ExcelLobby
+                                    nickname={nickname}
+                                    sessionId={sessionId}
+                                    rooms={rooms}
+                                    loading={loading}
+                                    profileEditing={profileEditing}
+                                    lobbyError={lobbyError}
+                                    fetchRooms={fetchRooms}
+                                    onJoinRoom={handleJoinRoom}
+                                    onJoin={handleJoin}
+                                    onClearLobbyError={() => setLobbyError('')}
+                                    onCellSelect={(address, value) => setExcelSelection({ address, rangeEnd: address, value })}
+                                    onRangeSelect={(address, rangeEnd) => setExcelSelection((current) => ({
+                                        ...current,
+                                        address,
+                                        rangeEnd,
+                                    }))}
+                                />
                             ) : currentRoom === null ? (
                                 <Lobby
                                     nickname={nickname}
@@ -1540,8 +1739,9 @@ function App() {
                     </div>
 
                     {/* 터미널 패널 */}
-                    {termOpen && (
+                    {workspaceMode !== 'excel' && termOpen && (
                         <div
+                            className="terminal-panel"
                             style={{
                                 height: TERMINAL_HEIGHT,
                                 flexShrink: 0,
@@ -1577,7 +1777,9 @@ function App() {
                                 >
                                     <span style={{ color: '#6a9955', fontSize: '11px' }}>⬤</span>
                                     <span>TERMINAL</span>
-                                    <span style={{ color: '#858585', fontSize: '10px' }}>bash</span>
+                                    <span style={{ color: '#858585', fontSize: '10px' }}>
+                                        bash
+                                    </span>
                                 </div>
                                 <div style={{ flex: 1, height: '100%' }} />
                                 <div style={{ display: 'flex', gap: '2px', paddingRight: '8px' }}>
@@ -1659,8 +1861,9 @@ function App() {
                             </div>
                         </div>
                     )}
-                    {!termOpen && (
+                    {workspaceMode !== 'excel' && !termOpen && (
                         <div
+                            className="terminal-collapsed"
                             style={{
                                 flexShrink: 0,
                                 borderTop: '1px solid #3e3e42',
@@ -1675,18 +1878,20 @@ function App() {
                             }}
                             onClick={() => setTermOpen(true)}
                         >
-                            <span style={{ color: '#6a9955' }}>⬤</span> TERMINAL
+                            <span style={{ color: '#6a9955' }}>⬤</span>{' '}
+                            TERMINAL
                         </div>
                     )}
                 </div>
 
                 {/* ── 전역 채팅 패널 ──────────────────────────────────── */}
                 <div
+                    className="chat-panel"
                     style={
                         {
                             width: chatWidth,
                             flexShrink: 0,
-                            borderLeft: '1px solid #3e3e42',
+                            borderLeft: workspaceMode === 'excel' ? 'none' : '1px solid #3e3e42',
                             position: 'relative',
                             display: 'flex',
                             backgroundImage: chatBgImage ? `url(${chatBgImage})` : undefined,
@@ -1710,14 +1915,21 @@ function App() {
                             zIndex: 2,
                         }}
                         onMouseDown={(e) => {
+                            e.preventDefault();
                             const startX = e.clientX;
-                            const startW = chatWidth;
+                            const startW = e.currentTarget.parentElement?.getBoundingClientRect().width ?? chatWidth;
+                            const previousCursor = document.body.style.cursor;
+                            const previousUserSelect = document.body.style.userSelect;
+                            document.body.style.cursor = 'ew-resize';
+                            document.body.style.userSelect = 'none';
                             const onMove = (ev: MouseEvent) => {
                                 const next = Math.max(240, Math.min(500, startW - (ev.clientX - startX)));
                                 setChatWidth(next);
                                 localStorage.setItem('study.chatWidth', String(next));
                             };
                             const onUp = () => {
+                                document.body.style.cursor = previousCursor;
+                                document.body.style.userSelect = previousUserSelect;
                                 window.removeEventListener('mousemove', onMove);
                                 window.removeEventListener('mouseup', onUp);
                             };
@@ -1728,6 +1940,7 @@ function App() {
 
                     {/* 커스텀 설정 버튼 */}
                     <button
+                        className="chat-customize-button"
                         onClick={() => setCustomizeOpen((v) => !v)}
                         title="채팅창 꾸미기"
                         style={{
@@ -1754,6 +1967,7 @@ function App() {
                     {/* 커스텀 설정 팝업 */}
                     {customizeOpen && (
                         <div
+                            className="chat-customize-panel"
                             style={{
                                 position: 'absolute',
                                 top: 32,
@@ -1877,6 +2091,7 @@ function App() {
                     {/* 닉네임 미입력 안내 오버레이 */}
                     {!nickname.trim() && (
                         <div
+                            className="nickname-required-overlay"
                             style={{
                                 position: 'absolute',
                                 inset: 0,
@@ -1893,8 +2108,14 @@ function App() {
                                 pointerEvents: 'none',
                             }}
                         >
-                            <span style={{ color: '#569cd6' }}>// 채팅하려면</span>
-                            <span>닉네임을 먼저 입력해주세요</span>
+                            <span style={{ color: '#569cd6' }}>
+                                {workspaceMode === 'excel' ? '공동 작업 메모' : '// 채팅하려면'}
+                            </span>
+                            <span>
+                                {workspaceMode === 'excel'
+                                    ? '작성자 정보를 먼저 입력해 주세요.'
+                                    : '닉네임을 먼저 입력해주세요'}
+                            </span>
                         </div>
                     )}
 
@@ -1907,10 +2128,41 @@ function App() {
                         bubbleColor={bubbleColor}
                     />
                 </div>
+                {workspaceMode === 'excel' && (
+                    <div className="excel-sheet-tabbar" aria-label="워크시트 탭">
+                        <div className="excel-sheet-navigation" aria-hidden="true">
+                            <button type="button" tabIndex={-1}>‹</button>
+                            <button type="button" tabIndex={-1}>›</button>
+                        </div>
+                        <button className="excel-sheet-tab active" type="button">Sheet1</button>
+                        <span className="excel-sheet-divider" />
+                        <button className="excel-add-sheet" type="button" title="새 시트">＋</button>
+                        <span className="excel-sheet-tab-spacer" />
+                        <div className="excel-horizontal-scroll" aria-hidden="true">
+                            <span className="excel-scroll-grip">⋮</span>
+                            <button type="button" tabIndex={-1}>◀</button>
+                            <span className="excel-scroll-track"><i /></span>
+                            <button type="button" tabIndex={-1}>▶</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── VS Code 상태 바 ─────────────────────────────────────── */}
             <div className="status-bar" style={{ flexShrink: 0 }}>
+                {workspaceMode === 'excel' ? (
+                    <>
+                        <span className="excel-status-ready">준비</span>
+                        <span className="excel-status-document">▣</span>
+                        <span className="excel-status-accessibility">♿ 접근성: 계속 진행 가능</span>
+                        <span className="excel-status-spacer" />
+                        <span className="excel-view-controls" aria-hidden="true"><b>▦</b><b>▤</b><b>◫</b></span>
+                        <span className="excel-zoom-controls" aria-hidden="true">
+                            <b>−</b><i><em /></i><b>＋</b><small>100%</small>
+                        </span>
+                    </>
+                ) : (
+                    <>
                 <span>⚡ study-platform</span>
                 <span style={{ opacity: 0.7 }}>TypeScript</span>
                 {currentRoom && (
@@ -1939,6 +2191,8 @@ function App() {
                         ? `${currentRoom.playerCount}/${currentRoom.studyType === 'TETRIS' || currentRoom.studyType === 'INCIDENT_AVOID' || currentRoom.studyType === 'BREAKOUT' ? 3 : currentRoom.maxPlayers} players`
                         : 'Lobby'}
                 </span>
+                    </>
+                )}
             </div>
         </div>
     );

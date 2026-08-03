@@ -73,6 +73,7 @@ function renderWithMentions(text: string, myNickname: string) {
 function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend, onClearMessages, playerNames = [] }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
+  const [chatChannel, setChatChannel] = useState<1 | 2>(1);
   const [showOpacity, setShowOpacity] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -304,6 +305,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
 
   return (
     <div
+      className="chat-root"
       onPaste={handlePaste}
       onClick={() => setNicknameMenu(null)}
       style={{
@@ -320,6 +322,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
       }}
     >
       <div
+        className="chat-header"
         style={{
           padding: "4px 10px",
           background: "#252526",
@@ -334,10 +337,12 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
           alignItems: "center",
         }}
       >
-        <span>
-          <span style={{ color: "#569cd6" }}>// </span>CHAT
+        <div className="chat-title-copy">
+          <span style={{ color: "#569cd6" }}>// </span>
+          <b>CHAT</b>
+          <small>⚡ {Math.max(1, playerNames.length + 1)}명 / SITE CHAT</small>
           {unreadCount > 0 && (
-            <b style={{
+            <strong className="chat-unread-badge" style={{
               display: "inline-flex",
               minWidth: 18,
               height: 18,
@@ -352,33 +357,27 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
               letterSpacing: 0,
             }}>
               {unreadCount > 99 ? "99+" : unreadCount}
-            </b>
+            </strong>
           )}
-        </span>
-        <button
-          onClick={toggleChat}
-          style={{
-            marginLeft: "auto",
-            background: "transparent",
-            border: "none",
-            color: "#858585",
-            cursor: "pointer",
-            fontSize: "12px",
-            padding: "0 2px",
-          }}
-        >
-          {open ? "−" : "+"}
-        </button>
+        </div>
+        <div className="chat-header-tools">
+          <button className={chatChannel === 1 ? "channel active" : "channel"} onClick={() => setChatChannel(1)}>채널1</button>
+          <button className={chatChannel === 2 ? "channel active" : "channel"} onClick={() => setChatChannel(2)}>채널2</button>
+          <button title="통계">⌁</button>
+          <button title="즐겨찾기">☆</button>
+          <button title={open ? "채팅 접기" : "채팅 펼치기"} onClick={toggleChat}>{open ? "×" : "+"}</button>
+        </div>
       </div>
 
       {open && (
         <div
+          className="chat-message-list"
           ref={scrollRef}
           onScroll={updateStickToBottom}
           style={{ flex: 1, overflowY: "auto", padding: "6px 0 18px", minHeight: 0, scrollPaddingBottom: 18 }}
         >
           {allMessages.length === 0 && (
-            <div style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
+            <div className="chat-empty-state" style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
               <span style={{ color: "#6a9955" }}>{"// no messages yet"}</span>
             </div>
           )}
@@ -584,9 +583,10 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
       )}
 
       {open && (
-        <div style={{ flexShrink: 0 }}>
+        <div className="chat-footer" style={{ flexShrink: 0 }}>
           {replyTarget && (
             <div
+              className="chat-reply-target"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -596,9 +596,10 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
                 background: "#252526",
               }}
             >
-              <span style={{ color: "#569cd6", fontSize: "11px", flexShrink: 0 }}>↩</span>
-              <span style={{ color: "#9cdcfe", fontSize: "11px", flexShrink: 0 }}>{replyTarget.nickname}</span>
+              <span className="chat-reply-target-icon" style={{ color: "#569cd6", fontSize: "11px", flexShrink: 0 }}>↩</span>
+              <span className="chat-reply-target-name" style={{ color: "#9cdcfe", fontSize: "11px", flexShrink: 0 }}>{replyTarget.nickname}</span>
               <span
+                className="chat-reply-target-text"
                 style={{
                   color: "#858585",
                   fontSize: "11px",
@@ -611,6 +612,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
                 {replyTarget.type === "IMAGE" ? "사진" : replyTarget.text}
               </span>
               <button
+                className="chat-reply-target-close"
                 onClick={cancelReply}
                 style={{
                   background: "transparent",
@@ -629,6 +631,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
 
           {showOpacity && (
             <div
+              className="chat-opacity-panel"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -638,8 +641,9 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
                 background: "#252526",
               }}
             >
-              <span style={{ color: "#6a9955", fontSize: "10px", whiteSpace: "nowrap" }}>opacity</span>
+              <span className="chat-opacity-label" style={{ color: "#6a9955", fontSize: "10px", whiteSpace: "nowrap" }}>opacity</span>
               <input
+                className="chat-opacity-range"
                 type="range"
                 min={20}
                 max={100}
@@ -651,7 +655,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
                 value={chatOpacity}
                 style={{ flex: 1, accentColor: "#4ec9b0", cursor: "pointer" }}
               />
-              <span style={{ color: "#858585", fontSize: "10px", width: "28px", textAlign: "right" }}>
+              <span className="chat-opacity-value" style={{ color: "#858585", fontSize: "10px", width: "28px", textAlign: "right" }}>
                 {chatOpacity}%
               </span>
             </div>
@@ -664,6 +668,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
           )}
 
           <div
+            className="chat-composer"
             style={{
               display: "flex",
               gap: "4px",
@@ -672,6 +677,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
             }}
           >
             <button
+              className={`chat-opacity-toggle${showOpacity ? " active" : ""}`}
               onClick={() => setShowOpacity((value) => !value)}
               style={{
                 background: showOpacity ? "rgba(78,201,176,0.2)" : "transparent",
@@ -776,6 +782,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
                 </div>
               )}
               <input
+                className="chat-input"
                 ref={inputRef}
                 style={{ width: "100%", fontSize: "12px", padding: "4px 6px", boxSizing: "border-box", position: "relative", background: "transparent" }}
                 placeholder={uploading ? "uploading image..." : "@닉네임 메시지 또는 일반 채팅..."}
@@ -792,7 +799,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
             </div>
 
             <button
-              className="btn-primary"
+              className="btn-primary chat-send-button"
               style={{ fontSize: "11px", padding: "4px 10px", flexShrink: 0 }}
               onClick={handleSend}
               disabled={uploading}
@@ -891,7 +898,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
 
   if (message.nickname === "system") {
     return (
-      <div style={{ padding: "4px 10px", fontSize: "11px", color: "#858585", lineHeight: 1.5 }}>
+      <div className="chat-system-message" style={{ padding: "4px 10px", fontSize: "11px", color: "#858585", lineHeight: 1.5 }}>
         <span style={{ color: "#6a9955" }}>// </span>{message.text}
       </div>
     );
@@ -899,6 +906,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
 
   return (
     <div
+      className={`chat-message-item${isMe ? " mine" : ""}${mentionsMe ? " mentioned" : ""}`}
       style={{
         width: "100%",
         padding: isGrouped ? "2px 10px" : "6px 10px 1px",
@@ -909,8 +917,8 @@ const ChatMessageItem = memo(function ChatMessageItem({
         alignItems: isMe ? "flex-end" : "flex-start",
       }}
     >
-      {!isGrouped && (
         <span
+          className={`chat-message-author${isGrouped ? " grouped" : ""}`}
           onClick={(event) => {
             if (message.nickname !== "system") onNicknameClick(message.nickname, event);
           }}
@@ -927,9 +935,9 @@ const ChatMessageItem = memo(function ChatMessageItem({
           {renderAvatar(message.emoji || (isMe ? myEmoji : ""))}
           {message.nickname}
         </span>
-      )}
 
       <div
+        className="chat-message-row"
         style={{
           width: "100%",
           display: "flex",
@@ -939,6 +947,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
         }}
       >
         <div
+          className="chat-message-bubble"
           onClick={(event) => {
             event.stopPropagation();
             if (message.id != null) onReply(message);
@@ -962,6 +971,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
         >
           {message.replyToId != null && (
             <div
+              className="chat-reply-preview"
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -1025,15 +1035,13 @@ const ChatMessageItem = memo(function ChatMessageItem({
               )}
             </a>
           ) : (
-            <span style={{ color: "#d4d4d4" }}>
+            <span className="chat-message-text" style={{ color: "#d4d4d4" }}>
               {renderWithMentions(message.text, myNickname)}
             </span>
           )}
         </div>
 
-        {isLastInGroup && (
-          <span style={{ color: "#4e4e4e", fontSize: "10px", whiteSpace: "nowrap" }}>{time}</span>
-        )}
+          <span className={`chat-message-time${isLastInGroup ? "" : " grouped"}`} style={{ color: "#4e4e4e", fontSize: "10px", whiteSpace: "nowrap" }}>{time}</span>
       </div>
     </div>
   );

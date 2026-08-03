@@ -9,6 +9,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import PasswordGate from './components/PasswordGate';
 import './styles/global.css';  // 전역 스타일 적용
+import './styles/workspace-themes.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   // StrictMode: 개발 모드에서 잠재적 문제를 감지 (이중 렌더링 등)
