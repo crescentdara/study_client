@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { StudyMoveRequest, StudyStateResponse, TetrisGameData, TetrisGarbageAttack, TetrisPlayerRecord } from '../../types';
 
@@ -60,6 +60,9 @@ interface Props {
   sessionId: string;
   myPlayerIndex: number;
   sendMove: (req: StudyMoveRequest) => void;
+  workspaceMode?: 'vscode' | 'excel';
+  onLeave?: () => void;
+  onRestart?: () => void;
 }
 
 const emptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill('') as string[]);
@@ -310,7 +313,7 @@ const isTSpin = (board: Board, piece: Piece, lastMoveWasRotate: boolean) => {
   return blocked >= 3;
 };
 
-export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove }: Props) {
+export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove, workspaceMode = 'vscode', onLeave, onRestart }: Props) {
   const data = studyState?.gameData as TetrisGameData | null;
   const initialQueue = useMemo(() => createPieceQueue(NEXT_QUEUE_SIZE + 1), []);
   const [board, setBoard] = useState<Board>(() => emptyBoard());
@@ -343,6 +346,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<TetrisViewMode>(readViewMode);
+  const renderedViewMode: TetrisViewMode = workspaceMode === 'excel' ? 'sheet' : viewMode;
   const [resultDismissed, setResultDismissed] = useState(false);
   const [localGameInstanceId, setLocalGameInstanceId] = useState('');
   const horizontalHoldRef = useRef<number | null>(null);
@@ -921,36 +925,46 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
           : 'stopped';
 
   const controls = (
-    <MetricsPanel
-      paused={globalPaused}
-      open={settingsOpen}
-      recordsOpen={recordsOpen}
-      viewMode={viewMode}
-      dasDelay={dasDelay}
-      arrInterval={arrInterval}
-      cellAlpha={cellAlpha}
-      nickname={myNickname}
-      record={myRecord}
-      onToggle={() => {
-        setRecordsOpen(false);
-        setSettingsOpen((open) => !open);
-      }}
-      onRecordsToggle={() => {
-        setSettingsOpen(false);
-        setRecordsOpen((open) => !open);
-      }}
-      onViewMode={updateViewMode}
-      onCellAlpha={setCellAlpha}
-      onDasDelay={updateDasDelay}
-      onArrInterval={updateArrInterval}
-      onPause={toggleGlobalPause}
-      canPause={isHost}
-    />
+    <>
+      <MetricsPanel
+        paused={globalPaused}
+        open={settingsOpen}
+        recordsOpen={recordsOpen}
+        viewMode={renderedViewMode}
+        dasDelay={dasDelay}
+        arrInterval={arrInterval}
+        cellAlpha={cellAlpha}
+        nickname={myNickname}
+        record={myRecord}
+        onToggle={() => {
+          setRecordsOpen(false);
+          setSettingsOpen((open) => !open);
+        }}
+        onRecordsToggle={() => {
+          setSettingsOpen(false);
+          setRecordsOpen((open) => !open);
+        }}
+        onViewMode={updateViewMode}
+        onCellAlpha={setCellAlpha}
+        onDasDelay={updateDasDelay}
+        onArrInterval={updateArrInterval}
+        onPause={toggleGlobalPause}
+        canPause={isHost}
+      />
+      {workspaceMode === 'excel' && (
+        <div className="tetris-sheet-session-actions">
+          {isHost && studyState?.status === 'FINISHED' && onRestart && (
+            <button type="button" className="tetris-sheet-restart" onClick={onRestart}>↺ 재시작</button>
+          )}
+          {onLeave && <button type="button" className="tetris-sheet-exit" onClick={onLeave}>종료 · 로비로 이동</button>}
+        </div>
+      )}
+    </>
   );
 
   return (
-    <div className={`tetris-workspace mode-${viewMode}`} tabIndex={0}>
-      {viewMode === 'classic' ? (
+    <div className={`tetris-workspace mode-${renderedViewMode}`} tabIndex={0}>
+      {renderedViewMode === 'classic' ? (
         <div className="code-block tetris-main">
         <CL ln={1}>
           <span className="cmt">{'// TETRIS queue monitor'}</span>
@@ -1033,19 +1047,23 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove 
   );
 }
 
-const spreadsheetValue = (row: number, col: number) => {
-  const compactValues = ['OK', '42', '검토', '91%', '1.2', '완료', '07', '정상'];
-  return compactValues[(row * 3 + col) % compactValues.length];
-};
+const TETRIS_SHEET_DUMMY_VALUES = [
+  'API-427', 'PR #1842', '배포 대기', '테스트 완료', 'v2.14.7', '92.4%', 'Redis', 'FE-318',
+  '리뷰 요청', 'main', 'CI 통과', 'Node 22', 'BUG-091', '담당:BE', '2026-08-03', '3f92ac1',
+  '스키마 검토', '로그 확인', 'Sprint 18', 'QA 진행', 'Docker', '응답 142ms', '완료', '개발 중',
+];
 
-const reportValue = (row: number, col: number) => {
-  if (col === 0) return `OP-${310 + row}`;
-  if (col === 1) return `2026-07-${String((row % 28) + 1).padStart(2, '0')}`;
-  if (col === 2) return ['운영1팀', '운영2팀', '지원팀'][row % 3];
-  if (col === 3) return (1280 + row * 137).toLocaleString('ko-KR');
-  if (col === 4) return `${82 + (row % 14)}%`;
-  return ['정상', '완료', '검토중'][row % 3];
-};
+const TETRIS_SHEET_DUMMY_CELLS = Array.from({ length: 30 * 28 }, (_, index) => (
+  TETRIS_SHEET_DUMMY_VALUES[(index * 7 + Math.floor(index / 30) * 3) % TETRIS_SHEET_DUMMY_VALUES.length]
+));
+
+const SheetDummyGrid = memo(function SheetDummyGrid() {
+  return (
+    <div className="tetris-sheet-dummy-grid" aria-hidden="true">
+      {TETRIS_SHEET_DUMMY_CELLS.map((value, index) => <i key={index}>{value}</i>)}
+    </div>
+  );
+});
 
 function TetrisSpreadsheetView({
   controls, views, myPlayerIndex, score, lines, cycle, status, pending,
@@ -1069,8 +1087,6 @@ function TetrisSpreadsheetView({
   rankedMatch: boolean;
   onDistract: (target: number) => void;
 }) {
-  const mine = views.find((view) => view.index === myPlayerIndex);
-  const peers = views.filter((view) => view.index !== myPlayerIndex);
   return (
     <section className="tetris-sheet" style={boardStyle} aria-label="스프레드시트 플레이 화면">
       <header className="tetris-sheet-titlebar">
@@ -1084,50 +1100,62 @@ function TetrisSpreadsheetView({
       </div>
       <div className="tetris-sheet-formula"><b>F8</b><span>fx</span><span>=SUMIFS(운영실적[처리건수], 운영실적[상태], "정상")</span></div>
       <div className="tetris-sheet-body">
-        <aside className="tetris-sheet-summary">
-          <h3>운영 현황 요약</h3>
-          {!rankedMatch && <div className="tetris-sheet-practice">연습 모드 · 배치 및 전적 미반영</div>}
-          <div className="tetris-sheet-kpi"><span>처리 건수</span><b>{score.toLocaleString('ko-KR')}</b></div>
-          <div className="tetris-sheet-kpi"><span>정리 완료 행</span><b>{lines}</b></div>
-          <div className="tetris-sheet-kpi"><span>보고서 버전</span><b>v{cycle}.0</b></div>
-          <div className="tetris-sheet-kpi warning"><span>확인 필요</span><b>{pending}</b></div>
-          <div className="tetris-sheet-task-list">
-            <SheetPieceToken label="보류 항목" piece={holdPiece} />
-            {nextQueue.slice(0, 3).map((next, index) => (
-              <SheetPieceToken key={`${next.type}-${index}`} label={index === 0 ? '다음 작업' : `예정 ${index + 1}`} piece={next} />
-            ))}
+        <main className="tetris-sheet-arena">
+          <SheetDummyGrid />
+          <div className="tetris-sheet-arena-meta">
+            <span>참여 인원 <b>{views.length} / 3</b></span>
+            <span>처리 건수 <b>{score.toLocaleString('ko-KR')}</b></span>
+            <span>정리 완료 <b>{lines}행</b></span>
+            <span>버전 <b>v{cycle}.0</b></span>
+            {pending > 0 && <span className="warning">확인 필요 <b>{pending}건</b></span>}
+            {!rankedMatch && <span className="practice">연습 모드 · 전적 미반영</span>}
           </div>
-        </aside>
-        <main className="tetris-sheet-grid-wrap">
-          <SheetDataBlock columns={['C', 'D']} offset={0} />
-          <SheetBoard board={mine?.board ?? emptyBoard()} status={status} pending={pending} badge={badge} clearingRows={clearingRows} />
-          <SheetDataBlock columns={['P', 'Q', 'R']} offset={3} />
+          <div className="tetris-sheet-player-list">
+            {views.slice(0, 3).map((view) => {
+              const isMe = view.index === myPlayerIndex;
+              const viewStatus = isMe
+                ? status
+                : view.state?.gameOver
+                  ? 'overflow'
+                  : globalPaused
+                    ? 'paused'
+                    : view.state
+                      ? 'running'
+                      : 'waiting';
+              return (
+                <section className={`tetris-sheet-player ${isMe ? 'mine' : 'peer'}`} key={view.index}>
+                  <header className="tetris-sheet-player-head">
+                    <strong>{view.name}{isMe ? ' · 내 작업' : ''}</strong>
+                    <span>{winner === view.index ? '완료' : viewStatus}</span>
+                    <small>{(isMe ? score : view.state?.score ?? 0).toLocaleString('ko-KR')}건 · {isMe ? lines : view.state?.lines ?? 0}행</small>
+                    {!isMe && <button type="button" onClick={() => onDistract(view.index)}>새로 고침</button>}
+                  </header>
+                  <div className="tetris-sheet-player-game">
+                    {isMe && (
+                      <div className="tetris-sheet-piece-rail tetris-sheet-piece-rail--inline tetris-sheet-piece-rail--hold">
+                        <SheetPieceToken label="HOLD" piece={holdPiece} />
+                      </div>
+                    )}
+                    <SheetBoard board={view.board} status={viewStatus} pending={isMe ? pending : 0} badge={isMe ? badge : ''} clearingRows={isMe ? clearingRows : []} />
+                    {isMe && (
+                      <div className="tetris-sheet-piece-rail tetris-sheet-piece-rail--inline tetris-sheet-piece-rail--next">
+                        {nextQueue.map((next, index) => (
+                          <SheetPieceToken key={`${next.type}-${index}`} label={index === 0 ? 'NEXT' : `NEXT ${index + 1}`} piece={next} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </main>
-        <aside className="tetris-sheet-peers">
-          <h3>부서별 진행 현황</h3>
-          {peers.map((view) => (
-            <SheetPeerPanel key={view.index} view={view} winner={winner === view.index} paused={globalPaused} onClick={() => onDistract(view.index)} />
-          ))}
-          {peers.length === 0 && <div className="tetris-sheet-empty">연결된 부서 없음</div>}
-          <div className="tetris-sheet-chart" aria-hidden="true"><b>주간 처리 추이</b><span style={{ height: '38%' }} /><span style={{ height: '61%' }} /><span style={{ height: '48%' }} /><span style={{ height: '76%' }} /><span style={{ height: '66%' }} /></div>
-        </aside>
       </div>
       <footer className="tetris-sheet-statusbar">
         <span className="active">운영실적</span><span>Raw Data</span><span>요약</span><span>Archive</span><i />
         <small>{globalPaused ? '계산 일시 중지' : '준비'}　　보기: 100%　　F8 화면 전환</small>
       </footer>
     </section>
-  );
-}
-
-function SheetDataBlock({ columns, offset }: { columns: string[]; offset: number }) {
-  return (
-    <div className="tetris-sheet-data-block" style={{ '--sheet-data-columns': columns.length } as CSSProperties}>
-      {columns.map((column) => <b className="tetris-sheet-col" key={column}>{column}</b>)}
-      {Array.from({ length: ROWS }, (_, row) => columns.map((_, col) => (
-        <i key={`${row}-${col}`}>{reportValue(row, offset + col)}</i>
-      )))}
-    </div>
   );
 }
 
@@ -1142,38 +1170,49 @@ function SheetBoard({ board, status, pending, badge, clearingRows }: {
   return (
     <div className="tetris-sheet-board">
       <div className="tetris-sheet-corner" />
-      {Array.from({ length: COLS }, (_, col) => <b className="tetris-sheet-col" key={col}>{String.fromCharCode(70 + col)}</b>)}
-      {/^\d+$/.test(status) && <div className="tetris-sheet-countdown">데이터 새로 고침 중… {status}</div>}
-      {badge && <div className="tetris-sheet-notice">✓ {badge.split('_').join(' ')}</div>}
-      {pending > 0 && <div className="tetris-sheet-warning">검토 필요 {pending}건</div>}
-      {board.map((row, rowIndex) => (
-        <div className={`tetris-sheet-data-row ${clearingRowSet.has(rowIndex) ? 'clearing' : ''}`} key={rowIndex}>
-          <b className="tetris-sheet-rownum">{8 + rowIndex}</b>
-          <span className="tetris-sheet-rowcells">
-            {row.map((cell, colIndex) => {
-              const ghost = cell.startsWith('ghost-');
-              const type = ghost ? cell.slice(6) : cell;
-              return <i key={colIndex} className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''}`} title={`${8 + rowIndex}행 ${String.fromCharCode(70 + colIndex)}열`}>{type === 'G' ? '#N/A' : spreadsheetValue(rowIndex, colIndex)}</i>;
-            })}
-          </span>
-        </div>
-      ))}
+      <div className="tetris-sheet-column-head">
+        {Array.from({ length: COLS }, (_, col) => <b className="tetris-sheet-col" key={col}>{String.fromCharCode(70 + col)}</b>)}
+      </div>
+      <div className="tetris-sheet-row-head">
+        {Array.from({ length: ROWS }, (_, rowIndex) => <b className="tetris-sheet-rownum" key={rowIndex}>{8 + rowIndex}</b>)}
+      </div>
+      <div className="tetris-sheet-playfield tetris-sheet-rowcells">
+        {/^\d+$/.test(status) && <div className="tetris-sheet-countdown">데이터 새로 고침 중… {status}</div>}
+        {badge && <div className="tetris-sheet-notice">✓ {badge.split('_').join(' ')}</div>}
+        {pending > 0 && <div className="tetris-sheet-warning">검토 필요 {pending}건</div>}
+        {board.flatMap((row, rowIndex) => row.map((cell, colIndex) => {
+          const ghost = cell.startsWith('ghost-');
+          const type = ghost ? cell.slice(6) : cell;
+          return <i key={`${rowIndex}-${colIndex}`} className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''} ${clearingRowSet.has(rowIndex) ? 'clearing' : ''}`} title={`${8 + rowIndex}행 ${String.fromCharCode(70 + colIndex)}열`} />;
+        }))}
+      </div>
     </div>
   );
 }
 
 function SheetPieceToken({ label, piece }: { label: string; piece: Piece | null }) {
-  return <div className="tetris-sheet-task"><small>{label}</small><span>{piece ? `WK-${piece.type}${piece.shape.length}${piece.shape[0].length}` : '미배정'}</span></div>;
-}
+  const height = piece?.shape.length ?? 0;
+  const width = piece?.shape.reduce((max, row) => Math.max(max, row.length), 0) ?? 0;
+  const rowOffset = Math.floor((4 - height) / 2);
+  const colOffset = Math.floor((4 - width) / 2);
 
-function SheetPeerPanel({ view, winner, paused, onClick }: { view: TetrisBoardView; winner: boolean; paused: boolean; onClick: () => void }) {
-  const status = view.state?.gameOver ? '중단' : paused ? '보류' : winner ? '완료' : '진행중';
   return (
-    <button type="button" className="tetris-sheet-peer" onClick={onClick} title="현황 새로 고침">
-      <span className="tetris-sheet-peer-head"><strong><TetrisRankEmblem tier={view.record?.ranked ? view.record.tier : 'UNRANKED'} compact />{view.name}</strong><small className={winner ? 'winner' : ''}>{status}</small></span>
-      <span className="tetris-sheet-peer-board">{view.board.flatMap((row, rowIndex) => row.map((cell, colIndex) => <i key={`${rowIndex}-${colIndex}`} className={cell ? `filled t-${cell.replace('ghost-', '')}` : ''} />))}</span>
-      <span className="tetris-sheet-peer-meta">처리 {(view.state?.score ?? 0).toLocaleString('ko-KR')}건 · 정리 {view.state?.lines ?? 0}행</span>
-    </button>
+    <div className="tetris-sheet-task">
+      <small>{label}</small>
+      <span
+        className={`tetris-sheet-piece-preview ${piece ? '' : 'empty'}`}
+        role="img"
+        aria-label={piece ? `${piece.type} 블록` : '미배정'}
+      >
+        {Array.from({ length: 16 }, (_, index) => {
+          const row = Math.floor(index / 4) - rowOffset;
+          const col = (index % 4) - colOffset;
+          const filled = row >= 0 && col >= 0 && Boolean(piece?.shape[row]?.[col]);
+          return <i key={index} className={filled ? `filled t-${piece?.type}` : ''} />;
+        })}
+        {!piece && <b>미배정</b>}
+      </span>
+    </div>
   );
 }
 

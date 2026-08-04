@@ -310,6 +310,7 @@ export default function ExcelLobby({
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
+    const [createSelection, setCreateSelection] = useState('B4');
 
     const activePeople = useMemo(
         () => new Set(rooms.flatMap((room) => room.playerNames ?? [])).size,
@@ -347,6 +348,18 @@ export default function ExcelLobby({
     };
 
     const displayError = error || lobbyError;
+    const selectCreateCell = (address: string, value: string) => {
+        setCreateSelection(address);
+        onCellSelect(address, value);
+        onRangeSelect(address, address);
+    };
+    const configLabel = studyType === 'BASEBALL' ? '게임 자릿수' : studyType === 'BINGO' ? '빙고 크기' : '게임 설정';
+    const configValue = studyType === 'BASEBALL' ? digits : studyType === 'BINGO' ? boardSize : 0;
+    const configText = studyType === 'BASEBALL'
+        ? `${digits}자리 숫자 조합 · 중복 숫자 제외`
+        : studyType === 'BINGO'
+          ? `${boardSize} × ${boardSize} 빙고판 자동 생성`
+          : `${BUSINESS_LABELS[studyType]} 기본 규칙을 적용합니다.`;
 
     return (
         <div className="excel-lobby">
@@ -360,56 +373,53 @@ export default function ExcelLobby({
                 </button>
             )}
 
-            <div className={`excel-sheet-heading ${showCreate ? '' : 'lobby-summary-heading'}`}>
-                <div>
-                    <span>플랫폼개발팀</span>
-                    <h1>{showCreate ? '신규 업무 등록서' : '주간 운영 업무 현황'}</h1>
-                    <p>내부 검토용 · 외부 공유 금지</p>
-                </div>
-                <div className="excel-sheet-actions">
-                    {!showCreate && (
-                        <>
-                            <button type="button" onClick={fetchRooms} disabled={loading}>
-                                {loading ? '새로 고치는 중…' : '↻ 자료 새로고침'}
-                            </button>
-                            <button type="button" className="primary" onClick={() => setShowCreate(true)}>
-                                ＋ 신규 업무 등록
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-
             {showCreate ? (
-                <>
-                    <div className="excel-sheet-meta">
-                        <b>기준일</b><span>2026-07-31</span>
-                        <b>작성 부서</b><span>플랫폼개발팀</span>
-                        <b>작성자</b><span>{nickname || '미지정'}</span>
-                        <b>문서 상태</b><span className="status-review">검토 중</span>
+                <div className="excel-create-sheet" role="grid" aria-label="신규 게임 등록 시트">
+                    <div className="excel-create-title" style={{ gridColumn: 'span 9' }}>신규 게임 등록 요청서</div>
+
+                    <div className="excel-create-cell label">기준일</div><div className="excel-create-cell">2026-08-03</div>
+                    <div className="excel-create-cell label">작성 부서</div><div className="excel-create-cell" style={{ gridColumn: 'span 2' }}>플랫폼개발팀</div>
+                    <div className="excel-create-cell label">작성자</div><div className="excel-create-cell">{nickname || '미지정'}</div>
+                    <div className="excel-create-cell label">문서 상태</div><div className="excel-create-cell review">검토 중</div>
+
+                    <div className="excel-create-section" style={{ gridColumn: 'span 9' }}>1. 게임 기본 정보</div>
+
+                    <div className="excel-create-cell label">게임 이름</div>
+                    <div className={`excel-create-cell input-cell ${createSelection === 'B4' ? 'selected' : ''}`} style={{ gridColumn: 'span 4' }}>
+                        <input autoFocus value={roomName} onFocus={() => selectCreateCell('B4', roomName)} onChange={(event) => { setRoomName(event.target.value); onCellSelect('B4', event.target.value); }} placeholder={`${BUSINESS_LABELS[studyType]} 방 이름을 입력하세요`} maxLength={20} />
                     </div>
-                    <div className="excel-entry-form">
-                        <div className="excel-section-title">1. 기본 정보</div>
-                        <label><b>업무명</b><input autoFocus value={roomName} onChange={(event) => setRoomName(event.target.value)} placeholder="업무명을 입력하세요" maxLength={20} /></label>
-                        <label>
-                            <b>업무 구분</b>
-                            <select value={studyType} onChange={(event) => configureType(event.target.value as StudyType, setStudyType, setMaxPlayers, setBoardSize, setDigits)}>
-                                {STUDY_TYPES.map((type) => <option key={type} value={type}>{BUSINESS_LABELS[type]}</option>)}
-                            </select>
-                        </label>
-                        <label><b>참여 인원</b><input type="number" min={1} max={7} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} /></label>
-                        {studyType === 'BASEBALL' && <label><b>검산 자릿수</b><input type="number" min={3} max={5} value={digits} onChange={(event) => setDigits(Number(event.target.value))} /></label>}
-                        {studyType === 'BINGO' && <label><b>체크 항목</b><input type="number" min={3} max={7} value={boardSize} onChange={(event) => setBoardSize(Number(event.target.value))} /></label>}
-                        <div className="excel-form-note">
-                            <b>검토 메모</b>
-                            <span>등록 후 참여자를 확인하고 업무를 시작해 주세요. 작성 내용은 현재 접속자에게 즉시 반영됩니다.</span>
-                        </div>
-                        <div className="excel-entry-actions">
-                            <button type="button" onClick={() => setShowCreate(false)}>취소</button>
-                            <button type="button" className="primary" onClick={handleCreate} disabled={creating}>{creating ? '등록 중…' : '업무 등록'}</button>
-                        </div>
+                    <div className="excel-create-cell label">등록 번호</div><div className="excel-create-cell muted" style={{ gridColumn: 'span 3' }}>AUTO-ROOM-{String(rooms.length + 1).padStart(3, '0')}</div>
+
+                    <div className="excel-create-cell label">게임 종류</div>
+                    <div className={`excel-create-cell input-cell ${createSelection === 'B5' ? 'selected' : ''}`} style={{ gridColumn: 'span 3' }}>
+                        <select value={studyType} onFocus={() => selectCreateCell('B5', BUSINESS_LABELS[studyType])} onChange={(event) => { const type = event.target.value as StudyType; configureType(type, setStudyType, setMaxPlayers, setBoardSize, setDigits); onCellSelect('B5', BUSINESS_LABELS[type]); }}>
+                            {STUDY_TYPES.map((type) => <option key={type} value={type}>{BUSINESS_LABELS[type]}</option>)}
+                        </select>
                     </div>
-                </>
+                    <div className="excel-create-cell label">참여 인원</div>
+                    <div className={`excel-create-cell input-cell number ${createSelection === 'F5' ? 'selected' : ''}`}>
+                        <input type="number" min={1} max={7} value={maxPlayers} onFocus={() => selectCreateCell('F5', String(maxPlayers))} onChange={(event) => { setMaxPlayers(Number(event.target.value)); onCellSelect('F5', event.target.value); }} />
+                    </div>
+                    <div className="excel-create-cell label">공개 범위</div><div className="excel-create-cell" style={{ gridColumn: 'span 2' }}>로비 전체</div>
+
+                    <div className="excel-create-cell label">{configLabel}</div>
+                    <div className={`excel-create-cell input-cell number ${createSelection === 'B6' ? 'selected' : ''}`} style={{ gridColumn: 'span 2' }}>
+                        {studyType === 'BASEBALL' || studyType === 'BINGO' ? (
+                            <input type="number" min={3} max={studyType === 'BASEBALL' ? 5 : 7} value={configValue} onFocus={() => selectCreateCell('B6', String(configValue))} onChange={(event) => { const value = Number(event.target.value); if (studyType === 'BASEBALL') setDigits(value); else setBoardSize(value); onCellSelect('B6', event.target.value); }} />
+                        ) : <span>기본값</span>}
+                    </div>
+                    <div className="excel-create-cell muted" style={{ gridColumn: 'span 2' }}>{configText}</div>
+                    <div className="excel-create-cell label">서버 상태</div><div className="excel-create-cell ready" style={{ gridColumn: 'span 3' }}>● 등록 가능</div>
+
+                    <div className="excel-create-cell label">등록 목적</div><div className="excel-create-cell" style={{ gridColumn: 'span 8' }}>개발팀 휴식 시간용 실시간 멀티플레이 게임 세션 생성</div>
+                    <div className="excel-create-cell note-label">검토 메모</div><div className="excel-create-cell note" style={{ gridColumn: 'span 8' }}>등록 후 로비 목록에 즉시 반영됩니다. 게임 종류와 참여 인원을 확인한 뒤 등록해 주세요.</div>
+                    {Array.from({ length: 9 }, (_, index) => <div className="excel-create-empty-cell" key={`create-spacer-${index}`} />)}
+
+                    <div className="excel-create-status" style={{ gridColumn: 'span 6' }}>입력 셀 3개 · 필수값 자동 검증 · WebSocket 세션 준비</div>
+                    <button className="excel-create-cancel" type="button" onClick={() => setShowCreate(false)}>취소</button>
+                    <button className="excel-create-submit" type="button" onClick={handleCreate} disabled={creating}>{creating ? '등록 중…' : '게임 등록'}</button>
+                    {Array.from({ length: 36 * 9 }, (_, index) => <div className="excel-create-empty-cell" key={`create-empty-${index}`} />)}
+                </div>
             ) : (
                 <InteractiveTaskGrid
                     nickname={nickname}

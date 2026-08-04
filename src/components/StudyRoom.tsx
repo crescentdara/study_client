@@ -26,6 +26,9 @@ interface StudyRoomProps {
     onLeave: () => void;
     /** App의 탭 ✕ 버튼과 연결: 마운트 시 handleLeave를 여기에 등록 */
     leaveRef?: React.MutableRefObject<(() => void) | null>;
+    onCellSelect?: (address: string, value: string) => void;
+    onRangeSelect?: (startAddress: string, endAddress: string) => void;
+    workspaceMode?: 'vscode' | 'excel';
 }
 
 function StudyRoom({
@@ -37,8 +40,13 @@ function StudyRoom({
     onStudyState,
     onLeave,
     leaveRef,
+    onCellSelect,
+    onRangeSelect,
+    workspaceMode = 'vscode',
 }: StudyRoomProps) {
     const [secretState, setSecretState] = useState<StudyStateResponse | null>(null);
+    const [excelRoomSelection, setExcelRoomSelection] = useState('B10');
+    const [excelRoomEdits, setExcelRoomEdits] = useState({ sessionMemo: '3인 실시간 대전 · 일반 매치', operationMemo: '참가자 연결 상태 확인 후 게임을 시작하세요.' });
     const { connected, sendMove } = useWebSocket({
         roomId: room.roomId,
         onStudyState,
@@ -106,12 +114,19 @@ function StudyRoom({
         sendMove({ moveType: 'RESTART', data: '', sessionId });
     };
 
+    const selectExcelRoomCell = (address: string, value: string) => {
+        setExcelRoomSelection(address);
+        onCellSelect?.(address, value);
+        onRangeSelect?.(address, address);
+    };
+
     return (
-        <div style={{ display: 'flex', height: '100%' }}>
+        <div className={`study-room-shell ${isTetris ? 'study-room-shell--tetris' : ''}`} style={{ display: 'flex', height: '100%' }}>
             {/* ── 게임 영역 ── */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isAlkkagi ? '4px' : '10px', minWidth: 0 }}>
+            <div className={`study-room-main ${isTetris ? 'tetris-room' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isAlkkagi ? '4px' : '10px', minWidth: 0 }}>
                 {/* 상단 정보바 */}
                 <div
+                    className="study-room-header"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -164,7 +179,7 @@ function StudyRoom({
 
                 {/* 상태 메시지 */}
                 {studyState?.message && !isAlkkagi && !studyState.message.startsWith('ROOM_CLOSED:') && (
-                    <div className={`msg-bar ${studyState.message.startsWith('ERROR') ? 'error' : ''}`}>
+                    <div className={`msg-bar study-room-status-message ${studyState.message.startsWith('ERROR') ? 'error' : ''}`}>
                         <span className="cmt">{'> '}</span>
                         {studyState.message.replace('ERROR: ', '')}
                     </div>
@@ -180,7 +195,7 @@ function StudyRoom({
 
                 {/* ── WAITING: 대기 화면 + 시작 버튼 ── */}
                 {status === 'WAITING' && (
-                    <div className="code-block">
+                    <div className={`code-block waiting-code-block ${isTetris ? 'tetris-waiting-code' : ''}`}>
                         <div className="c-line">
                             <span className="ln">1</span>
                             <span className="c-line-body">
@@ -236,6 +251,48 @@ function StudyRoom({
                     </div>
                 )}
 
+                {status === 'WAITING' && isTetris && (
+                    <div className="tetris-excel-waiting-sheet" role="grid" aria-label="테트리스 게임방 대기 시트">
+                        <div className="tetris-room-title" style={{ gridColumn: 'span 9' }}>테트리스 멀티플레이 세션 현황</div>
+
+                        <div className="tetris-room-cell label">세션 ID</div><div className="tetris-room-cell" style={{ gridColumn: 'span 2' }}>{room.roomId}</div>
+                        <div className="tetris-room-cell label">게임</div><div className="tetris-room-cell" style={{ gridColumn: 'span 2' }}>테트리스</div>
+                        <div className="tetris-room-cell label">연결 상태</div><div className={`tetris-room-cell ${connected ? 'ready' : 'warning'}`} style={{ gridColumn: 'span 2' }}>{connected ? '● 서버 연결됨' : '○ 연결 중'}</div>
+
+                        <div className="tetris-room-section" style={{ gridColumn: 'span 9' }}>1. 참가자 배정 현황</div>
+                        <div className="tetris-room-cell table-head">No.</div><div className="tetris-room-cell table-head" style={{ gridColumn: 'span 3' }}>참가자</div><div className="tetris-room-cell table-head" style={{ gridColumn: 'span 2' }}>권한</div><div className="tetris-room-cell table-head">상태</div><div className="tetris-room-cell table-head" style={{ gridColumn: 'span 2' }}>접속 구분</div>
+                        {Array.from({ length: 3 }, (_, index) => {
+                            const player = playerNames[index];
+                            return (
+                                <div className="tetris-room-player-row" key={`tetris-player-slot-${index}`}>
+                                    <div className="tetris-room-cell center">{index + 1}</div>
+                                    <div className={`tetris-room-cell ${player ? 'player' : 'muted'}`} style={{ gridColumn: 'span 3' }}>{player || '참가자 대기 중'}</div>
+                                    <div className="tetris-room-cell center" style={{ gridColumn: 'span 2' }}>{index === 0 ? '방장' : player ? '참가자' : '-'}</div>
+                                    <div className={`tetris-room-cell center ${player ? 'ready' : 'muted'}`}>{player ? '접속' : '대기'}</div>
+                                    <div className="tetris-room-cell center" style={{ gridColumn: 'span 2' }}>{player ? (index === myPlayerIndex ? '현재 사용자' : '원격 사용자') : '빈 슬롯'}</div>
+                                </div>
+                            );
+                        })}
+
+                        <div className="tetris-room-section" style={{ gridColumn: 'span 9' }}>2. 게임 운영 설정</div>
+                        <div className="tetris-room-cell label">최대 인원</div><div className="tetris-room-cell center">3명</div>
+                        <div className="tetris-room-cell label">보드 규격</div><div className="tetris-room-cell center">10 × 20</div>
+                        <div className="tetris-room-cell label">동기화</div><div className="tetris-room-cell" style={{ gridColumn: 'span 2' }}>WebSocket 실시간</div>
+                        <div className="tetris-room-cell label">진행 상태</div><div className="tetris-room-cell warning">시작 대기</div>
+
+                        <div className="tetris-room-cell label">세션 메모</div>
+                        <div className={`tetris-room-cell editable ${excelRoomSelection === 'B10' ? 'selected' : ''}`} style={{ gridColumn: 'span 8' }} contentEditable suppressContentEditableWarning onFocus={() => selectExcelRoomCell('B10', excelRoomEdits.sessionMemo)} onInput={(event) => { const value = event.currentTarget.textContent ?? ''; setExcelRoomEdits(current => ({ ...current, sessionMemo: value })); onCellSelect?.('B10', value); }}>{excelRoomEdits.sessionMemo}</div>
+                        <div className="tetris-room-cell note-label">운영 메모</div>
+                        <div className={`tetris-room-cell note editable ${excelRoomSelection === 'B11' ? 'selected' : ''}`} style={{ gridColumn: 'span 8' }} contentEditable suppressContentEditableWarning onFocus={() => selectExcelRoomCell('B11', excelRoomEdits.operationMemo)} onInput={(event) => { const value = event.currentTarget.textContent ?? ''; setExcelRoomEdits(current => ({ ...current, operationMemo: value })); onCellSelect?.('B11', value); }}>{excelRoomEdits.operationMemo}</div>
+
+                        {Array.from({ length: 9 }, (_, index) => <div className="tetris-room-empty" key={`tetris-wait-spacer-${index}`} />)}
+                        <div className="tetris-room-status" style={{ gridColumn: 'span 6' }}>{isHost ? '방장 권한 확인됨 · 게임 시작 가능' : `${playerNames[0] || '방장'}님의 시작 승인을 기다리는 중`}</div>
+                        <button className="tetris-room-leave" type="button" onClick={handleLeave}>나가기</button>
+                        {isHost ? <button className="tetris-room-start" type="button" onClick={handleStart}>게임 시작</button> : <div className="tetris-room-wait" style={{ gridColumn: 'span 2' }}>승인 대기</div>}
+                        {Array.from({ length: 32 * 9 }, (_, index) => <div className="tetris-room-empty" key={`tetris-wait-empty-${index}`} />)}
+                    </div>
+                )}
+
                 {/* ── SETUP / PLAYING / FINISHED: 게임 컴포넌트 ── */}
                 {status !== 'WAITING' && !isPlayableMember && (
                     <div className="msg-bar error">
@@ -287,6 +344,9 @@ function StudyRoom({
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}
+                            workspaceMode={workspaceMode}
+                            onLeave={handleLeave}
+                            onRestart={handleRestart}
                         />
                     ) : isIncidentAvoid ? (
                         <IncidentAvoid

@@ -108,6 +108,7 @@ interface LobbyChatPanelProps {
     playerNames: string[];
     onIncomingMessage: (msg: ChatMessage) => void;
     bubbleColor: string;
+    workspaceMode: WorkspaceMode;
 }
 
 const LobbyChatPanel = memo(function LobbyChatPanel({
@@ -117,6 +118,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     playerNames,
     onIncomingMessage,
     bubbleColor,
+    workspaceMode,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const handleHistory = useCallback((history: ChatMessage[]) => {
@@ -148,6 +150,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
             onSend={nickname.trim() ? handleSend : noopSend}
             onClearMessages={handleClear}
             playerNames={playerNames}
+            scrollResetKey={workspaceMode}
         />
     );
 });
@@ -597,8 +600,8 @@ function App() {
         >
             {noiseOn && <div className="noise"></div>}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
-            {smokingDeskOn && <SmokingWidget nickname={nickname} sessionId={sessionId} opacity={smokingOpacity} />}
-            {vendingOn && <VendingMachineWidget nickname={nickname} sessionId={sessionId} opacity={vendingOpacity} />}
+            <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
+            <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />
             {(smokingDeskOn || vendingOn) && <DeskTrashBin />}
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
@@ -1675,6 +1678,7 @@ function App() {
                                 />
                             ) : (
                                 <div
+                                    className="study-room-container"
                                     style={{
                                         flex: 1,
                                         overflow: 'auto',
@@ -1691,6 +1695,9 @@ function App() {
                                         onStudyState={handleStudyState}
                                         onLeave={handleLeaveRoom}
                                         leaveRef={leaveRef}
+                                        onCellSelect={(address, value) => setExcelSelection({ address, rangeEnd: address, value })}
+                                        onRangeSelect={(address, rangeEnd) => setExcelSelection((current) => ({ ...current, address, rangeEnd }))}
+                                        workspaceMode={workspaceMode}
                                     />
                                 </div>
                             )}
@@ -2126,6 +2133,7 @@ function App() {
                         playerNames={chatPlayerNames}
                         onIncomingMessage={handleIncomingChat}
                         bubbleColor={bubbleColor}
+                        workspaceMode={workspaceMode}
                     />
                 </div>
                 {workspaceMode === 'excel' && (

@@ -163,6 +163,8 @@
   --font:"Segoe UI","Malgun Gothic",sans-serif;
   background:#fff;color:#242424;font-family:var(--font)
 }
+html[data-workspace-mode="excel"],html[data-workspace-mode="excel"] body,html[data-workspace-mode="excel"] #root{height:100%;min-height:0;overflow:hidden}
+.workspace--excel{height:100dvh!important;min-height:0;overflow:hidden}
 .workspace--excel,.workspace--excel *{font-family:var(--excel-ui-font,"Malgun Gothic","맑은 고딕",sans-serif)!important}
 .workspace--excel .excel-formula-actions i{font-family:Georgia,serif!important}
 .workspace--excel *{scrollbar-width:thin;scrollbar-color:#b7b7b7 #f2f2f2}
@@ -173,11 +175,11 @@
 .workspace--excel *::-webkit-scrollbar-button{display:none;width:0;height:0}
 .workspace--excel *::-webkit-scrollbar-corner{background:#f2f2f2}
 .workspace--excel .vscode-titlebar{display:none!important}
-.workspace--excel .workspace-body{position:relative;padding-bottom:31px;background:#fff}
+.workspace--excel .workspace-body{position:relative;min-height:0;overflow:hidden;padding-bottom:31px;background:#fff}
 .workspace--excel .vscode-activitybar{
-  position:relative;width:34px!important;align-self:stretch;padding:0!important;gap:0!important;
+  position:relative;z-index:50;width:34px!important;align-self:stretch;padding:0!important;gap:0!important;
   margin-bottom:0!important;border-right:1px solid #d1d1d1!important;background:#f3f3f3!important;
-  overflow:hidden
+  overflow:visible
 }
 .workspace--excel .vscode-activitybar>*{color:#185c37!important}
 .excel-rail-numbers{position:absolute;z-index:0;inset:26px 0 auto;display:flex;flex-direction:column;transform:translateY(calc(-1 * var(--excel-sheet-scroll-y,0px)));pointer-events:none}
@@ -214,12 +216,23 @@
 .workspace--excel .excel-rail-action-22{top:572px!important}
 .workspace--excel .smoking-activity-control>svg,
 .workspace--excel .vending-activity-control>svg{width:17px;height:17px}
+.workspace--excel .smoking-opacity-panel{
+  z-index:1200;left:33px;top:-5px;
+  border-color:#aebbb3;border-radius:3px;
+  background:rgba(255,255,255,.98);color:#45554b;
+  box-shadow:0 5px 16px rgba(0,0,0,.2)
+}
+.workspace--excel .smoking-opacity-panel::before{border-color:#aebbb3;background:#fff}
+.workspace--excel .smoking-opacity-panel strong{color:#185c37;font-weight:700;letter-spacing:.08em}
+.workspace--excel .smoking-opacity-panel label{color:#4f5f55}
+.workspace--excel .smoking-opacity-panel small{color:#66736b}
+.workspace--excel .smoking-opacity-panel input[type='range']{accent-color:#217346}
 .workspace--excel .activity-game-button{font-size:12px!important}
 .workspace--excel .excel-activity-icon{display:grid;width:24px;height:24px;place-items:center;color:#185c37;font:400 15px "Segoe UI Symbol",sans-serif;filter:none}
 .workspace--excel .vscode-sidebar{position:relative;width:218px!important;border-right:1px solid #b8b8b8!important;background:#f5f5f5!important;color:#333}
 .workspace--excel .vscode-sidebar.excel-sidebar-collapsed{display:none!important}
 .workspace--excel .vscode-sidebar>div:first-child{height:28px;padding:6px 10px!important;border-bottom:1px solid #d0d0d0;background:#e2eee6;color:#185c37!important}
-.workspace--excel .workspace-document{background:#fff!important}
+.workspace--excel .workspace-document{min-height:0;overflow:hidden!important;background:#fff!important}
 .excel-global-columnbar{
   position:sticky;top:0;z-index:8;flex:0 0 26px;width:100%;
   display:grid;
@@ -236,7 +249,7 @@
 .workspace--excel .tab-bar{min-height:30px;border-bottom-color:#bdbdbd;background:#ededed}
 .workspace--excel .tab{padding:6px 14px;border-right-color:#ccc;background:#ededed;color:#666}
 .workspace--excel .tab.active{margin-top:0;border-top:0;border-bottom:2px solid #217346;background:#fff;color:#185c37}
-.workspace--excel .content-scroll{overflow:auto!important;background-color:#fff;background-image:linear-gradient(#f2f2f2 1px,transparent 1px),linear-gradient(90deg,#f2f2f2 1px,transparent 1px);background-size:22px 22px,88px 22px}
+.workspace--excel .content-scroll{height:100%;min-height:0;overflow:auto!important;overscroll-behavior:contain;background-color:#fff;background-image:linear-gradient(#f2f2f2 1px,transparent 1px),linear-gradient(90deg,#f2f2f2 1px,transparent 1px);background-size:22px 22px,88px 22px}
 .workspace--excel .opacity-toolbar{display:none!important}
 .workspace--excel .content-surface{width:100%;min-width:var(--excel-sheet-min-width);min-height:100%;background:rgba(255,255,255,.94)}
 .workspace--excel .code-block,.workspace--excel .code-block-wrap{border-color:#cfcfcf;background:rgba(255,255,255,.97)}
@@ -306,7 +319,7 @@
 .workspace--excel .chat-system-message span{color:#c45c29!important}
 .workspace--excel .chat-message-item{position:relative;margin:0 3px 6px;padding:7px 7px 6px!important;border:1px solid #d9d9d9;border-radius:3px;background:#fff;align-items:stretch!important}
 .workspace--excel .chat-message-item::before{content:"";position:absolute;top:10px;right:35px;width:5px;height:5px;border-radius:50%;background:#38ba69}
-.workspace--excel .chat-message-author{width:auto!important;align-self:flex-start!important;justify-content:flex-start!important;flex-direction:row!important;margin:0 50px 4px 0!important;color:#087a3d!important;font-size:9px;font-weight:700;text-align:left!important}
+.workspace--excel .chat-message-author{width:auto!important;align-self:flex-start!important;justify-content:flex-start!important;flex-direction:row!important;margin:0 50px 4px 0!important;color:#087a3d!important;font-size:11px;font-weight:700;text-align:left!important}
 .workspace--excel .chat-message-author>img,.workspace--excel .chat-message-author>span{order:1}
 .workspace--vscode .chat-message-author.grouped,.workspace--vscode .chat-message-time.grouped{display:none!important}
 .workspace--excel .chat-message-author.grouped{display:inline-flex!important}
@@ -322,8 +335,8 @@
   box-shadow:none!important
 }
 .workspace--excel .chat-message-item.mentioned{border-color:#e3bd6f;background:#fffaf0}
-.workspace--excel .chat-message-text{color:#333!important;font:10px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
-.workspace--excel .chat-message-time{position:absolute;top:6px;right:6px;padding:0;color:#777!important;font-size:8px!important}
+.workspace--excel .chat-message-text{color:#333!important;font:12px/1.5 "Segoe UI","Malgun Gothic",sans-serif}
+.workspace--excel .chat-message-time{position:absolute;top:6px;right:6px;padding:0;color:#777!important;font-size:10px!important}
 .chat-message-bubble:has(.chat-reply-preview){width:100%}
 .chat-reply-preview{width:100%;min-width:100%;align-self:stretch;box-sizing:border-box}
 .workspace--excel .chat-reply-preview{margin:0 0 4px!important;padding:5px 7px!important;border-left:2px solid #a9a9a9!important;border-radius:2px!important;background:#f2f2f2!important}
@@ -343,7 +356,7 @@
 .workspace--excel .chat-opacity-toggle svg{fill:#217346!important}
 .workspace--excel .chat-footer{border-top:1px solid #cfcfcf;background:#fafafa}
 .workspace--excel .chat-composer{min-height:38px;padding:5px 6px!important;border-top:1px solid #d5d5d5!important;background:#fafafa}
-.workspace--excel .chat-input{height:27px!important;border:1px solid #bcbcbc!important;border-radius:0!important;background:#fff!important;color:#333!important;font:10px "Segoe UI","Malgun Gothic",sans-serif!important}
+.workspace--excel .chat-input{height:27px!important;border:1px solid #bcbcbc!important;border-radius:0!important;background:#fff!important;color:#333!important;font:12px "Segoe UI","Malgun Gothic",sans-serif!important}
 .workspace--excel .chat-input:focus{border-color:#217346!important;box-shadow:inset 0 0 0 1px #217346}
 .workspace--excel .chat-send-button{height:27px!important;border-radius:1px!important;background:#217346!important;font-size:0!important}
 .workspace--excel .chat-send-button::after{content:"등록";font-size:9px}
@@ -413,6 +426,187 @@
 .excel-form-note b{border-right:1px solid #dfdfdf;background:#fff9e8;color:#765b16;font-size:10px}
 .excel-form-note span{color:#777;line-height:1.5}
 .excel-entry-actions{display:flex;justify-content:flex-end;gap:5px;padding:10px;border-right:1px solid #dfdfdf;border-bottom:1px solid #dfdfdf;background:#fafafa}
+
+.excel-create-sheet{
+  display:grid;grid-template-columns:var(--excel-sheet-columns);grid-auto-rows:26px;
+  width:100%;min-width:var(--excel-sheet-min-width);background:#fff;color:#333
+}
+.excel-create-title,.excel-create-section,.excel-create-cell,.excel-create-empty-cell,.excel-create-status,
+.excel-create-cancel,.excel-create-submit{min-width:0;border:0;border-right:1px solid #d5d5d5;border-bottom:1px solid #d5d5d5;border-radius:0}
+.excel-create-title{display:flex;align-items:center;padding:0 8px;background:#e2f0d9;color:#185c37;font-size:12px;font-weight:700;letter-spacing:.02em}
+.excel-create-section{display:flex;align-items:center;padding:0 8px;background:#edf5ef;color:#185c37;font-size:10px;font-weight:700}
+.excel-create-cell{position:relative;display:flex;align-items:center;overflow:hidden;padding:3px 6px;background:#fff;font-size:10px;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;cursor:cell}
+.excel-create-cell.label{justify-content:center;background:#f3f3f3;color:#5b5b5b;font-size:9px;font-weight:600}
+.excel-create-cell.muted{color:#777;font-size:9px}
+.excel-create-cell.review{background:#fff6d9;color:#806000;font-weight:600}
+.excel-create-cell.ready{background:#e8f3ec;color:#18723e;font-weight:600}
+.excel-create-cell.note-label{justify-content:center;background:#fff5d8;color:#765b16;font-size:9px;font-weight:600}
+.excel-create-cell.note{background:#fffdf5;color:#68614f}
+.excel-create-cell.input-cell{z-index:1;padding:0;background:#fff}
+.excel-create-cell.input-cell.selected{z-index:3;overflow:visible;outline:1.5px solid #217346;outline-offset:-1px}
+.excel-create-cell.input-cell.selected::after{content:"";position:absolute;right:-3px;bottom:-3px;width:6px;height:6px;border:1px solid #fff;background:#217346;pointer-events:none}
+.excel-create-cell input,.excel-create-cell select{width:100%;height:25px;padding:2px 6px;border:0;background:transparent;color:#222;font-size:10px;outline:0}
+.excel-create-cell select{cursor:pointer}
+.excel-create-cell.number input{text-align:center}
+.excel-create-cell.input-cell>span{padding:0 6px;color:#777}
+.excel-create-empty-cell{background:#fff}
+.excel-create-empty-cell:hover{background:#fbfdfb}
+.excel-create-status{display:flex;align-items:center;padding:0 8px;background:#f7f7f7;color:#777;font-size:9px}
+.excel-create-cancel,.excel-create-submit{display:flex;align-items:center;justify-content:center;padding:0 8px;background:#fff;color:#444;font-size:10px;cursor:pointer}
+.excel-create-cancel:hover{background:#f1f1f1}
+.excel-create-submit{grid-column:span 2;border-color:#185c37;background:#217346;color:#fff;font-weight:600}
+.excel-create-submit:hover{background:#185c37}
+.excel-create-submit:disabled{border-color:#9ab7a5;background:#9ab7a5;cursor:wait}
+
+/* Tetris room waiting sheet. The VS Code waiting block stays mounted separately. */
+.tetris-excel-waiting-sheet{display:none}
+.workspace--excel .study-room-container{padding:0!important;overflow:visible!important}
+.workspace--excel .study-room-shell,.workspace--excel .study-room-main{height:auto!important;min-height:100%;overflow:visible}
+.workspace--excel .study-room-main.tetris-room{gap:0!important}
+.workspace--excel .study-room-main.tetris-room>.study-room-header,
+.workspace--excel .study-room-main.tetris-room>.tetris-waiting-code,
+.workspace--excel .study-room-main.tetris-room>.study-room-status-message{display:none!important}
+.workspace--excel .tetris-excel-waiting-sheet{
+  display:grid;grid-template-columns:var(--excel-sheet-columns);grid-auto-rows:26px;
+  width:100%;min-width:var(--excel-sheet-min-width);background:#fff;color:#333
+}
+.tetris-room-player-row{display:contents}
+.tetris-room-title,.tetris-room-section,.tetris-room-cell,.tetris-room-empty,.tetris-room-status,
+.tetris-room-leave,.tetris-room-start,.tetris-room-wait{min-width:0;border:0;border-right:1px solid #d5d5d5;border-bottom:1px solid #d5d5d5;border-radius:0}
+.tetris-room-title{display:flex;align-items:center;padding:0 8px;background:#e2f0d9;color:#185c37;font-size:12px;font-weight:700;letter-spacing:.02em}
+.tetris-room-section{display:flex;align-items:center;padding:0 8px;background:#edf5ef;color:#185c37;font-size:10px;font-weight:700}
+.tetris-room-cell{position:relative;display:flex;align-items:center;overflow:hidden;padding:3px 6px;background:#fff;color:#333;font-size:10px;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;cursor:cell}
+.tetris-room-cell.label,.tetris-room-cell.table-head{justify-content:center;background:#f3f3f3;color:#5b5b5b;font-size:9px;font-weight:600}
+.tetris-room-cell.table-head{background:#ededed}
+.tetris-room-cell.center{justify-content:center}
+.tetris-room-cell.player{color:#185c37;font-weight:600}
+.tetris-room-cell.muted{color:#9a9a9a}
+.tetris-room-cell.ready{background:#e8f3ec;color:#18723e;font-weight:600}
+.tetris-room-cell.warning{background:#fff6d9;color:#806000;font-weight:600}
+.tetris-room-cell.note-label{justify-content:center;background:#fff5d8;color:#765b16;font-size:9px;font-weight:600}
+.tetris-room-cell.note{background:#fffdf5;color:#68614f}
+.tetris-room-cell.editable{z-index:1;cursor:text;outline:0}
+.tetris-room-cell.editable.selected{z-index:3;overflow:visible;outline:1.5px solid #217346;outline-offset:-1px;background:#fff!important}
+.tetris-room-cell.editable.selected::after{content:"";position:absolute;right:-3px;bottom:-3px;width:6px;height:6px;border:1px solid #fff;background:#217346;pointer-events:none}
+.tetris-room-empty{background:#fff}
+.tetris-room-empty:hover{background:#fbfdfb}
+.tetris-room-status{display:flex;align-items:center;padding:0 8px;background:#f7f7f7;color:#66736b;font-size:9px}
+.tetris-room-leave,.tetris-room-start,.tetris-room-wait{display:flex;align-items:center;justify-content:center;padding:0 7px;background:#fff;color:#444;font-size:10px}
+.tetris-room-leave{cursor:pointer}
+.tetris-room-leave:hover{background:#f1f1f1;color:#9c0006}
+.tetris-room-start{grid-column:span 2;border-color:#185c37;background:#217346;color:#fff;font-weight:600;cursor:pointer}
+.tetris-room-start:hover{background:#185c37}
+.tetris-room-wait{background:#f1f1f1;color:#888}
+
+/* Excel-only Tetris play view. VS Code keeps the original IDE renderer. */
+.workspace--excel .tetris-workspace{width:100%;min-width:var(--excel-sheet-min-width);min-height:610px;display:block;overflow:visible;padding:0;background:#fff;outline:0}
+.workspace--excel .tetris-sheet{width:100%;min-width:var(--excel-sheet-min-width);min-height:610px;overflow:visible;border:0;background:#fff;color:#242424;box-shadow:none}
+.workspace--excel .tetris-sheet-ribbon,.workspace--excel .tetris-sheet-formula,.workspace--excel .tetris-sheet-statusbar{display:none}
+.workspace--excel .tetris-sheet-titlebar{height:32px;flex:0 0 32px;justify-content:flex-start;padding:0 8px;border-bottom:1px solid #c9c9c9;background:#f7f7f7;color:#185c37;font-size:10px;font-weight:600}
+.workspace--excel .tetris-sheet-appmark{position:static;display:grid;width:24px;height:24px;place-items:center;margin-right:6px;border-right:1px solid #d5d5d5;color:#217346;font-size:16px}
+.workspace--excel .tetris-sheet-session-actions{height:22px;margin-left:auto;margin-right:205px;display:flex;gap:4px}
+.workspace--excel .tetris-sheet-exit,.workspace--excel .tetris-sheet-restart{height:22px;padding:0 8px;border:1px solid #c9c9c9;border-radius:2px;background:#fff;font-size:9px}
+.workspace--excel .tetris-sheet-exit{color:#7f1d1d}
+.workspace--excel .tetris-sheet-restart{color:#185c37}
+.workspace--excel .tetris-sheet-exit:hover{border-color:#c98b8b;background:#fbeaea;color:#9c0006}
+.workspace--excel .tetris-sheet-restart:hover{border-color:#9dc2aa;background:#e8f2eb;color:#185c37}
+.workspace--excel .tetris-sheet .tetris-controls-dock{top:3px;right:6px}
+.workspace--excel .tetris-sheet .tetris-actions{height:26px;padding:1px;border:1px solid #c9c9c9;border-radius:2px;background:#fff}
+.workspace--excel .tetris-sheet .tetris-actions button{height:22px;min-width:42px;padding:0 6px;border:1px solid transparent;background:transparent;color:#3b3b3b;font-size:9px}
+.workspace--excel .tetris-sheet .tetris-actions button:hover{border-color:#9dc2aa;background:#e8f2eb;color:#185c37}
+.workspace--excel .tetris-sheet .tetris-actions .tetris-record-button{min-width:104px;border-color:transparent;color:#333}
+.workspace--excel .tetris-record-button b{color:#185c37}
+.workspace--excel .tetris-mode-setting{display:none}
+.workspace--excel .tetris-settings-popover,.workspace--excel .tetris-record-popover{border:1px solid #aebbb3;background:#fff;color:#333;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.workspace--excel .tetris-control-list label{color:#555}
+.workspace--excel .tetris-range{accent-color:#217346}
+
+.workspace--excel .tetris-sheet-body{min-height:578px;grid-template-columns:minmax(0,1fr);background:#fff}
+.workspace--excel .tetris-sheet-summary,.workspace--excel .tetris-sheet-peers{padding:10px;background:#f7f7f7;color:#333}
+.workspace--excel .tetris-sheet-summary{border-right:1px solid #c8c8c8}
+.workspace--excel .tetris-sheet-peers{border-left:1px solid #c8c8c8}
+.workspace--excel .tetris-sheet-summary h3,.workspace--excel .tetris-sheet-peers h3{margin:0 0 8px;padding:6px;border-bottom:2px solid #217346;color:#1d5135;background:#edf5ef;font-size:10px}
+.workspace--excel .tetris-sheet-practice{border-color:#d6b656;background:#fff2cc;color:#7f6000}
+.workspace--excel .tetris-sheet-kpi{border-color:#dedede;background:#fff;color:#444}
+.workspace--excel .tetris-sheet-kpi:last-of-type{border-bottom-color:#dedede}
+.workspace--excel .tetris-sheet-kpi b{color:#217346}
+.workspace--excel .tetris-sheet-kpi.warning b{color:#a35b00}
+.workspace--excel .tetris-sheet-task-list{border-top-color:#b7b7b7}
+.workspace--excel .tetris-sheet-task{border-color:#d6d6d6;background:#fff}
+.workspace--excel .tetris-sheet-task small{color:#666}
+.workspace--excel .tetris-sheet-piece-preview{border-color:#b7b7b7;background:#f3f3f3}
+.workspace--excel .tetris-sheet-piece-preview i{border-color:#dedede;background:#fff}
+.workspace--excel .tetris-sheet-piece-preview.empty b{color:#777}
+.workspace--excel .tetris-sheet-piece-rail .tetris-sheet-task{border-color:#a9a9a9;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.workspace--excel .tetris-sheet-piece-rail .tetris-sheet-task small{background:#e2f0d9;color:#375623}
+.workspace--excel .tetris-sheet-piece-rail .tetris-sheet-piece-preview{background:transparent}
+.workspace--excel .tetris-sheet-arena{background:#fff}
+.workspace--excel .tetris-sheet-dummy-grid i{border-color:#dedede;background:rgba(255,255,255,.96);color:#777}
+.workspace--excel .tetris-sheet-dummy-grid i:nth-child(4n){background:rgba(250,250,250,.96);color:#5f6e65}
+.workspace--excel .tetris-sheet-player{border-color:#a9a9a9;background:#fff}
+.workspace--excel .tetris-sheet-player.mine{border-color:#70ad8c}
+.workspace--excel .tetris-sheet-player-head{border-color:#c9c9c9;background:#f3f3f3;color:#444}
+
+.workspace--excel .tetris-sheet-grid-wrap{grid-template-columns:minmax(110px,1fr) 224px minmax(150px,1.25fr);overflow:hidden;background:#fff}
+.workspace--excel .tetris-sheet-corner,.workspace--excel .tetris-sheet-col,.workspace--excel .tetris-sheet-rownum{border-color:#c9c9c9;background:#f0f0f0;color:#5f5f5f}
+.workspace--excel .tetris-sheet-data-block i,.workspace--excel .tetris-sheet-rowcells i{border-color:#d5d5d5;background:#fff;color:#666}
+.workspace--excel .tetris-sheet-data-block i:nth-child(4n){background:#fafafa}
+.workspace--excel .tetris-sheet-rowcells i.filled{color:#20352a;box-shadow:inset 0 0 0 1px rgba(33,115,70,.34)}
+.workspace--excel .tetris-sheet-rowcells i.ghost{outline-color:#6f9f82;background:#edf5ef!important}
+.workspace--excel .tetris-sheet-rowcells i.t-I{background:#d9eaf7}
+.workspace--excel .tetris-sheet-rowcells i.t-O{background:#fff2cc}
+.workspace--excel .tetris-sheet-rowcells i.t-T{background:#e4dfec}
+.workspace--excel .tetris-sheet-rowcells i.t-S{background:#e2f0d9}
+.workspace--excel .tetris-sheet-rowcells i.t-Z{background:#fce4d6}
+.workspace--excel .tetris-sheet-rowcells i.t-J{background:#ddebf7}
+.workspace--excel .tetris-sheet-rowcells i.t-L{background:#f8cbad}
+.workspace--excel .tetris-sheet-rowcells i.t-G{background:#e7e6e6;color:#9c0006}
+.workspace--excel .tetris-sheet-countdown,.workspace--excel .tetris-sheet-notice,.workspace--excel .tetris-sheet-warning{border-color:#a6a6a6;background:#fff;color:#333;box-shadow:0 3px 9px rgba(0,0,0,.16)}
+.workspace--excel .tetris-sheet-notice{border-color:#70ad47;background:#e2f0d9;color:#375623}
+.workspace--excel .tetris-sheet-warning{border-color:#ffd966;background:#fff2cc;color:#9c6500}
+
+.workspace--excel .tetris-sheet-peer{border-color:#d5d5d5;background:#fff;color:#333}
+.workspace--excel .tetris-sheet-peer:hover{border-color:#70ad47;background:#f3f8f4}
+.workspace--excel .tetris-sheet-peer-head small{background:#fff2cc;color:#9c6500}
+.workspace--excel .tetris-sheet-peer-head small.winner{background:#e2f0d9;color:#375623}
+.workspace--excel .tetris-sheet-peer-board{border-color:#e0e0e0;background:#fafafa}
+.workspace--excel .tetris-sheet-peer-board i{background:#eee}
+.workspace--excel .tetris-sheet-peer-board i.filled{background:#70ad8a}
+.workspace--excel .tetris-sheet-peer-meta,.workspace--excel .tetris-sheet-empty{color:#777}
+.workspace--excel .tetris-sheet-chart{border-color:#ddd;background:#fff}
+.workspace--excel .tetris-sheet-chart b{color:#666}
+.workspace--excel .tetris-sheet-chart span{background:#70ad47}
+.workspace--excel .tetris-work-cover{border-color:#9f9f9f;background:#fff;color:#333;box-shadow:0 8px 26px rgba(0,0,0,.18)}
+.workspace--excel .tetris-work-cover-tabs{border-bottom-color:#c5c5c5;background:#217346}
+.workspace--excel .tetris-work-cover-tabs span{border-right-color:rgba(255,255,255,.2);color:rgba(255,255,255,.82)}
+.workspace--excel .tetris-work-cover-tabs span.active{background:#fff;color:#17683e}
+.workspace--excel .tetris-work-cover-body aside{border-right-color:#c9c9c9;background:#f4f4f4;color:#555}
+.workspace--excel .tetris-work-cover-body aside span.active{background:#e2f0d9;color:#375623}
+.workspace--excel .tetris-work-cover-body main{background:#fff;color:#444}
+.workspace--excel .tetris-cover-row>*{border-color:#ddd}
+.workspace--excel .tetris-cover-row.header>*{border-top-color:#217346;background:#e2f0d9;color:#375623}
+.workspace--excel .tetris-work-cover-status{background:#217346;color:#fff}
+.workspace--excel .tetris-result-backdrop{background:rgba(255,255,255,.76)}
+.workspace--excel .tetris-result-dialog{border:1px solid #8dad99;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+.workspace--excel .tetris-result-dialog.aborted{border-color:#d3a39e}
+.workspace--excel .tetris-result-heading{border-bottom:2px solid #217346;background:#edf5ef;color:#185c37}
+.workspace--excel .tetris-result-heading button{border-color:#b8b8b8;background:#fff;color:#555}
+.workspace--excel .tetris-ranking-section,.workspace--excel .tetris-result-record-detail{border-color:#d4d4d4;background:#fff}
+.workspace--excel .tetris-ranking-section h3,.workspace--excel .tetris-result-record-detail h3{border-color:#d4d4d4;background:#f3f3f3;color:#555}
+.workspace--excel .tetris-ranking-row{border-color:#dedede;background:#fff;color:#444}
+.workspace--excel .tetris-ranking-row:first-child{background:#e2f0d9;color:#185c37}
+.workspace--excel .tetris-result-actions{border-top-color:#d4d4d4;background:#f7f7f7}
+.workspace--excel .tetris-record-popover{color:#333}
+.workspace--excel .tetris-record-title{border-bottom-color:#c9c9c9}
+.workspace--excel .tetris-record-title strong,.workspace--excel .tetris-opponent-title,.workspace--excel .tetris-record-empty strong{color:#185c37}
+.workspace--excel .tetris-record-title span{color:#806000}
+.workspace--excel .tetris-record-guide,.workspace--excel .tetris-record-empty{color:#666}
+.workspace--excel .tetris-rank-card,.workspace--excel .tetris-record-summary span{border-color:#d5d5d5;background:#f7f7f7}
+.workspace--excel .tetris-rank-info strong,.workspace--excel .tetris-record-summary b{color:#333}
+.workspace--excel .tetris-rank-info small,.workspace--excel .tetris-rank-info span,.workspace--excel .tetris-record-summary small{color:#666}
+.workspace--excel .tetris-opponent-list{border-color:#d5d5d5;background:#fff}
+.workspace--excel .tetris-opponent-row{border-color:#e0e0e0;color:#444}
+.workspace--excel .tetris-opponent-row.header{background:#edf5ef;color:#185c37}
 
 /* Real worksheet grid: addressable, editable cells with Excel-style selection guides. */
 .excel-real-sheet{

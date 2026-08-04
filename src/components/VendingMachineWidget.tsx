@@ -31,6 +31,7 @@ interface DispensedCup extends VendingEvent {
 interface VendingMachineWidgetProps {
     nickname: string;
     sessionId: string;
+    machineVisible: boolean;
     opacity: number;
 }
 
@@ -53,7 +54,7 @@ function loadPosition() {
     return { x: .13, y: .57 };
 }
 
-function VendingMachineWidget({ nickname, sessionId, opacity }: VendingMachineWidgetProps) {
+function VendingMachineWidget({ nickname, sessionId, machineVisible, opacity }: VendingMachineWidgetProps) {
     const clientRef = useRef<Client | null>(null);
     const layerRef = useRef<HTMLDivElement | null>(null);
     const seenEventsRef = useRef(new Set<string>());
@@ -254,10 +255,11 @@ function VendingMachineWidget({ nickname, sessionId, opacity }: VendingMachineWi
 
     return (
         <div className="vending-layer" ref={layerRef} aria-label="Shared vending machine">
-            <div
-                className={`office-vending ${activeEvent ? 'dispensing' : ''}`}
-                style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%`, opacity }}
-            >
+            {machineVisible && (
+                <div
+                    className={`office-vending ${activeEvent ? 'dispensing' : ''}`}
+                    style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%`, opacity }}
+                >
                 <div
                     className="vending-handle"
                     onPointerDown={startDrag}
@@ -304,7 +306,8 @@ function VendingMachineWidget({ nickname, sessionId, opacity }: VendingMachineWi
                     </div>
                     <div className="vending-service"><i /><span>온수 정상</span></div>
                 </div>
-            </div>
+                </div>
+            )}
             {cups.map(cup => (
                 <span
                     className={`vending-cup free-vending-cup cup-${cup.drink.toLowerCase().replace('_', '-')}`}

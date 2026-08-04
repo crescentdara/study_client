@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { ChatAttachment, ChatMessage } from "../types";
 import imgCh1 from '../assets/images/ch1.png';
@@ -20,6 +20,7 @@ interface ChatProps {
   onSend: (text: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number, bubbleColor?: string) => void;
   onClearMessages?: () => void;
   playerNames?: string[];
+  scrollResetKey?: string;
 }
 
 const CHAT_RENDER_LIMIT = 80;
@@ -70,7 +71,7 @@ function renderWithMentions(text: string, myNickname: string) {
   });
 }
 
-function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend, onClearMessages, playerNames = [] }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [chatChannel, setChatChannel] = useState<1 | 2>(1);
@@ -132,6 +133,23 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
       bottomRef.current?.scrollIntoView({ block: "end" });
     }
   }, [latestMessage, latestMessageKey, myNickname, open, visibleMessages.length]);
+
+  useLayoutEffect(() => {
+    if (!open || scrollResetKey === undefined) return;
+    stickToBottomRef.current = true;
+    setUnreadCount(0);
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const list = scrollRef.current;
+        if (list) list.scrollTop = list.scrollHeight;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [open, scrollResetKey]);
 
   const updateStickToBottom = () => {
     const el = scrollRef.current;

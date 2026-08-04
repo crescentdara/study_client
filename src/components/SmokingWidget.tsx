@@ -43,6 +43,7 @@ interface PuffEffect {
 interface SmokingWidgetProps {
     nickname: string;
     sessionId: string;
+    packVisible: boolean;
     opacity: {
         cigarette: number;
         pack: number;
@@ -91,12 +92,13 @@ function withLocalClock(cigarette: CigaretteState): CigaretteState {
     };
 }
 
-function SmokingWidget({ nickname, sessionId, opacity }: SmokingWidgetProps) {
+function SmokingWidget({ nickname, sessionId, packVisible, opacity }: SmokingWidgetProps) {
     const layerRef = useRef<HTMLDivElement | null>(null);
     const clientRef = useRef<Client | null>(null);
     const statesRef = useRef<Record<string, CigaretteState>>({});
     const seenAshActionsRef = useRef(new Set<string>());
     const seenPuffActionsRef = useRef(new Set<string>());
+    const ashCleanupTimersRef = useRef<number[]>([]);
     const ashResetBurnRef = useRef<Record<string, number>>({});
     const nextAutoAshBurnRef = useRef(.11 + Math.random() * .05);
     const lastPaperTapRef = useRef<Record<string, number>>({});
@@ -118,6 +120,8 @@ function SmokingWidget({ nickname, sessionId, opacity }: SmokingWidgetProps) {
 
     useEffect(() => () => {
         if (puffChargeRef.current) window.cancelAnimationFrame(puffChargeRef.current.frameId);
+        ashCleanupTimersRef.current.forEach(timer => window.clearTimeout(timer));
+        ashCleanupTimersRef.current = [];
     }, []);
 
     const replaceStates = useCallback((next: Record<string, CigaretteState>) => {
@@ -145,6 +149,12 @@ function SmokingWidget({ nickname, sessionId, opacity }: SmokingWidgetProps) {
             rotation: -80 + Math.random() * 240,
         }));
         setAshDeposits(previous => [...previous, ...pieces].slice(-160));
+        const pieceIds = new Set(pieces.map(piece => piece.id));
+        const timer = window.setTimeout(() => {
+            setAshDeposits(previous => previous.filter(piece => !pieceIds.has(piece.id)));
+            ashCleanupTimersRef.current = ashCleanupTimersRef.current.filter(item => item !== timer);
+        }, 10_000);
+        ashCleanupTimersRef.current.push(timer);
     }, []);
 
     const showPuff = useCallback((cigarette: CigaretteState) => {
@@ -562,39 +572,41 @@ function SmokingWidget({ nickname, sessionId, opacity }: SmokingWidgetProps) {
                 ))}
             </div>
 
-            <div
-                className={`cigarette-pack ${packOpen ? 'open' : ''} ${takingCigarette ? 'taking' : ''} ${own ? 'in-use' : ''}`}
-                style={{ left: `${deskLayout.pack.x * 100}%`, top: `${deskLayout.pack.y * 100}%`, opacity: opacity.pack }}
-                onPointerDown={event => startPropDrag('pack', event)}
-                onPointerMove={movePropDrag}
-                onPointerUp={event => endPropDrag(event)}
-                onPointerCancel={event => endPropDrag(event, true)}
-                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setPackOpen(open => !open); }}
-                role="button"
-                tabIndex={0}
-                title="드래그해서 이동 · 클릭해서 담뱃갑 열기/닫기"
-            >
-                <span
-                    className="pack-inner"
-                    onPointerDown={event => event.stopPropagation()}
-                    title={own ? '이미 꺼낸 담배가 있습니다' : '담배 한 개비를 선택하세요'}
+            {packVisible && (
+                <div
+                    className={`cigarette-pack ${packOpen ? 'open' : ''} ${takingCigarette ? 'taking' : ''} ${own ? 'in-use' : ''}`}
+                    style={{ left: `${deskLayout.pack.x * 100}%`, top: `${deskLayout.pack.y * 100}%`, opacity: opacity.pack }}
+                    onPointerDown={event => startPropDrag('pack', event)}
+                    onPointerMove={movePropDrag}
+                    onPointerUp={event => endPropDrag(event)}
+                    onPointerCancel={event => endPropDrag(event, true)}
+                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setPackOpen(open => !open); }}
+                    role="button"
+                    tabIndex={0}
+                    title="드래그해서 이동 · 클릭해서 담뱃갑 열기/닫기"
                 >
-                    {[0, 1, 2, 3].map(index => (
-                        <i
-                            className={selectedPackCigarette === index ? 'selected' : ''}
-                            key={index}
-                            onPointerDown={event => event.stopPropagation()}
-                            onPointerUp={event => takeCigarette(event, index)}
-                            title={`${index + 1}번 담배 꺼내기`}
-                        />
-                    ))}
-                </span>
-                <span className="pack-lid"><i>FILTER CIGARETTES</i></span>
-                <span className="pack-chevron" />
-                <span className="pack-crest">♛</span>
-                <b>Marlboro</b>
-                <small>{own ? 'IN USE' : packOpen ? 'PICK ONE' : 'RED LABEL'}</small>
-            </div>
+                    <span
+                        className="pack-inner"
+                        onPointerDown={event => event.stopPropagation()}
+                        title={own ? '이미 꺼낸 담배가 있습니다' : '담배 한 개비를 선택하세요'}
+                    >
+                        {[0, 1, 2, 3].map(index => (
+                            <i
+                                className={selectedPackCigarette === index ? 'selected' : ''}
+                                key={index}
+                                onPointerDown={event => event.stopPropagation()}
+                                onPointerUp={event => takeCigarette(event, index)}
+                                title={`${index + 1}번 담배 꺼내기`}
+                            />
+                        ))}
+                    </span>
+                    <span className="pack-lid"><i>FILTER CIGARETTES</i></span>
+                    <span className="pack-chevron" />
+                    <span className="pack-crest">♛</span>
+                    <b>Marlboro</b>
+                    <small>{own ? 'IN USE' : packOpen ? 'PICK ONE' : 'RED LABEL'}</small>
+                </div>
+            )}
         </div>
     );
 }
