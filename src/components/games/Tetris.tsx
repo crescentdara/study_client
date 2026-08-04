@@ -963,7 +963,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
   );
 
   return (
-    <div className={`tetris-workspace mode-${renderedViewMode}`} tabIndex={0}>
+    <div className={`tetris-workspace mode-${renderedViewMode} workspace-${workspaceMode}`} tabIndex={0}>
       {renderedViewMode === 'classic' ? (
         <div className="code-block tetris-main">
         <CL ln={1}>
@@ -1024,6 +1024,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
           boardStyle={boardStyle}
           globalPaused={globalPaused}
           rankedMatch={rankedMatch}
+          maskBoardCells={workspaceMode === 'vscode'}
           onDistract={sendDistract}
         />
       )}
@@ -1053,6 +1054,10 @@ const TETRIS_SHEET_DUMMY_VALUES = [
   '스키마 검토', '로그 확인', 'Sprint 18', 'QA 진행', 'Docker', '응답 142ms', '완료', '개발 중',
 ];
 
+const TETRIS_BOARD_DUMMY_VALUES = [
+  'OK', 'API', '12', 'QA', '82%', 'PR', 'CI', 'v2', 'BE', 'FE', '검토', '완료', '142', 'DB', 'OPS', 'S18',
+];
+
 const TETRIS_SHEET_DUMMY_CELLS = Array.from({ length: 30 * 28 }, (_, index) => (
   TETRIS_SHEET_DUMMY_VALUES[(index * 7 + Math.floor(index / 30) * 3) % TETRIS_SHEET_DUMMY_VALUES.length]
 ));
@@ -1067,7 +1072,7 @@ const SheetDummyGrid = memo(function SheetDummyGrid() {
 
 function TetrisSpreadsheetView({
   controls, views, myPlayerIndex, score, lines, cycle, status, pending,
-  holdPiece, nextQueue, winner, badge, clearingRows, boardStyle, globalPaused, rankedMatch, onDistract,
+  holdPiece, nextQueue, winner, badge, clearingRows, boardStyle, globalPaused, rankedMatch, maskBoardCells, onDistract,
 }: {
   controls: ReactNode;
   views: TetrisBoardView[];
@@ -1085,6 +1090,7 @@ function TetrisSpreadsheetView({
   boardStyle: CSSProperties;
   globalPaused: boolean;
   rankedMatch: boolean;
+  maskBoardCells: boolean;
   onDistract: (target: number) => void;
 }) {
   return (
@@ -1136,7 +1142,7 @@ function TetrisSpreadsheetView({
                         <SheetPieceToken label="HOLD" piece={holdPiece} />
                       </div>
                     )}
-                    <SheetBoard board={view.board} status={viewStatus} pending={isMe ? pending : 0} badge={isMe ? badge : ''} clearingRows={isMe ? clearingRows : []} />
+                    <SheetBoard board={view.board} status={viewStatus} pending={isMe ? pending : 0} badge={isMe ? badge : ''} clearingRows={isMe ? clearingRows : []} maskCells={maskBoardCells} />
                     {isMe && (
                       <div className="tetris-sheet-piece-rail tetris-sheet-piece-rail--inline tetris-sheet-piece-rail--next">
                         {nextQueue.map((next, index) => (
@@ -1159,12 +1165,13 @@ function TetrisSpreadsheetView({
   );
 }
 
-function SheetBoard({ board, status, pending, badge, clearingRows }: {
+function SheetBoard({ board, status, pending, badge, clearingRows, maskCells }: {
   board: Board;
   status: string;
   pending: number;
   badge: string;
   clearingRows: number[];
+  maskCells: boolean;
 }) {
   const clearingRowSet = useMemo(() => new Set(clearingRows), [clearingRows]);
   return (
@@ -1183,7 +1190,16 @@ function SheetBoard({ board, status, pending, badge, clearingRows }: {
         {board.flatMap((row, rowIndex) => row.map((cell, colIndex) => {
           const ghost = cell.startsWith('ghost-');
           const type = ghost ? cell.slice(6) : cell;
-          return <i key={`${rowIndex}-${colIndex}`} className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''} ${clearingRowSet.has(rowIndex) ? 'clearing' : ''}`} title={`${8 + rowIndex}행 ${String.fromCharCode(70 + colIndex)}열`} />;
+          const dummyValue = TETRIS_BOARD_DUMMY_VALUES[(rowIndex * COLS + colIndex * 3 + rowIndex) % TETRIS_BOARD_DUMMY_VALUES.length];
+          return (
+            <i
+              key={`${rowIndex}-${colIndex}`}
+              className={`${type ? `filled t-${type}` : ''} ${ghost ? 'ghost' : ''} ${clearingRowSet.has(rowIndex) ? 'clearing' : ''} ${maskCells ? 'masked-data' : ''}`}
+              title={`${8 + rowIndex}행 ${String.fromCharCode(70 + colIndex)}열`}
+            >
+              {maskCells && <span>{dummyValue}</span>}
+            </i>
+          );
         }))}
       </div>
     </div>
@@ -1396,7 +1412,8 @@ function IdePeerPanel({
   );
 }
 
-// Keep the previous renderer type-checked while the spreadsheet theme fully replaces it in the UI.
+// Keep the alternate renderer type-checked; the active F8 disguise retains
+// the spreadsheet layout and changes palette by workspace instead.
 void TetrisIdeView;
 
 function TetrisWorkCover() {

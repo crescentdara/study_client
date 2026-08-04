@@ -2259,81 +2259,142 @@ select option { background: var(--bg-sidebar); }
 .tetris-cover-row.header > * { border-top: 2px solid #217346; background: #e2f0d9; color: #375623; font-weight: 700; }
 .tetris-work-cover-status { height: 23px; gap: 20px; background: #217346; }
 
-/* Dark spreadsheet palette: keeps the office-grid disguise from floating on the dark app shell. */
-.tetris-sheet {
+/* VS Code F8 palette. The Excel workspace keeps the bright spreadsheet rules above. */
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet {
   border-color: #34383a;
   background: #1e1e1e;
   color: #d2d2d2;
   box-shadow: 0 8px 28px rgba(0, 0, 0, .34);
 }
-.tetris-sheet-titlebar { background: #185c37; color: #f1f1f1; }
-.tetris-sheet-ribbon { border-bottom-color: #383c3d; background: #252526; }
-.tetris-sheet-tabs { color: #c8c8c8; }
-.tetris-sheet-tabs b { background: #185c37; }
-.tetris-sheet-tabs span:nth-child(2) { border-bottom-color: #43a66c; color: #e2f0e7; }
-.tetris-sheet-tools { color: #b9b9b9; }
-.tetris-sheet-tools span { border-right-color: #414445; }
-.tetris-sheet-formula { border-bottom-color: #3d4142; background: #1f1f1f; color: #bdbdbd; }
-.tetris-sheet-formula > * { border-right-color: #414445; }
-.tetris-sheet-body, .tetris-sheet-grid-wrap { background: #1e1e1e; }
-.tetris-sheet-summary, .tetris-sheet-peers { background: #202223; }
-.tetris-sheet-summary { border-right-color: #3c4041; }
-.tetris-sheet-peers { border-left-color: #3c4041; }
-.tetris-sheet-summary h3, .tetris-sheet-peers h3 { border-bottom-color: #3c9561; color: #b9dec7; }
-.tetris-sheet-practice { border-color: #7f6a32; background: #403820; color: #e4cd89; }
-.tetris-sheet-kpi { border-color: #3b3e3f; background: #262829; }
-.tetris-sheet-kpi:last-of-type { border-bottom-color: #3b3e3f; }
-.tetris-sheet-kpi b { color: #75bd91; }
-.tetris-sheet-kpi.warning b { color: #d6a85c; }
-.tetris-sheet-task-list { border-top-color: #444849; }
-.tetris-sheet-task { border-color: #3b3e3f; background: #262829; }
-.tetris-sheet-task small { color: #a8a8a8; }
-.tetris-sheet-piece-preview { border-color: #505455; background: #232526; }
-.tetris-sheet-piece-preview i { border-color: #383c3d; background: #292c2d; }
-.tetris-sheet-piece-preview.empty b { color: #9b9e9f; }
-.tetris-sheet-piece-rail .tetris-sheet-task { border-color: #505455; background: #262829; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
-.tetris-sheet-piece-rail .tetris-sheet-task small { background: #294635; color: #bce0c8; }
-.tetris-sheet-piece-rail .tetris-sheet-piece-preview { background: transparent; }
-.tetris-sheet-corner, .tetris-sheet-col, .tetris-sheet-rownum { border-color: #45494a; background: #292b2c; color: #aaa; }
-.tetris-sheet-data-block i, .tetris-sheet-rowcells i { border-color: #363a3b; background: #1f2122; color: #aeb0b0; }
-.tetris-sheet-data-block i:nth-child(4n) { background: #222425; }
-.tetris-sheet-rowcells i.filled { color: #e1e7e3; box-shadow: inset 0 0 0 1px rgba(119, 190, 145, .34); }
-.tetris-sheet-rowcells i.ghost { outline-color: #6b9f7e; background: #25342b !important; }
-.tetris-sheet-rowcells i.t-I { background: #264351; }
-.tetris-sheet-rowcells i.t-O { background: #554b29; }
-.tetris-sheet-rowcells i.t-T { background: #493750; }
-.tetris-sheet-rowcells i.t-S { background: #294735; }
-.tetris-sheet-rowcells i.t-Z { background: #57372f; }
-.tetris-sheet-rowcells i.t-J { background: #293e58; }
-.tetris-sheet-rowcells i.t-L { background: #574131; }
-.tetris-sheet-rowcells i.t-G { background: #3b3d3e; color: #e79b9f; }
-.tetris-sheet-countdown, .tetris-sheet-notice, .tetris-sheet-warning { border-color: #4a4f50; background: #282a2b; color: #d4d4d4; box-shadow: 0 3px 10px rgba(0,0,0,.34); }
-.tetris-sheet-notice { border-color: #43865c; background: #294635; color: #c0e0cb; }
-.tetris-sheet-warning { border-color: #8f7339; background: #4b4026; color: #f0d798; }
-.tetris-sheet-peer { border-color: #3b3e3f; background: #262829; color: #d0d0d0; }
-.tetris-sheet-peer:hover { border-color: #4d9d6c; background: #29302c; }
-.tetris-sheet-peer-head small { background: #4b4026; color: #e2c982; }
-.tetris-sheet-peer-head small.winner { background: #294635; color: #bce0c8; }
-.tetris-sheet-peer-board { border-color: #3a3e3f; background: #1d1f20; }
-.tetris-sheet-peer-board i { background: #303334; }
-.tetris-sheet-peer-board i.filled { background: #5f9a75; }
-.tetris-sheet-peer-meta, .tetris-sheet-empty { color: #929292; }
-.tetris-sheet-chart { border-color: #3b3e3f; background: #262829; }
-.tetris-sheet-chart b { color: #aaa; }
-.tetris-sheet-chart span { background: #4e9a6a; }
-.tetris-sheet-statusbar { border-top-color: #3d4142; background: #252728; color: #aaa; }
-.tetris-sheet-statusbar > span { border-right-color: #3c4041; }
-.tetris-sheet-statusbar > span.active { border-bottom-color: #43a66c; background: #1e1e1e; color: #bce0c8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-titlebar { border-bottom: 1px solid #2b2b2b; background: #181818; color: #cccccc; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-ribbon { border-bottom-color: #383c3d; background: #252526; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-tabs { color: #c8c8c8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-tabs b { background: #094771; color: #fff; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-tabs span:nth-child(2) { border-bottom-color: #007acc; color: #ffffff; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-tools { color: #b9b9b9; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-tools span { border-right-color: #414445; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-formula { border-bottom-color: #3d4142; background: #1f1f1f; color: #bdbdbd; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-formula > * { border-right-color: #414445; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-body,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-grid-wrap { background: #1e1e1e; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-summary,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peers { background: #202223; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-summary { border-right-color: #3c4041; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peers { border-left-color: #3c4041; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-summary h3,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peers h3 { border-bottom-color: #3c9561; color: #b9dec7; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-practice { border-color: #7f6a32; background: #403820; color: #e4cd89; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-kpi { border-color: #3b3e3f; background: #262829; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-kpi:last-of-type { border-bottom-color: #3b3e3f; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-kpi b { color: #75bd91; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-kpi.warning b { color: #d6a85c; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-task-list { border-top-color: #444849; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-task { border-color: #3b3e3f; background: #262829; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-task small { color: #a8a8a8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-preview { border-color: #505455; background: #232526; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-preview i { border-color: #383c3d; background: #292c2d; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-rail .tetris-sheet-piece-preview i.filled {
+  opacity: .64;
+  filter: saturate(.72);
+}
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-preview.empty b { color: #9b9e9f; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-rail .tetris-sheet-task { border-color: #505455; background: #262829; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-rail .tetris-sheet-task small { background: #294635; color: #bce0c8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-piece-rail .tetris-sheet-piece-preview { background: transparent; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena { background: #1e1e1e; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-dummy-grid i { border-color: #303033; background: rgba(30, 30, 30, .97); color: #707070; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-dummy-grid i:nth-child(4n) { background: rgba(35, 35, 35, .97); color: #7d8b82; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena-meta { border-color: #3c3c3c; background: #252526; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena-meta span { border-color: #3c3c3c; color: #b7b7b7; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena-meta b { color: #4fc1ff; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena-meta .warning { background: #3f361d; color: #dcdcaa; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-arena-meta .practice { background: #252526; color: #858585; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player { border-color: #3c3c3c; background: #1e1e1e; box-shadow: 0 2px 7px rgba(0, 0, 0, .42); }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player.mine { border-color: #007acc; box-shadow: 0 0 0 1px rgba(0, 122, 204, .24); }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head { border-bottom-color: #3c3c3c; background: #252526; color: #cccccc; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head strong { color: #9cdcfe; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head span { background: #294e38; color: #b5cea8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head small { color: #858585; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head button { border-color: #454545; background: #2d2d30; color: #cccccc; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-head button:hover { border-color: #007acc; background: #094771; color: #fff; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-player-game { background: #1e1e1e; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-board { background: #3c3c3c; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-column-head,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-row-head { background: #252526; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-playfield.tetris-sheet-rowcells { background: #1e1e1e; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-corner,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-col,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rownum { border-color: #45494a; background: #292b2c; color: #aaa; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-data-block i,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i { border-color: #363a3b; background: #1f2122; color: #aeb0b0; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-data-block i:nth-child(4n) { background: #222425; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.filled { color: #e1e7e3; box-shadow: inset 0 0 0 1px rgba(119, 190, 145, .34); }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.ghost { outline-color: #6b9f7e; background: #25342b !important; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-I { background: #264351; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-O { background: #554b29; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-T { background: #493750; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-S { background: #294735; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-Z { background: #57372f; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-J { background: #293e58; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-L { background: #574131; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.t-G { background: #3b3d3e; color: #e79b9f; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.masked-data {
+  position: relative;
+  color: #777;
+  font-size: 5px;
+  font-weight: 400;
+  letter-spacing: -.04em;
+  text-overflow: clip;
+}
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.masked-data.filled {
+  opacity: 1;
+  color: #a8a8a8;
+  box-shadow: inset 0 0 0 1px rgba(160, 160, 160, .16);
+}
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.masked-data.filled::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: rgba(30, 30, 30, .34);
+}
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-rowcells i.masked-data span {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-countdown,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-notice,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-warning { border-color: #4a4f50; background: #282a2b; color: #d4d4d4; box-shadow: 0 3px 10px rgba(0,0,0,.34); }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-notice { border-color: #43865c; background: #294635; color: #c0e0cb; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-warning { border-color: #8f7339; background: #4b4026; color: #f0d798; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer { border-color: #3b3e3f; background: #262829; color: #d0d0d0; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer:hover { border-color: #4d9d6c; background: #29302c; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-head small { background: #4b4026; color: #e2c982; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-head small.winner { background: #294635; color: #bce0c8; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-board { border-color: #3a3e3f; background: #1d1f20; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-board i { background: #303334; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-board i.filled { background: #5f9a75; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-peer-meta,
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-empty { color: #929292; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-chart { border-color: #3b3e3f; background: #262829; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-chart b { color: #aaa; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-chart span { background: #4e9a6a; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-statusbar { border-top-color: #3d4142; background: #252728; color: #aaa; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-statusbar > span { border-right-color: #3c4041; }
+:where(.tetris-workspace.workspace-vscode) .tetris-sheet-statusbar > span.active { border-bottom-color: #007acc; background: #1e1e1e; color: #9cdcfe; }
 
-.tetris-work-cover { border-color: #34383a; background: #1e1e1e; color: #d2d2d2; }
-.tetris-work-cover-tabs { border-bottom-color: #3b3f40; background: #185c37; }
-.tetris-work-cover-tabs span.active { background: #252526; color: #c6e4d1; }
-.tetris-work-cover-body aside { border-right-color: #3b3f40; background: #222425; color: #aaa; }
-.tetris-work-cover-body aside span.active { background: #294635; color: #c1dfcb; }
-.tetris-work-cover-body main { background: #1f2122; color: #bbb; }
-.tetris-cover-row > * { border-color: #373b3c; }
-.tetris-cover-row.header > * { border-top-color: #3f9560; background: #294635; color: #c1dfcb; }
-.tetris-work-cover-status { background: #185c37; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover { border-color: #34383a; background: #1e1e1e; color: #d2d2d2; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-tabs { border-bottom-color: #3b3f40; background: #181818; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-tabs span.active { background: #252526; color: #9cdcfe; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-body aside { border-right-color: #3b3f40; background: #222425; color: #aaa; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-body aside span.active { background: #094771; color: #fff; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-body main { background: #1f2122; color: #bbb; }
+:where(.tetris-workspace.workspace-vscode) .tetris-cover-row > * { border-color: #373b3c; }
+:where(.tetris-workspace.workspace-vscode) .tetris-cover-row.header > * { border-top-color: #007acc; background: #252526; color: #9cdcfe; }
+:where(.tetris-workspace.workspace-vscode) .tetris-work-cover-status { background: #007acc; }
 
 @media (max-width: 760px) {
   .tetris-workspace {
