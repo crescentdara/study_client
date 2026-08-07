@@ -632,6 +632,146 @@ select option { background: var(--bg-sidebar); }
   font-size: 9px;
 }
 
+/* ── 서바이벌 — 유입 상태 표시줄 (업무 대응 현황처럼 보이게) ─────────────── */
+.tetris-survival-hud {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 8;
+  display: flex;
+  gap: 14px;
+  padding: 4px 12px;
+  border: 1px solid #3e3e42;
+  border-radius: 3px;
+  background: rgba(30, 30, 30, .88);
+  color: #9d9d9d;
+  font-size: 10px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.tetris-survival-hud b {
+  margin-left: 4px;
+  color: #d4d4d4;
+  font-variant-numeric: tabular-nums;
+}
+.tetris-survival-hud.is-danger {
+  border-color: #a33;
+  color: #e0a0a0;
+}
+.tetris-survival-hud.is-danger b { color: #ff8a8a; }
+.workspace--excel .tetris-survival-hud {
+  border-color: #d1d1d1;
+  background: rgba(255, 255, 255, .95);
+  color: #666;
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+}
+.workspace--excel .tetris-survival-hud b { color: #185c37; }
+.workspace--excel .tetris-survival-hud.is-danger { border-color: #c0504d; color: #a33; }
+.workspace--excel .tetris-survival-hud.is-danger b { color: #c0504d; }
+
+/* ── 서바이벌 결과 (기록을 남기지 않으므로 그 판에서만 보여준다) ──────────── */
+.tetris-survival-result {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  background: rgba(30, 30, 30, .76);
+}
+.workspace--excel .tetris-survival-result { background: rgba(255, 255, 255, .82); }
+.tetris-survival-result__box {
+  min-width: 260px;
+  padding: 16px 20px;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  background: #252526;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  text-align: center;
+}
+.workspace--excel .tetris-survival-result__box {
+  border-color: #c8c8c8;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+}
+.tetris-survival-result__box strong {
+  display: block;
+  margin-bottom: 12px;
+  color: #4ec9b0;
+  font-size: 13px;
+}
+.workspace--excel .tetris-survival-result__box strong { color: #185c37; }
+.tetris-survival-result__box dl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.tetris-survival-result__box dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .04);
+  font-size: 11px;
+}
+.workspace--excel .tetris-survival-result__box dl > div { background: #f7f7f7; }
+.tetris-survival-result__box dt { color: #9d9d9d; }
+.tetris-survival-result__box dd {
+  margin: 0;
+  color: #d4d4d4;
+  font-variant-numeric: tabular-nums;
+}
+.workspace--excel .tetris-survival-result__box dt { color: #777; }
+.workspace--excel .tetris-survival-result__box dd { color: #333; }
+.tetris-survival-result__box small {
+  display: block;
+  margin-bottom: 12px;
+  color: #6a9955;
+  font-size: 9px;
+}
+.workspace--excel .tetris-survival-result__box small { color: #888; }
+.tetris-survival-rank {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tetris-survival-rank li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .04);
+  color: #c6c6c6;
+  font-size: 11px;
+}
+.workspace--excel .tetris-survival-rank li { background: #f7f7f7; color: #444; }
+.tetris-survival-rank li.is-mine { background: rgba(78, 201, 176, .16); color: #4ec9b0; }
+.workspace--excel .tetris-survival-rank li.is-mine { background: #e2f0d9; color: #185c37; }
+.tetris-survival-rank__no { width: 16px; text-align: center; font-size: 9px; opacity: .7; }
+.tetris-survival-rank__name {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tetris-survival-rank__name em { font-size: 9px; font-style: normal; opacity: .6; }
+.tetris-survival-rank__detail { font-size: 9px; opacity: .7; }
+.tetris-survival-rank li b { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.tetris-survival-result__actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.tetris-survival-result__actions button { font-size: 11px; }
+
 .tetris-head > span {
   min-width: 0;
 }
@@ -1525,6 +1665,20 @@ select option { background: var(--bg-sidebar); }
   color: #d4d4d4;
   border-top: 1px solid #569cd6;
 }
+
+.tetris-work-cover-resume {
+  height: 24px;
+  margin: 0 8px 3px auto;
+  padding: 0 10px;
+  border: 1px solid #6a6a6a;
+  border-radius: 2px;
+  background: #333;
+  color: #eee;
+  font: 10px "Malgun Gothic", "Segoe UI", sans-serif;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.tetris-work-cover-resume:hover { background: #414141; }
 
 .tetris-work-cover-body {
   flex: 1;
@@ -2980,6 +3134,107 @@ select option { background: var(--bg-sidebar); }
 }
 
 /* Shared drop target for finished cigarettes and vending cups. */
+.lobby-drawing-layer {
+  position: fixed;
+  z-index: 16;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.lobby-drawing-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: none;
+}
+.lobby-drawing-layer.editing .lobby-drawing-canvas {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+.lobby-drawing-toolbar {
+  position: fixed;
+  z-index: 27;
+  top: 38px;
+  right: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 90px);
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #4c5257;
+  border-radius: 6px;
+  background: #202326ed;
+  color: #c5c8ca;
+  box-shadow: 0 8px 24px #0009;
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+  font: 10px/1 var(--font);
+}
+.drawing-toolbar-status {
+  display: flex;
+  min-width: 58px;
+  flex-direction: column;
+  gap: 3px;
+}
+.drawing-toolbar-status strong { color: #f0f0f0; font-size: 10px; }
+.drawing-toolbar-status span { color: #858b90; font-size: 8px; }
+.drawing-toolbar-status span.connected { color: #4ec9b0; }
+.drawing-color-picker { display: flex; align-items: center; gap: 5px; color: #969ba0; }
+.drawing-color-picker,
+.drawing-width-control { cursor: default; }
+.drawing-color-picker input {
+  width: 28px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid #74797c;
+  border-radius: 4px;
+  background: #303438;
+  cursor: pointer;
+}
+.drawing-color-picker input::-webkit-color-swatch-wrapper { padding: 0; }
+.drawing-color-picker input::-webkit-color-swatch { border: 0; border-radius: 2px; }
+.drawing-width-control { display: flex; align-items: center; gap: 4px; color: #969ba0; }
+.drawing-width-control input { width: 70px; accent-color: #75beff; }
+.lobby-drawing-toolbar > button {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #555b60;
+  border-radius: 3px;
+  background: #303438;
+  color: #c5c8ca;
+  font: 9px var(--font);
+  cursor: pointer;
+}
+.lobby-drawing-toolbar > button:hover,
+.lobby-drawing-toolbar > button.selected { border-color: #75beff; color: #fff; }
+.lobby-drawing-toolbar > .drawing-done-button { background: #0e639c; border-color: #1177bb; color: #fff; }
+
+.workspace--excel .lobby-drawing-toolbar {
+  top: 84px;
+  border-color: #aebbb3;
+  background: rgba(255,255,255,.97);
+  color: #45554b;
+  box-shadow: 0 6px 18px rgba(0,0,0,.22);
+}
+.workspace--excel .drawing-toolbar-status strong { color: #185c37; }
+.workspace--excel .drawing-toolbar-status span { color: #718078; }
+.workspace--excel .drawing-toolbar-status span.connected { color: #217346; }
+.workspace--excel .drawing-color-picker { color: #45554b; }
+.workspace--excel .drawing-color-picker input { border-color: #aebbb3; background: #f3f3f3; }
+.workspace--excel .lobby-drawing-toolbar > button {
+  border-color: #b6c2ba;
+  background: #f3f3f3;
+  color: #294c3a;
+}
+.workspace--excel .lobby-drawing-toolbar > button:hover,
+.workspace--excel .lobby-drawing-toolbar > button.selected { border-color: #217346; color: #185c37; }
+.workspace--excel .lobby-drawing-toolbar > .drawing-done-button { border-color: #0f6333; background: #107c41; color: #fff; }
+
 .desk-trash-bin {
   position: fixed;
   z-index: 25;
@@ -2989,7 +3244,8 @@ select option { background: var(--bg-sidebar); }
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 7px 5px #0009);
-  transform-origin: 50% 100%;
+  scale: .72;
+  transform-origin: 0 100%;
   transition: transform .16s ease, filter .16s ease;
 }
 .trash-bin-lid {

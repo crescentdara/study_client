@@ -15,6 +15,7 @@ import DaVinci from './games/DaVinci';
 import RushHour from './games/RushHour';
 import Ubongo from './games/Ubongo';
 import Alkkagi from './games/Alkkagi';
+import AppleGame from './games/AppleGame';
 
 interface StudyRoomProps {
     room: Room;
@@ -68,6 +69,7 @@ function StudyRoom({
     const isRushHour = room.studyType === 'RUSH_HOUR';
     const isUbongo   = room.studyType === 'UBONGO';
     const isAlkkagi = room.studyType === 'ALKKAGI';
+    const isApple   = room.studyType === 'APPLE_BOX';
     const maxPlayers = isTetris ? 3 : isIncidentAvoid || isBreakout ? 3 : room.maxPlayers;
     const isOldMaid = room.studyType === 'OLDMAID';
     const status = studyState?.status ?? room.status;
@@ -157,6 +159,8 @@ function StudyRoom({
                                         ? `${maxPlayers}p`
                                       : isOldMaid
                                       ? '🃏 Old Maid'
+                                      : isApple
+                                        ? '10×17 · sum 10'
                                       : `${room.boardSize}×${room.boardSize}`}
                         </span>
                         <span className="dim"> · </span>
@@ -232,12 +236,12 @@ function StudyRoom({
                                             style={{ fontSize: '12px' }}
                                             onClick={handleStart}
                                             disabled={
-                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isRushHour && !isUbongo && !isAlkkagi && playerNames.length < 2
+                                                !isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isRushHour && !isUbongo && !isAlkkagi && !isApple && playerNames.length < 2
                                             }
                                         >
                                             ▶ startGame()
                                         </button>
-                                        {!isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isAlkkagi && playerNames.length < 2 && (
+                                        {!isTetris && !isIncidentAvoid && !isBreakout && !isOldMaid && !isAlkkagi && !isApple && playerNames.length < 2 && (
                                             <span className="cmt">// need at least 2 players</span>
                                         )}
                                     </span>
@@ -413,6 +417,15 @@ function StudyRoom({
                             sessionId={sessionId}
                             myPlayerIndex={myPlayerIndex}
                             sendMove={sendMove}
+                        />
+                    ) : isApple ? (
+                        <AppleGame
+                            studyState={studyState}
+                            sessionId={sessionId}
+                            myPlayerIndex={myPlayerIndex}
+                            sendMove={sendMove}
+                            workspaceMode={workspaceMode}
+                            onCellSelect={onCellSelect}
                         />
                     ) : (
                         <Bingo

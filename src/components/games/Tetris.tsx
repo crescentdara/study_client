@@ -238,23 +238,66 @@ const pickGarbageHole = (previousHole: number | null) => {
   return (previousHole + offset) % COLS;
 };
 
-const addGarbageLines = (board: Board, count: number, previousHole: number | null) => {
+/**
+ * 바닥에 쓰레기 줄을 넣는다.
+ *
+ * 현대 대전 테트리스의 기본 규칙(clean garbage)을 따른다 — 한 번에 올라오는 줄들은
+ * 모두 같은 열에 구멍이 뚫리고, 다음에 올라올 때 다른 열로 바뀐다. 우물 하나만 파면
+ * 받은 만큼 한꺼번에 정리할 수 있어야 4줄을 받아 4줄로 되돌려 보내는 플레이가 성립한다.
+ *
+ * 서바이벌은 한 줄씩 따로 올라오므로 같은 규칙에서 자연히 매번 새 열이 된다.
+ */
+const addGarbageLines = (
+  board: Board,
+  count: number,
+  previousHole: number | null,
+  // 서바이벌 대전에서는 모두가 같은 패턴을 받아야 하므로 서버가 정한 열을 그대로 쓴다
+  forcedHole: number | null = null,
+) => {
   const safeCount = Math.max(0, Math.min(8, count));
   if (safeCount === 0) return { board, hole: previousHole };
   const kept = board.slice(safeCount).map((row) => [...row]);
-  let hole = previousHole ?? pickGarbageHole(null);
-  let streak = 0;
-  const garbage = Array.from({ length: safeCount }, (_, index) => {
-    const shouldShiftHole = index > 0 && (streak >= 2 || Math.random() < 0.42);
-    if (shouldShiftHole) {
-      hole = pickGarbageHole(hole);
-      streak = 0;
-    } else {
-      streak += 1;
-    }
-    return Array.from({ length: COLS }, (_, col) => (col === hole ? '' : 'G'));
-  });
+  const hole = forcedHole === null ? pickGarbageHole(previousHole) : forcedHole;
+  const garbage = Array.from({ length: safeCount }, () => (
+    Array.from({ length: COLS }, (_, col) => (col === hole ? '' : 'G')) as string[]
+  ));
   return { board: [...kept, ...garbage], hole };
+};
+
+/* ── 서바이벌 미션 ───────────────────────────────────────────────────────────
+ * 대전에서는 상대가 보낸 쓰레기가 '라인을 못 지우고 조각을 놓는 순간'에 올라오지만,
+ * 서바이벌은 시간이 되면 조각과 무관하게 즉시 밀려 올라온다. 그래서 천천히 놓아
+ * 시간을 버는 것이 통하지 않는다.
+ *
+ * 낙하 속도는 기존 레벨 곡선(8줄마다 상승)이 알아서 올라가므로 여기서는 쓰레기가
+ * 들어오는 간격만 조인다. 기록은 남기지 않는다 — 전적·티어는 대전 결과만 반영한다.
+ * ──────────────────────────────────────────────────────────────────────── */
+const SURVIVAL_FIRST_RISE_MS = 12_000;
+const SURVIVAL_MIN_RISE_MS = 4_000;
+const SURVIVAL_RISE_STEP_MS = 1_000;
+const SURVIVAL_STEP_EVERY_MS = 20_000;
+/**
+ * 두 줄씩 올라오기 시작하는 시점.
+ *
+ * 한 줄씩 올라올 때는 매번 구멍 열이 바뀌어 파내는 맛이 있는데, 두 줄이 되면 압박이
+ * 단번에 두 배로 뛴다. 그래서 대부분의 판이 한 줄 구간 안에서 끝나도록 늦게 둔다 —
+ * 여기서 두 줄로 넘어가는 건 판을 무한히 늘리지 않기 위한 마무리 압박이다.
+ */
+const SURVIVAL_DOUBLE_AFTER_MS = 240_000;
+const SURVIVAL_TICK_MS = 100;
+
+/** 유입 간격 — 20초마다 1초씩 짧아지고 3.5초에서 멈춘다 (3분쯤에 하한 도달) */
+const survivalRiseInterval = (elapsedMs: number) => Math.max(
+  SURVIVAL_MIN_RISE_MS,
+  SURVIVAL_FIRST_RISE_MS - Math.floor(elapsedMs / SURVIVAL_STEP_EVERY_MS) * SURVIVAL_RISE_STEP_MS,
+);
+
+/** 한 번에 올라오는 줄 수 — 1분이 지나면 두 줄씩 */
+const survivalRiseLines = (elapsedMs: number) => (elapsedMs >= SURVIVAL_DOUBLE_AFTER_MS ? 2 : 1);
+
+const formatSurvivalClock = (ms: number) => {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
 const baseAttackLines = (cleared: number) => {
@@ -315,6 +358,8 @@ const isTSpin = (board: Board, piece: Piece, lastMoveWasRotate: boolean) => {
 
 export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove, workspaceMode = 'vscode', onLeave, onRestart }: Props) {
   const data = studyState?.gameData as TetrisGameData | null;
+  /** 서바이벌 방(방 만들기에서 선택)에서만 시간이 되면 쓰레기 줄이 올라온다 */
+  const survival = data?.mode === 'survival';
   const initialQueue = useMemo(() => createPieceQueue(NEXT_QUEUE_SIZE + 1), []);
   const [board, setBoard] = useState<Board>(() => emptyBoard());
   const [piece, setPiece] = useState<Piece>(() => initialQueue[0]);
@@ -365,6 +410,13 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
   const ackAttackIdsRef = useRef<string[]>([]);
   const pendingGarbageRef = useRef(0);
   const garbageHoleRef = useRef<number | null>(null);
+  // 서바이벌 — 시계는 서버 기준, 구멍 순서도 서버가 준 것을 그대로 쓴다
+  const survivalOriginRef = useRef(0);
+  const survivalElapsedRef = useRef(0);
+  const survivalNextRiseRef = useRef(SURVIVAL_FIRST_RISE_MS);
+  const survivalRiseIndexRef = useRef(0);
+  const survivalHolesRef = useRef<number[]>([]);
+  const [survivalTick, setSurvivalTick] = useState(0);
   const pieceRef = useRef<Piece>(piece);
   const boardRef = useRef<Board>(board);
   const gameInstanceRef = useRef('');
@@ -377,6 +429,33 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
   const active = running && !gameOver && !globalPaused && countdown <= 0 && !resolvingClear;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
+
+  // 서바이벌 표시값 — 100ms마다 survivalTick이 바뀌므로 그때마다 다시 읽힌다
+  void survivalTick;
+  const survivalElapsed = survivalElapsedRef.current;
+  const survivalRiseRemaining = Math.max(0, survivalNextRiseRef.current - survivalElapsed);
+  const survivalDanger = survival && !gameOver && survivalRiseRemaining <= 3_000;
+
+  /** 서버가 확정한 서바이벌 순위 (합산 점수 내림차순) */
+  const survivalRanking = useMemo(() => {
+    const results = data?.survivalResults ?? {};
+    const order = data?.finalRanking ?? [];
+    const names = studyState?.playerNames ?? [];
+    return order
+      .map((index) => {
+        const result = results[String(index)];
+        if (!result) return null;
+        return {
+          index,
+          name: names[index] ?? `P${index + 1}`,
+          isMe: index === myPlayerIndex,
+          survivedMs: result.survivedMs,
+          lines: result.lines,
+          total: result.total,
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  }, [data?.survivalResults, data?.finalRanking, studyState?.playerNames, myPlayerIndex]);
 
   const publicBoard = useMemo(
     () => mergePiece(board, piece),
@@ -512,6 +591,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     setCountdown(COUNTDOWN_SECONDS);
     pendingGarbageRef.current = 0;
     garbageHoleRef.current = null;
+    survivalOriginRef.current = 0;
+    survivalElapsedRef.current = 0;
+    survivalNextRiseRef.current = SURVIVAL_FIRST_RISE_MS;
+    survivalRiseIndexRef.current = 0;
+    setSurvivalTick(0);
     setPendingGarbage(0);
     setClearCombo(0);
     setBackToBack(false);
@@ -547,6 +631,91 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     gameInstanceRef.current = gameInstanceId;
     setLocalGameInstanceId(gameInstanceId);
   }, [gameInstanceId, reset]);
+
+  /**
+   * 서바이벌 — 바닥에서 쓰레기 줄을 즉시 밀어 올린다.
+   *
+   * 올라가는 것은 '쌓인 블록'뿐이고, 낙하 중인 조각은 제자리를 지킨다. 올라온 줄에
+   * 부딪히는 경우에만 필요한 최소한으로 밀려 올라가고, 그마저도 천장(0행) 위로는
+   * 나가지 않는다 — 나갈 자리가 없으면 그 자리에서 끝이다.
+   *
+   * 천장이 필요한 이유: collides()는 화면 위쪽(음수 행)을 빈 칸으로 보기 때문에,
+   * 조각을 무조건 밀어 올리면 판 밖으로 떠올라 버린다.
+   */
+  const raiseSurvivalGarbage = useCallback((count: number, forcedHole: number | null) => {
+    const currentBoard = boardRef.current;
+    const currentPiece = pieceRef.current;
+    const overflow = currentBoard.slice(0, count).some((row) => row.some(Boolean));
+
+    let nextRow: number | null = null;
+    let raisedBoard = currentBoard;
+    if (!overflow) {
+      const raised = addGarbageLines(currentBoard, count, garbageHoleRef.current, forcedHole);
+      raisedBoard = raised.board;
+      // 제자리부터 확인해서 부딪힐 때만 한 칸씩 올려 본다 (최대 올라온 줄 수까지)
+      for (let candidate = currentPiece.row; candidate >= currentPiece.row - count; candidate -= 1) {
+        if (candidate < 0) break; // 천장 — 더 올라갈 곳이 없다
+        if (!collides(raisedBoard, currentPiece, candidate, currentPiece.col, currentPiece.shape)) {
+          nextRow = candidate;
+          break;
+        }
+      }
+      if (nextRow !== null) garbageHoleRef.current = raised.hole;
+    }
+
+    clearLockDelay();
+    if (overflow || nextRow === null) {
+      setRunning(false);
+      setGameOver(true);
+      setAttackNotice('대응 실패 — 적재 한계 초과');
+      return;
+    }
+
+    setBoard(raisedBoard);
+    if (nextRow !== currentPiece.row) setPiece({ ...currentPiece, row: nextRow });
+    setGarbageImpact((value) => value + 1);
+    setIncomingPulse((value) => value + 1);
+    setAttackNotice(`유입 +${count}`);
+  }, [clearLockDelay]);
+
+  /* ── 서바이벌 시계 ────────────────────────────────────────────────────────
+   * 여러 명이 겨루려면 '몇 초에 몇 번째 줄이 올라오는지'가 모두에게 같아야 한다.
+   * 그래서 경과 시간은 각자 세지 않고 서버가 브로드캐스트하는 값을 기준점으로 잡고,
+   * 그 사이는 로컬 시계로 메운다(사과게임의 남은 시간과 같은 방식).
+   *
+   * 올라오는 시각은 경과 시간만으로 정해지는 점화식이고 구멍 열도 서버가 준 순서를
+   * 그대로 쓰므로, 같은 방의 참가자들은 같은 순간에 같은 모양을 받는다.
+   * ─────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!survival || typeof data?.survivalElapsedMs !== 'number') return;
+    survivalOriginRef.current = Date.now() - data.survivalElapsedMs;
+  }, [survival, data?.survivalElapsedMs]);
+
+  useEffect(() => {
+    survivalHolesRef.current = data?.garbageHoles ?? [];
+  }, [data?.garbageHoles]);
+
+  useEffect(() => {
+    if (!survival || !active || survivalOriginRef.current === 0) return undefined;
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - survivalOriginRef.current;
+      survivalElapsedRef.current = elapsed;
+
+      // 탭이 잠깼다 깨어난 경우를 대비해 한 틱에 밀어 올리는 횟수는 제한한다
+      let applied = 0;
+      while (elapsed >= survivalNextRiseRef.current && applied < 2) {
+        const scheduled = survivalNextRiseRef.current;
+        const holes = survivalHolesRef.current;
+        const hole = holes.length > 0 ? holes[survivalRiseIndexRef.current % holes.length] : null;
+        raiseSurvivalGarbage(survivalRiseLines(scheduled), hole);
+        survivalRiseIndexRef.current += 1;
+        survivalNextRiseRef.current = scheduled + survivalRiseInterval(scheduled);
+        applied += 1;
+      }
+      setSurvivalTick((value) => value + 1);
+    }, SURVIVAL_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [survival, active, raiseSurvivalGarbage]);
 
   const lockPiece = useCallback((targetPiece = piece) => {
     if (resolvingClear) return;
@@ -586,7 +755,8 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
       nextPendingGarbage = queuedGarbage - applyCount;
       appliedGarbage = true;
       notice = `garbage +${applyCount}`;
-    } else if (rawOutgoingPower > 0) {
+    } else if (!survival && rawOutgoingPower > 0) {
+      // 서바이벌은 순수 생존 경쟁이라 상대에게 공격을 보내지 않는다
       const tags = [tspin ? 'T-spin' : '', b2bAwarded ? 'B2B' : '', perfectClear ? 'PC' : ''].filter(Boolean).join(' ');
       sentAttack = true;
       notice = `${tags ? `${tags} ` : ''}send +${rawOutgoingPower}`;
@@ -606,14 +776,17 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
       const gained = scoreForClear(result.cleared, tspin, b2bAwarded, perfectClear);
       const spawned = takeNextPiece();
       attackSeqRef.current += 1;
-      pendingAttackEventsRef.current.push({
-        lastCleared: result.cleared,
-        attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
-        attackLines: outgoingAttackLines,
-        tspin,
-        b2b: b2bAwarded,
-        perfectClear,
-      });
+      // 서바이벌에서는 공격 자체가 없으므로 서버로 보낼 것도 없다
+      if (!survival) {
+        pendingAttackEventsRef.current.push({
+          lastCleared: result.cleared,
+          attackKey: `${sessionId}:${Date.now()}:${attackSeqRef.current}`,
+          attackLines: outgoingAttackLines,
+          tspin,
+          b2b: b2bAwarded,
+          perfectClear,
+        });
+      }
       lastMoveWasRotateRef.current = false;
 
       pendingGarbageRef.current = nextPendingGarbage;
@@ -840,6 +1013,12 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     const isTyping = target instanceof HTMLInputElement
       || target instanceof HTMLTextAreaElement
       || Boolean(target?.isContentEditable);
+    if (globalPaused && isHost && (event.key.toLowerCase() === 'p' || event.key === 'Escape')) {
+      event.preventDefault();
+      clearLockDelay();
+      toggleGlobalPause();
+      return;
+    }
     if (isTyping) return;
     if (event.key === 'F8') {
       event.preventDefault();
@@ -868,7 +1047,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
       clearLockDelay();
       toggleGlobalPause();
     }
-  }, [hardDrop, hold, isHost, move, rotate, startHorizontalHold, toggleGlobalPause]);
+  }, [clearLockDelay, globalPaused, hardDrop, hold, isHost, move, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -962,8 +1141,10 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     </>
   );
 
+  const f8DisguiseMode = viewMode === 'sheet';
+
   return (
-    <div className={`tetris-workspace mode-${renderedViewMode} workspace-${workspaceMode}`} tabIndex={0}>
+    <div className={`tetris-workspace mode-${renderedViewMode} workspace-${workspaceMode}${f8DisguiseMode ? ' f8-disguise' : ''}`} tabIndex={0}>
       {renderedViewMode === 'classic' ? (
         <div className="code-block tetris-main">
         <CL ln={1}>
@@ -1024,12 +1205,72 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
           boardStyle={boardStyle}
           globalPaused={globalPaused}
           rankedMatch={rankedMatch}
-          maskBoardCells={workspaceMode === 'vscode'}
+          maskBoardCells={f8DisguiseMode}
           onDistract={sendDistract}
         />
       )}
 
-      {!resultDismissed && (
+      {/* ── 서바이벌 상태 표시 — 유입되는 장애 티켓에 대응하는 것처럼 보이게 ── */}
+      {survival && (
+        <div className={`tetris-survival-hud${survivalDanger ? ' is-danger' : ''}`}>
+          <span>대응 지속 <b>{formatSurvivalClock(survivalElapsed)}</b></span>
+          <span>다음 유입 <b>{Math.ceil(Math.max(0, survivalRiseRemaining) / 1000)}초</b></span>
+          <span>유입 간격 <b>{(survivalRiseInterval(survivalElapsed) / 1000).toFixed(1)}초</b></span>
+          <span>한 번에 <b>{survivalRiseLines(survivalElapsed)}줄</b></span>
+          <span>처리 <b>{lines}건</b></span>
+        </div>
+      )}
+
+      {/* ── 서바이벌 결과 ─────────────────────────────────────────────────
+          혼자 한 판은 그 자리 기록만 보여주고, 2명 이상이면 서버가 확정한 순위와
+          합산 점수를 보여준다(합산 점수는 생존 시간 비중이 커서 오래 버틴 쪽이 앞선다). */}
+      {survival && gameOver && !resultDismissed && (
+        <div className="tetris-survival-result">
+          <div className="tetris-survival-result__box">
+            <strong>{survivalRanking.length > 1 ? '대응 종료 — 순위' : '대응 종료'}</strong>
+            {survivalRanking.length > 1 ? (
+              <ol className="tetris-survival-rank">
+                {survivalRanking.map((entry, position) => (
+                  <li key={entry.index} className={entry.isMe ? 'is-mine' : ''}>
+                    <span className="tetris-survival-rank__no">{position + 1}</span>
+                    <span className="tetris-survival-rank__name">
+                      {entry.name}{entry.isMe && <em> (나)</em>}
+                    </span>
+                    <span className="tetris-survival-rank__detail">
+                      {formatSurvivalClock(entry.survivedMs)} · {entry.lines}건
+                    </span>
+                    <b>{entry.total.toLocaleString()}</b>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <dl>
+                <div><dt>대응 지속</dt><dd>{formatSurvivalClock(survivalElapsed)}</dd></div>
+                <div><dt>처리 건수</dt><dd>{lines}건</dd></div>
+                <div><dt>점수</dt><dd>{score.toLocaleString()}</dd></div>
+              </dl>
+            )}
+            <small>
+              {survivalRanking.length > 1
+                ? '합산 점수 = 생존 초 × 100 + 처리 건수 × 20 + 점수 ÷ 10'
+                : '혼자 한 판은 전적·티어에 반영되지 않습니다.'}
+            </small>
+            <div className="tetris-survival-result__actions">
+              {onRestart && (
+                <button type="button" className="btn-primary" onClick={onRestart}>다시 대응</button>
+              )}
+              <button type="button" className="btn-secondary" onClick={() => setResultDismissed(true)}>
+                판 보기
+              </button>
+              {onLeave && (
+                <button type="button" className="btn-secondary" onClick={onLeave}>닫기</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!survival && !resultDismissed && (
         (studyState?.status === 'FINISHED' && (data?.aborted || finalRankingNames.length > 0))
         || Boolean(data?.previousAbortReason)
       ) && (
@@ -1043,7 +1284,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
           onClose={() => setResultDismissed(true)}
         />
       )}
-      {globalPaused && <TetrisWorkCover />}
+      {globalPaused && <TetrisWorkCover canResume={isHost} onResume={toggleGlobalPause} />}
     </div>
   );
 }
@@ -1058,7 +1299,7 @@ const TETRIS_BOARD_DUMMY_VALUES = [
   'OK', 'API', '12', 'QA', '82%', 'PR', 'CI', 'v2', 'BE', 'FE', '검토', '완료', '142', 'DB', 'OPS', 'S18',
 ];
 
-const TETRIS_SHEET_DUMMY_CELLS = Array.from({ length: 30 * 28 }, (_, index) => (
+const TETRIS_SHEET_DUMMY_CELLS = Array.from({ length: 30 * 72 }, (_, index) => (
   TETRIS_SHEET_DUMMY_VALUES[(index * 7 + Math.floor(index / 30) * 3) % TETRIS_SHEET_DUMMY_VALUES.length]
 ));
 
@@ -1066,6 +1307,72 @@ const SheetDummyGrid = memo(function SheetDummyGrid() {
   return (
     <div className="tetris-sheet-dummy-grid" aria-hidden="true">
       {TETRIS_SHEET_DUMMY_CELLS.map((value, index) => <i key={index}>{value}</i>)}
+    </div>
+  );
+});
+
+const DECOY_DEPARTMENTS = [
+  ['운영1팀', '1,842', '96.2%', '정상'],
+  ['운영2팀', '1,536', '91.8%', '정상'],
+  ['플랫폼팀', '1,274', '88.4%', '검토'],
+  ['지원팀', '986', '94.7%', '정상'],
+];
+
+const DECOY_CHART_VALUES = [62, 78, 70, 91, 84, 96, 88];
+
+const SheetDecoyDashboard = memo(function SheetDecoyDashboard() {
+  return (
+    <div className="tetris-sheet-decoy-dashboard" aria-hidden="true">
+      <section className="tetris-decoy-table-panel">
+        <header><strong>부서별 운영 현황</strong><span>기준: 2026.08</span></header>
+        <div className="tetris-decoy-table-row heading"><b>담당 부서</b><b>처리 건수</b><b>달성률</b><b>상태</b></div>
+        {DECOY_DEPARTMENTS.map((row) => (
+          <div className="tetris-decoy-table-row" key={row[0]}>
+            <span>{row[0]}</span><span>{row[1]}</span><span>{row[2]}</span><span>{row[3]}</span>
+          </div>
+        ))}
+        <footer><span>합계</span><strong>5,638건</strong><span>전월 대비</span><strong>+7.4%</strong></footer>
+      </section>
+
+      <section className="tetris-decoy-chart-panel">
+        <header><strong>주간 처리 추이</strong><span>단위: 건</span></header>
+        <div className="tetris-decoy-chart-area">
+          <div className="tetris-decoy-axis"><span>2,000</span><span>1,500</span><span>1,000</span><span>500</span><span>0</span></div>
+          <div className="tetris-decoy-bars">
+            {DECOY_CHART_VALUES.map((value, index) => (
+              <i key={index} style={{ '--decoy-value': `${value}%` } as CSSProperties}><b>{value * 19}</b><span>{index + 1}주</span></i>
+            ))}
+          </div>
+        </div>
+        <footer><i /><span>처리 완료</span><i /><span>목표 기준</span></footer>
+      </section>
+
+      <section className="tetris-decoy-gauge-panel">
+        <header><strong>핵심 목표 달성률</strong><span>누적 기준</span></header>
+        <div className="tetris-decoy-gauges">
+          <article><i style={{ '--gauge': '94%' } as CSSProperties}><b>94%</b></i><span>SLA 준수</span><small>목표 92%</small></article>
+          <article><i style={{ '--gauge': '87%' } as CSSProperties}><b>87%</b></i><span>자동화율</span><small>전월 +4%</small></article>
+          <article><i style={{ '--gauge': '76%' } as CSSProperties}><b>76%</b></i><span>예산 집행</span><small>계획 내</small></article>
+        </div>
+        <footer><span>종합 달성률</span><div><i /></div><strong>88.6%</strong></footer>
+      </section>
+
+      <section className="tetris-decoy-formula-panel">
+        <header><strong>수식 검증</strong><span>오류 0건</span></header>
+        <div className="tetris-decoy-formula-head"><b>셀</b><b>계산식</b><b>결과</b></div>
+        <div><b>K18</b><code>=SUMIFS(실적[건수],실적[상태],"완료")</code><span>5,638</span></div>
+        <div><b>M18</b><code>=IFERROR(K18/J18-1,0)</code><span>7.4%</span></div>
+        <div><b>P18</b><code>=XLOOKUP(B18,기준[부서],기준[SLA])</code><span>96.4%</span></div>
+        <footer><span>자동 계산</span><strong>마지막 계산: 16:20:08</strong></footer>
+      </section>
+
+      <section className="tetris-decoy-summary-panel">
+        <header><strong>월간 품질 지표 요약</strong><span>마지막 업데이트 16:20</span></header>
+        <div><span>평균 응답시간</span><b>142ms</b><small>▼ 8ms</small></div>
+        <div><span>배포 성공률</span><b>98.7%</b><small>▲ 1.2%</small></div>
+        <div><span>미처리 항목</span><b>23건</b><small className="warning">확인 필요</small></div>
+        <div><span>SLA 준수율</span><b>96.4%</b><small>목표 달성</small></div>
+      </section>
     </div>
   );
 });
@@ -1108,6 +1415,7 @@ function TetrisSpreadsheetView({
       <div className="tetris-sheet-body">
         <main className="tetris-sheet-arena">
           <SheetDummyGrid />
+          <SheetDecoyDashboard />
           <div className="tetris-sheet-arena-meta">
             <span>참여 인원 <b>{views.length} / 3</b></span>
             <span>처리 건수 <b>{score.toLocaleString('ko-KR')}</b></span>
@@ -1137,13 +1445,13 @@ function TetrisSpreadsheetView({
                     {!isMe && <button type="button" onClick={() => onDistract(view.index)}>새로 고침</button>}
                   </header>
                   <div className="tetris-sheet-player-game">
-                    {isMe && (
+                    {isMe && !maskBoardCells && (
                       <div className="tetris-sheet-piece-rail tetris-sheet-piece-rail--inline tetris-sheet-piece-rail--hold">
                         <SheetPieceToken label="HOLD" piece={holdPiece} />
                       </div>
                     )}
                     <SheetBoard board={view.board} status={viewStatus} pending={isMe ? pending : 0} badge={isMe ? badge : ''} clearingRows={isMe ? clearingRows : []} maskCells={maskBoardCells} />
-                    {isMe && (
+                    {isMe && !maskBoardCells && (
                       <div className="tetris-sheet-piece-rail tetris-sheet-piece-rail--inline tetris-sheet-piece-rail--next">
                         {nextQueue.map((next, index) => (
                           <SheetPieceToken key={`${next.type}-${index}`} label={index === 0 ? 'NEXT' : `NEXT ${index + 1}`} piece={next} />
@@ -1416,13 +1724,14 @@ function IdePeerPanel({
 // the spreadsheet layout and changes palette by workspace instead.
 void TetrisIdeView;
 
-function TetrisWorkCover() {
+function TetrisWorkCover({ canResume, onResume }: { canResume: boolean; onResume: () => void }) {
   return (
-    <div className="tetris-work-cover" aria-hidden="true">
+    <div className="tetris-work-cover" role="status" aria-label="테트리스 일시 중지">
       <div className="tetris-work-cover-tabs">
         <span className="active">운영실적</span>
         <span>Raw Data</span>
         <span>월간 요약</span>
+        {canResume && <button type="button" className="tetris-work-cover-resume" onClick={onResume}>계산 재개　P / Esc</button>}
       </div>
       <div className="tetris-work-cover-body">
         <aside>

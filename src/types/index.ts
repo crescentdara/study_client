@@ -1,5 +1,5 @@
 
-export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE' | 'RUSH_HOUR' | 'UBONGO' | 'ALKKAGI';
+export type StudyType = 'BASEBALL' | 'BINGO' | 'OMOK' | 'TETRIS' | 'OLDMAID' | 'INCIDENT_AVOID' | 'BREAKOUT' | 'CATCHMIND' | 'WORD_CHAIN' | 'RUMMIKUB' | 'DAVINCI_CODE' | 'RUSH_HOUR' | 'UBONGO' | 'ALKKAGI' | 'APPLE_BOX';
 export type StudyStatus = 'WAITING' | 'SETUP' | 'PLAYING' | 'FINISHED';
 
 export interface Room {
@@ -12,6 +12,8 @@ export interface Room {
   playerNames: string[];
   digits: number;
   boardSize: number;
+  /** 테트리스 서바이벌 방이면 "SURVIVAL" */
+  mode?: string;
 }
 
 export interface CreateRoomRequest {
@@ -22,6 +24,8 @@ export interface CreateRoomRequest {
   maxPlayers: number;
   digits: number;
   boardSize: number;
+  /** 테트리스에서 "SURVIVAL"을 보내면 혼자 버티는 판이 만들어진다 */
+  mode?: string;
 }
 
 export interface JoinRoomRequest {
@@ -71,6 +75,8 @@ export interface StudyMoveRequest {
     | 'ALKKAGI_RESULT'
     | 'ALKKAGI_TIMEOUT'
     | 'ALKKAGI_SHOT'
+    | 'APPLE_CLEAR'
+    | 'APPLE_FINISH'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -91,7 +97,7 @@ export interface StudyStateResponse {
   currentTurn: number;
   winner: number;
 
-  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | RushHourGameData | UbongoGameData | AlkkagiGameData | null;
+  gameData: BaseballGameData | BingoGameData | OmokGameData | OldMaidGameData | TetrisGameData | IncidentAvoidGameData | BreakoutGameData | CatchMindGameData | CatchMindSecretData | WordChainGameData | RummikubGameData | DaVinciGameData | RushHourGameData | UbongoGameData | AlkkagiGameData | AppleBoxGameData | null;
 
   playerNames: string[];
 }
@@ -191,6 +197,22 @@ export interface TetrisGameData {
   previousAbortReason?: string;
   finalRanking?: number[];
   records?: Record<string, TetrisPlayerRecord>;
+  /* ── 서바이벌 (mode === 'survival') ─────────────────────────────────────
+   * 여러 명이 같은 조건에서 겨루도록 시계와 구멍 순서를 서버가 정해 내려준다. */
+  survivalElapsedMs?: number;
+  /** n번째로 올라오는 쓰레기 줄이 쓸 구멍 열 */
+  garbageHoles?: number[];
+  survivalResults?: Record<string, TetrisSurvivalResult>;
+}
+
+/** 서바이벌 한 사람의 결과 — 탈락 시점에 서버가 찍는다 */
+export interface TetrisSurvivalResult {
+  survivedMs: number;
+  survivedSeconds: number;
+  score: number;
+  lines: number;
+  /** 합산 점수 = 생존 초 × 100 + 지운 줄 × 20 + 게임 점수 ÷ 10 */
+  total: number;
 }
 
 export interface TetrisOpponentRecord {
@@ -214,6 +236,23 @@ export interface TetrisPlayerRecord {
   lastRankAfter: string;
   lastRankMatchId: string;
   opponents: Record<string, TetrisOpponentRecord>;
+}
+
+/** 테트리스 티어 순위 한 줄 — 로비 목록용 (상대전적은 빠져 있다) */
+export interface TetrisRankRow {
+  nickname: string;
+  rank: number;
+  rating: number;
+  winRate: number;
+  matches: number;
+  wins: number;
+  losses: number;
+  placementGames: number;
+  placementRequired: number;
+  ranked: boolean;
+  tier: TetrisPlayerRecord['tier'];
+  division: TetrisPlayerRecord['division'];
+  rp: number;
 }
 
 export interface TetrisDistractEvent {
@@ -484,4 +523,43 @@ export interface UbongoGameData {
   playerStates: UbongoPlayerState[];
   winner: number;
   startTime: number;
+}
+
+/** 사과게임 — 참가자별 진행 상황 (없앤 칸 인덱스와 점수) */
+export interface AppleBoxPlayerState {
+  score: number;
+  finished: boolean;
+  cleared: number[];
+}
+
+/** 사과게임 랭킹 한 줄 — 서버 AppleBoxRecordService가 만든 공개 기록 */
+export interface AppleBoxRecord {
+  nickname: string;
+  rank: number;
+  best: number;
+  games: number;
+  lastScore: number;
+  average: number;
+  lastPlayedAt: number;
+}
+
+export interface AppleBoxGameData {
+  rows: number;
+  cols: number;
+  target: number;
+  /** 모든 참가자가 공유하는 초기 보드 (길이 rows*cols, 값 1~9) */
+  board: number[];
+  numPlayers: number;
+  instanceId: string;
+  durationSeconds: number;
+  remainingSeconds: number;
+  playerStates: Record<string, AppleBoxPlayerState>;
+  finalRanking?: number[];
+  records?: Record<string, AppleBoxRecord>;
+  /** 계속 쌓이는 누적 최고 점수 순위 */
+  leaderboard?: AppleBoxRecord[];
+  /** 월요일마다 초기화되는 이번 주 최고 점수 순위 (누적과 따로 관리) */
+  weeklyLeaderboard?: AppleBoxRecord[];
+  /** 이번 주가 시작된 날(월요일) — "2026-08-03" */
+  weekStart?: string;
 }

@@ -4,17 +4,20 @@ import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import PuyoPuyo from './components/games/PuyoPuyo';
 import Sudoku from './components/games/Sudoku';
+import AppleSolo from './components/games/AppleSolo';
 import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import SmokingWidget from './components/SmokingWidget';
 import VendingMachineWidget from './components/VendingMachineWidget';
 import DeskTrashBin from './components/DeskTrashBin';
+import LobbyDrawingLayer from './components/LobbyDrawingLayer';
 import { useLobbyChat } from './hooks/useLobbyChat';
 import { useChatTabNotification } from './hooks/useChatTabNotification';
 import { ToastContainer, useToast } from './components/Toast';
 import ExcelChrome from './components/workspace/ExcelChrome';
 import { WorkspaceMode } from './components/workspace/WorkspaceModeSwitch';
 import ExcelLobby from './components/workspace/ExcelLobby';
+import WeatherSearch from './components/weather/WeatherSearch';
 import imgImage from './assets/images/image.png';
 import imgSideIcon1 from './assets/images/side_icon1.png';
 import imgSideIcon2 from './assets/images/side_icon2.png';
@@ -55,6 +58,7 @@ const GAME_ICONS: Partial<Record<StudyType, string>> = {
     DAVINCI_CODE: '🔍',
     RUSH_HOUR: '🚗',
     ALKKAGI: '⚫',
+    APPLE_BOX: '🍎',
 };
 const GAME_EXT: Record<StudyType, string> = {
     BASEBALL: '.bs',
@@ -71,6 +75,7 @@ const GAME_EXT: Record<StudyType, string> = {
     RUSH_HOUR: '.rush',
     UBONGO: '.ubongo',
     ALKKAGI: '.ak',
+    APPLE_BOX: '.apple',
 };
 const MAX_CHAT_MESSAGES = 200;
 const TERMINAL_HEIGHT = 160;
@@ -202,12 +207,15 @@ function App() {
         Math.max(240, Math.min(500, parseInt(localStorage.getItem('study.chatWidth') ?? '240', 10))),
     );
 
-    // ── 뿌요뿌요 / 스도쿠 / 워드레인 ──────────────────────────────────────────
+    // ── 뿌요뿌요 / 스도쿠 / 사과게임 / 워드레인 ────────────────────────────────
+    // 사과게임은 방을 쓰지 않는다 — 버튼을 누르면 그 자리에서 한 판이 시작된다.
     const [showPuyo, setShowPuyo] = useState(false);
     const [showSudoku, setShowSudoku] = useState(false);
+    const [showApple, setShowApple] = useState(false);
     const [smokingDeskOn, setSmokingDeskOn] = useState(false);
     const [smokingOpacity, setSmokingOpacity] = useState<SmokingDeskOpacity>(loadSmokingOpacity);
     const [vendingOn, setVendingOn] = useState(false);
+    const [drawingMode, setDrawingMode] = useState(false);
     const [vendingOpacity, setVendingOpacity] = useState(() => {
         const stored = Number(localStorage.getItem('study.vendingOpacity'));
         return stored >= 0.2 && stored <= 1 ? stored : 0.94;
@@ -315,6 +323,7 @@ function App() {
             setWordRainVisible(true);
             setShowPuyo(false);
             setShowSudoku(false);
+            setShowApple(false);
         } else if (trimmed === 'git status') {
             lines.push({ type: 'out', text: 'On branch main — nothing to commit, working tree clean' });
         } else if (trimmed === 'git log --oneline') {
@@ -478,7 +487,9 @@ function App() {
             ? 'puyo_puyo.ts'
             : showSudoku && !currentRoom
               ? 'sudoku.ts'
-              : currentRoom
+              : showApple && !currentRoom
+                ? 'inventory_recon.ts'
+                  : currentRoom
                 ? `${currentRoom.roomName}.${
                       currentRoom.studyType === 'BASEBALL'
                           ? 'bs'
@@ -602,7 +613,8 @@ function App() {
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
             <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
             <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />
-            {(smokingDeskOn || vendingOn) && <DeskTrashBin />}
+            <LobbyDrawingLayer nickname={nickname} sessionId={sessionId} editing={drawingMode} onEditingChange={setDrawingMode} />
+            <DeskTrashBin />
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div
@@ -706,19 +718,7 @@ function App() {
                         <div style={{ marginLeft: '10px' }}></div>
                         <li style={{ color: '#888', fontSize: '12px' }}>→</li>
                     </ul>
-                    <div
-                        className="chat-resize-handle"
-                        style={{
-                            background: '#3f3f3f',
-                            color: '#888',
-                            fontSize: '12px',
-                            padding: '3px 8px',
-                            width: '500px',
-                            borderRadius: '6px',
-                        }}
-                    >
-                        study-platform
-                    </div>
+                    <WeatherSearch variant="vscode" />
                 </div>
                 <ul
                     style={{
@@ -1017,6 +1017,31 @@ function App() {
                             )}
                         </li>
                         <li
+                            className={`drawing-activity-control excel-rail-action-12 ${isExcelRowSelected(12) ? 'excel-range-header-selected' : ''}`}
+                            title={drawingMode ? '그림 편집 종료' : '공유 그림 그리기'}
+                            onClick={() => setDrawingMode(value => !value)}
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                background: drawingMode ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                borderLeft: drawingMode ? '2px solid #ccc' : '2px solid transparent',
+                                color: '#c5c5c5',
+                                opacity: drawingMode ? 1 : 0.45,
+                                transition: 'all .12s',
+                                position: 'relative',
+                            }}
+                        >
+                            <svg width="25" height="25" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                                <path d="m6 20 1.2-4.6L18.8 3.8a2 2 0 0 1 2.8 0l2.6 2.6a2 2 0 0 1 0 2.8L12.6 20.8 8 22z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                                <path d="m16.8 5.8 5.4 5.4M7.2 15.4l5.4 5.4M5 24h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                        </li>
+                        <li
                             className={`vending-activity-control excel-rail-action-14 ${isExcelRowSelected(14) ? 'excel-range-header-selected' : ''}`}
                             title={vendingOn ? 'Close vending machine' : 'Open vending machine'}
                             onClick={() => setVendingOn((value) => !value)}
@@ -1106,6 +1131,7 @@ function App() {
                                 onClick={() => {
                                     setShowPuyo((v) => !v);
                                     setShowSudoku(false);
+                                    setShowApple(false);
                                     setWordRainOn(false);
                                     setWordRainVisible(true);
                                 }}
@@ -1132,6 +1158,7 @@ function App() {
                                 onClick={() => {
                                     setShowSudoku((v) => !v);
                                     setShowPuyo(false);
+                                    setShowApple(false);
                                     setWordRainOn(false);
                                     setWordRainVisible(true);
                                 }}
@@ -1151,6 +1178,33 @@ function App() {
                                 }}
                             >
                                 🔢
+                            </div>
+                            <div
+                                className={`activity-game-button excel-rail-action-26 ${isExcelRowSelected(26) ? 'excel-range-header-selected' : ''}`}
+                                title="재고 실사 대조 (합 10 범위 선택)"
+                                onClick={() => {
+                                    setShowApple((v) => !v);
+                                    setShowPuyo(false);
+                                    setShowSudoku(false);
+                                    setWordRainOn(false);
+                                    setWordRainVisible(true);
+                                }}
+                                style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '17px',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    background: showApple ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    borderLeft: showApple ? '2px solid #ccc' : '2px solid transparent',
+                                    opacity: showApple ? 1 : 0.45,
+                                    transition: 'all 0.12s',
+                                }}
+                            >
+                                🍎
                             </div>
                         </div>
                     )}
@@ -1578,7 +1632,8 @@ function App() {
                         }}
                     >
                         {/* 오페시티 적용 */}
-                        {workspaceMode === 'excel' && (
+                        {/* 사과게임은 A~Q 머리글을 직접 그리므로 전역 열 머리글을 숨긴다 */}
+                        {workspaceMode === 'excel' && !showApple && currentRoom?.studyType !== 'APPLE_BOX' && (
                             <div className="excel-global-columnbar" aria-label="워크시트 열 머리글">
                                 {EXCEL_COLUMNS.map((column) => (
                                     <span
@@ -1640,6 +1695,15 @@ function App() {
                                 <PuyoPuyo onClose={() => setShowPuyo(false)} />
                             ) : currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
+                                                        ) : currentRoom === null && showApple ? (
+                                <AppleSolo
+                                    nickname={nickname}
+                                    workspaceMode={workspaceMode}
+                                    onCellSelect={(address, value) =>
+                                        setExcelSelection({ address, rangeEnd: address, value })
+                                    }
+                                    onClose={() => setShowApple(false)}
+                                />
                             ) : currentRoom === null && workspaceMode === 'excel' ? (
                                 <ExcelLobby
                                     nickname={nickname}
@@ -1703,7 +1767,7 @@ function App() {
                             )}
                         </div>
                         {/* 워드레인 오버레이 — 게임 실행 중 항상 마운트, display로만 표시/숨김 */}
-                        {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && (
+                        {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && !showApple && (
                             <div
                                 style={{
                                     position: 'absolute',
@@ -2191,7 +2255,7 @@ function App() {
                                         ? '🃏 Old Maid'
                                         : currentRoom.studyType === 'ALKKAGI'
                                           ? 'ALKKAGI · drag shot'
-                                          : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
+                                            : `◻ Bingo · ${currentRoom.boardSize}×${currentRoom.boardSize}`}
                     </span>
                 )}
                 <span style={{ marginLeft: 'auto', opacity: 0.7 }}>

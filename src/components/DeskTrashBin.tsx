@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 const TRASH_BOUNDS = {
-    left: 56,
+    left: 42,
     bottom: 34,
-    width: 58,
-    height: 72,
+    width: 42,
+    height: 52,
 };
 
 const HOVER_EVENT = 'study:desk-trash-hover';

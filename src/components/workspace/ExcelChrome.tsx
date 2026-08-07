@@ -1,3 +1,5 @@
+import WeatherSearch from '../weather/WeatherSearch';
+
 type OfficeIconName = 'excel' | 'save' | 'undo' | 'redo' | 'paste' | 'cut' | 'copy' | 'brush'
     | 'conditional' | 'table' | 'style' | 'insert' | 'delete' | 'format' | 'sum' | 'sort' | 'search' | 'addins'
     | 'camera' | 'switch';
@@ -84,10 +86,7 @@ export default function ExcelChrome({ onModeChange, workbookName, activeCell, fo
                         <strong>{workbookName} - Excel</strong>
                     </div>
                 </div>
-                <label className="excel-title-search">
-                    <span aria-hidden="true">⌕</span>
-                    <input aria-label="검색" placeholder="검색" />
-                </label>
+                <WeatherSearch variant="excel" />
                 <div className="excel-title-controls">
                     <button className="excel-share-button" type="button">공유</button>
                     <span className="excel-account" aria-label="사용자">로그인</span>

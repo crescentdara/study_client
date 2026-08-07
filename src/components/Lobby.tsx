@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Room, StudyType, CreateRoomRequest } from '../types';
+import { Room, StudyType, CreateRoomRequest, AppleBoxRecord, TetrisRankRow } from '../types';
+import { useAppleLeaderboard, useAppleRankOpen } from '../hooks/useAppleLeaderboard';
+import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../hooks/useTetrisLeaderboard';
 
 interface LobbyProps {
     nickname: string;
@@ -39,11 +41,19 @@ function Lobby({
     const [digits, setDigits] = useState(3);
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
+    // 테트리스 방 만들 때 대전/서바이벌 중 무엇으로 열지
+    const [tetrisSurvival, setTetrisSurvival] = useState(false);
+    const appleRanking = useAppleLeaderboard(10);
+    const appleRank = useAppleRankOpen();
+    const tetrisRanking = useTetrisLeaderboard(10);
+    const tetrisRank = useTetrisRankOpen();
+    // 사과게임은 방을 만들지 않는다 — 좌측 🍎 버튼으로 혼자 바로 시작한다
     const mainStudyTypes: StudyType[] = ['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO', 'ALKKAGI'];
 
     const defaultRoomName = (type: StudyType) => `${type} room`;
     const selectStudyType = (type: StudyType) => {
         setStudyType(type);
+        if (type !== 'TETRIS') setTetrisSurvival(false);
         if (type === 'OMOK') { setMaxPlayers(2); setBoardSize(19); }
         else if (type === 'ALKKAGI') { setMaxPlayers(1); setBoardSize(0); }
         else if (type === 'TETRIS') { setMaxPlayers(3); setBoardSize(20); }
@@ -67,8 +77,9 @@ function Lobby({
                 nickname: nickname.trim(),
                 sessionId,
                 maxPlayers:
+                    // 서바이벌은 1~3명 중 고른 값을 그대로, 대전은 항상 3명
                     studyType === 'TETRIS'
-                        ? 3
+                        ? (tetrisSurvival ? Math.max(1, Math.min(3, maxPlayers)) : 3)
                     : studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT'
                         ? 3
                         : studyType === 'OMOK'
@@ -85,6 +96,7 @@ function Lobby({
                           : studyType === 'OLDMAID'
                             ? 0
                             : boardSize,
+                mode: studyType === 'TETRIS' && tetrisSurvival ? 'SURVIVAL' : '',
             };
             const res = await fetch('/api/rooms', {
                 method: 'POST',
@@ -111,6 +123,50 @@ function Lobby({
                     {body}
                 </span>
             </div>
+        );
+    };
+
+    // 랭킹 한 줄 — 주간·누적 목록이 같은 모양을 쓴다
+    const appleRankRow = (record: AppleBoxRecord) => {
+        const mine = record.nickname === nickname;
+        return L(
+            <span style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="pct">{'{ '}</span>
+                <span className="var">rank</span><span className="pct">: </span>
+                <span className="num">{record.rank}</span><span className="pct">, </span>
+                <span className="var">nickname</span><span className="pct">: </span>
+                <span className="str" style={mine ? { color: '#4ec9b0', fontWeight: 700 } : undefined}>
+                    {`"${record.nickname}"`}
+                </span><span className="pct">, </span>
+                <span className="var">best</span><span className="pct">: </span>
+                <span className="num">{record.best}</span>
+                <span className="pct">{' },'}</span>
+            </span>,
+            1,
+        );
+    };
+
+    // 테트리스 전적 한 줄 — 티어와 승패를 함께 보여준다
+    const tetrisRankRow = (row: TetrisRankRow) => {
+        const mine = row.nickname === nickname;
+        return L(
+            <span style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="pct">{'{ '}</span>
+                <span className="var">rank</span><span className="pct">: </span>
+                <span className="num">{row.rank}</span><span className="pct">, </span>
+                <span className="var">nickname</span><span className="pct">: </span>
+                <span className="str" style={mine ? { color: '#4ec9b0', fontWeight: 700 } : undefined}>
+                    {`"${row.nickname}"`}
+                </span><span className="pct">, </span>
+                <span className="var">tier</span><span className="pct">: </span>
+                <span className="str">{`"${tierLabel(row)}"`}</span><span className="pct">, </span>
+                <span className="var">rp</span><span className="pct">: </span>
+                <span className="num">{row.ranked ? row.rp : row.rating}</span><span className="pct">, </span>
+                <span className="var">record</span><span className="pct">: </span>
+                <span className="str">{`"${row.wins}승 ${row.losses}패"`}</span>
+                <span className="pct">{' },'}</span>
+            </span>,
+            1,
         );
     };
 
@@ -199,7 +255,7 @@ function Lobby({
                                 room.studyType === 'BASEBALL'
                                     ? `${room.digits}digit`
                                     : room.studyType === 'TETRIS'
-                                      ? '20x10'
+                                      ? (room.mode === 'SURVIVAL' ? 'survival' : '20x10')
                                       : room.studyType === 'INCIDENT_AVOID'
                                         ? '360x520'
                                         : room.studyType === 'BREAKOUT'
@@ -216,6 +272,8 @@ function Lobby({
                                             ? `${room.maxPlayers}p`
                                           : room.studyType === 'ALKKAGI'
                                             ? `${room.maxPlayers}p`
+                                          : room.studyType === 'APPLE_BOX'
+                                            ? `10x17 · ${room.maxPlayers}p`
                                           : room.studyType === 'OMOK'
                                             ? '19x19'
                                             : room.studyType === 'OLDMAID'
@@ -248,7 +306,9 @@ function Lobby({
                                             <span className="pct">: </span>
                                             <span className="num">{room.playerCount}</span>
                                             <span className="pct">/</span>
-                                            <span className="num">{room.studyType === 'TETRIS' ? 3 : room.maxPlayers}</span>
+                                            <span className="num">
+                                                {room.studyType === 'TETRIS' && room.mode !== 'SURVIVAL' ? 3 : room.maxPlayers}
+                                            </span>
                                             <span className="pct">{' }'}</span>
                                         </span>
                                         <button
@@ -285,6 +345,150 @@ function Lobby({
                                 </div>
                             );
                         })()}
+                    </div>
+                )}
+
+                {/* ── 사과게임 랭킹 — 접었다 펼 수 있다 (설명 주석 없이 값만) ── */}
+                {!showCreate && (
+                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
+                        {L(<></>)}
+                        {L(
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span
+                                    onClick={appleRank.toggle}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                    title={appleRank.open ? '접기' : '펼치기'}
+                                >
+                                    <span className="cmt" style={{ width: '9px' }}>{appleRank.open ? '▾' : '▸'}</span>
+                                    <span className="kw">const </span>
+                                    <span className="var">appleRanking</span>
+                                    {appleRank.open ? (
+                                        <>
+                                            <span className="pct"> = </span>
+                                            <span className="kw">await </span>
+                                            <span className="fn">fetchTop</span>
+                                            <span className="pct">{'(10)'}</span>
+                                        </>
+                                    ) : (
+                                        <span className="pct">{' = [ ⋯ ]'}</span>
+                                    )}
+                                </span>
+                                {appleRank.open && (
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ fontSize: '10px', padding: '1px 8px' }}
+                                        onClick={() => void appleRanking.reload()}
+                                        disabled={appleRanking.loading}
+                                    >
+                                        {appleRanking.loading ? 'loading...' : '↺ reload()'}
+                                    </button>
+                                )}
+                                {appleRanking.failed && (
+                                    <span style={{ color: '#f44747', fontSize: '10px' }}>불러오지 못했습니다</span>
+                                )}
+                            </span>,
+                        )}
+
+                        {appleRank.open && (
+                            <>
+                                {L(
+                                    <>
+                                        <span className="kw">const </span>
+                                        <span className="var">weekly</span>
+                                        <span className="pct">: </span>
+                                        <span className="typ">AppleScore</span>
+                                        <span className="pct">[] = [</span>
+                                    </>,
+                                )}
+                                {appleRanking.weekly.map(appleRankRow)}
+                                {L(<><span className="pct">]</span></>)}
+                                {L(<></>)}
+
+                                {L(
+                                    <>
+                                        <span className="kw">const </span>
+                                        <span className="var">allTime</span>
+                                        <span className="pct">: </span>
+                                        <span className="typ">AppleScore</span>
+                                        <span className="pct">[] = [</span>
+                                    </>,
+                                )}
+                                {appleRanking.records.map(appleRankRow)}
+                                {L(<><span className="pct">]</span></>)}
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* ── 테트리스 전적·티어 — 사과게임 랭킹과 같은 접기 방식 ── */}
+                {!showCreate && (
+                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
+                        {L(<></>)}
+                        {L(
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span
+                                    onClick={tetrisRank.toggle}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                    title={tetrisRank.open ? '접기' : '펼치기'}
+                                >
+                                    <span className="cmt" style={{ width: '9px' }}>{tetrisRank.open ? '▾' : '▸'}</span>
+                                    <span className="kw">const </span>
+                                    <span className="var">tetrisLadder</span>
+                                    {tetrisRank.open ? (
+                                        <>
+                                            <span className="pct"> = </span>
+                                            <span className="kw">await </span>
+                                            <span className="fn">fetchLadder</span>
+                                            <span className="pct">{'(10)'}</span>
+                                        </>
+                                    ) : (
+                                            <span className="pct">{' = [ ⋯ ]'}</span>
+                                    )}
+                                </span>
+                                {tetrisRank.open && (
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ fontSize: '10px', padding: '1px 8px' }}
+                                        onClick={() => void tetrisRanking.reload()}
+                                        disabled={tetrisRanking.loading}
+                                    >
+                                        {tetrisRanking.loading ? 'loading...' : '↺ reload()'}
+                                    </button>
+                                )}
+                                {tetrisRanking.failed && (
+                                    <span style={{ color: '#f44747', fontSize: '10px' }}>불러오지 못했습니다</span>
+                                )}
+                            </span>,
+                        )}
+
+                        {tetrisRank.open && (
+                            <>
+                                {L(
+                                    <>
+                                        <span className="kw">const </span>
+                                        <span className="var">versus</span>
+                                        <span className="pct">: </span>
+                                        <span className="typ">TetrisRank</span>
+                                        <span className="pct">[] = [</span>
+                                    </>,
+                                )}
+                                {tetrisRanking.records.map(tetrisRankRow)}
+                                {L(<><span className="pct">]</span></>)}
+                                {L(<></>)}
+
+                                {L(
+                                    <>
+                                        <span className="kw">const </span>
+                                        <span className="var">survival</span>
+                                        <span className="pct">: </span>
+                                        <span className="typ">TetrisRank</span>
+                                        <span className="pct">[] = [</span>
+                                    </>,
+                                )}
+                                {tetrisRanking.survival.map(tetrisRankRow)}
+                                {L(<><span className="pct">]</span></>)}
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -404,7 +608,51 @@ function Lobby({
                                 1,
                             )}
                         {studyType === 'TETRIS' &&
-                            L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">players</span><span className="pct"> = </span><span className="num">1..3</span><span className="cmt"> // 1명 연습, 2~3명 랭크전</span></span>, 1)}
+                            L(
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span className="kw">const </span>
+                                    <span className="var">mode</span>
+                                    <span className="pct"> = </span>
+                                    <button
+                                        className={`btn-opt ${tetrisSurvival ? '' : 'on'}`}
+                                        onClick={() => setTetrisSurvival(false)}
+                                        style={{ fontSize: '11px', padding: '3px 8px' }}
+                                    >
+                                        <span className="str">"versus"</span>
+                                    </button>
+                                    <button
+                                        className={`btn-opt ${tetrisSurvival ? 'on' : ''}`}
+                                        onClick={() => { setTetrisSurvival(true); setMaxPlayers(1); }}
+                                        style={{ fontSize: '11px', padding: '3px 8px' }}
+                                    >
+                                        <span className="str">"survival"</span>
+                                    </button>
+                                </span>,
+                                1,
+                            )}
+                        {studyType === 'TETRIS' &&
+                            L(
+                                tetrisSurvival
+                                    ? (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span className="kw">const </span>
+                                            <span className="var">players</span>
+                                            <span className="pct"> = </span>
+                                            {[1, 2, 3].map((n) => (
+                                                <button
+                                                    key={n}
+                                                    className={`btn-opt ${maxPlayers === n ? 'on' : ''}`}
+                                                    onClick={() => setMaxPlayers(n)}
+                                                    style={{ fontSize: '11px', padding: '3px 8px' }}
+                                                >
+                                                    <span className="num">{n}</span>
+                                                </button>
+                                            ))}
+                                        </span>
+                                    )
+                                    : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">players</span><span className="pct"> = </span><span className="num">1..3</span><span className="cmt"> // 1명 연습, 2~3명 랭크전</span></span>,
+                                1,
+                            )}
                         {(studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT') &&
                             L(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="kw">const </span><span className="var">maxPlayers</span><span className="pct"> = </span><span className="num">3</span><span className="cmt"> // fixed</span></span>, 1)}
                         {studyType === 'OMOK' &&

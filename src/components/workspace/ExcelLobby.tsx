@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CreateRoomRequest, Room, StudyType } from '../../types';
+import { AppleBoxRecord, CreateRoomRequest, Room, StudyType, TetrisRankRow } from '../../types';
+import { useAppleLeaderboard, useAppleRankOpen } from '../../hooks/useAppleLeaderboard';
+import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../../hooks/useTetrisLeaderboard';
 
 interface ExcelLobbyProps {
     nickname: string;
@@ -16,6 +18,7 @@ interface ExcelLobbyProps {
     onRangeSelect: (startAddress: string, endAddress: string) => void;
 }
 
+// 재고 실사 대조(사과게임)는 업무 시트로 등록하지 않는다 — 좌측 🍎 버튼으로 바로 시작
 const STUDY_TYPES: StudyType[] = [
     'BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID',
     'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO', 'ALKKAGI',
@@ -36,6 +39,7 @@ const BUSINESS_LABELS: Record<StudyType, string> = {
     RUSH_HOUR: '러시아워',
     UBONGO: '우봉고',
     ALKKAGI: '알까기',
+    APPLE_BOX: '재고 실사 대조',
 };
 
 const BASE_ROWS = [
@@ -95,11 +99,30 @@ interface InteractiveTaskGridProps {
     loading: boolean;
     onCellSelect: (address: string, value: string) => void;
     onRangeSelect: (startAddress: string, endAddress: string) => void;
+    /** 사과게임 랭킹 — 워크시트에서는 '실적 집계'처럼 보이게 끼워 넣는다 */
+    appleRecords: AppleBoxRecord[];
+    appleWeekly: AppleBoxRecord[];
+    appleWeekStart: string;
+    appleRankingFailed: boolean;
+    /** 엑셀 그룹 아웃라인처럼 ＋/－ 로 접었다 펼 수 있게 */
+    appleRankOpen: boolean;
+    onToggleAppleRank: () => void;
+    /** 테트리스 전적·티어 — '품질 평가 등급' 집계처럼 보이게 끼워 넣는다 */
+    tetrisRecords: TetrisRankRow[];
+    /** 서바이벌 등급은 대전과 별개 장부다 */
+    tetrisSurvivalRecords: TetrisRankRow[];
+    tetrisRankingFailed: boolean;
+    tetrisRankOpen: boolean;
+    onToggleTetrisRank: () => void;
 }
 
 const GRID_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
-function InteractiveTaskGrid({ nickname, rooms, activePeople, onJoin, onRefresh, onCreate, loading, onCellSelect, onRangeSelect }: InteractiveTaskGridProps) {
+function InteractiveTaskGrid({
+    nickname, rooms, activePeople, onJoin, onRefresh, onCreate, loading, onCellSelect, onRangeSelect,
+    appleRecords, appleWeekly, appleWeekStart, appleRankingFailed, appleRankOpen, onToggleAppleRank,
+    tetrisRecords, tetrisSurvivalRecords, tetrisRankingFailed, tetrisRankOpen, onToggleTetrisRank,
+}: InteractiveTaskGridProps) {
     const [selected, setSelected] = useState('A1');
     const [dragAnchor, setDragAnchor] = useState('A1');
     const [dragEnd, setDragEnd] = useState('A1');
@@ -181,7 +204,7 @@ function InteractiveTaskGrid({ nickname, rooms, activePeople, onJoin, onRefresh,
     rows[2].push({ text: '검토', className: 'table-header', readOnly: true });
 
     rooms.forEach((room) => {
-        const capacity = room.studyType === 'TETRIS' ? 3 : room.maxPlayers;
+        const capacity = room.studyType === 'TETRIS' && room.mode !== 'SURVIVAL' ? 3 : room.maxPlayers;
         rows.push([
             { text: BUSINESS_LABELS[room.studyType] },
             { text: room.roomName, className: 'live-title' },
@@ -194,6 +217,157 @@ function InteractiveTaskGrid({ nickname, rooms, activePeople, onJoin, onRefresh,
             { text: room.status === 'WAITING' ? '대기' : '확인 중', className: 'center' },
         ]);
     });
+
+    // ── 사과게임 랭킹 — 접기/펼치기 되는 실적 집계 (주간 / 누적) ──────────────────
+    rows.push([
+        {
+            text: `${appleRankOpen ? '－' : '＋'} 실적 집계`,
+            className: 'metric-label',
+            action: onToggleAppleRank,
+            readOnly: true,
+        },
+        { text: '재고 실사 대조 — 담당자별 최고 처리 건수', className: 'live-title', readOnly: true },
+        {
+            text: appleRankOpen ? '담당자' : `주간 ${appleWeekly.length}명 · 누적 ${appleRecords.length}명`,
+            className: 'label',
+            readOnly: true,
+        },
+        { text: appleRankOpen ? '최고 건수' : '', className: 'label', readOnly: true },
+        ...Array.from({ length: 4 }, () => ({ text: '', readOnly: true })),
+        { text: appleRankOpen ? '순위' : '', className: 'label', readOnly: true },
+    ]);
+
+    if (appleRankOpen) {
+        // 한 구간(주간/누적)을 같은 모양으로 그린다
+        const pushRankSection = (label: string, caption: string, records: AppleBoxRecord[], emptyNote: string) => {
+            rows.push([
+                { text: label, className: 'metric-label', readOnly: true },
+                { text: caption, className: 'note', readOnly: true },
+                ...Array.from({ length: 7 }, () => ({ text: '', readOnly: true })),
+            ]);
+            if (appleRankingFailed) {
+                rows.push([
+                    { text: label },
+                    { text: '실적 집계를 불러오지 못했습니다 — 새로 고침으로 다시 시도해 주세요', className: 'note' },
+                    ...Array.from({ length: 7 }, () => ({ text: '' })),
+                ]);
+                return;
+            }
+            if (records.length === 0) {
+                rows.push([
+                    { text: label },
+                    { text: emptyNote, className: 'note' },
+                    ...Array.from({ length: 7 }, () => ({ text: '' })),
+                ]);
+                return;
+            }
+            records.forEach((record) => {
+                const mine = record.nickname === nickname;
+                rows.push([
+                    { text: label },
+                    { text: `${record.rank}위 · ${record.nickname}`, className: mine ? 'live-title' : '' },
+                    { text: mine ? `${record.nickname} (본인)` : record.nickname },
+                    { text: `${record.best}건`, className: 'center' },
+                    ...Array.from({ length: 4 }, () => ({ text: '' })),
+                    { text: `${record.rank}위`, className: 'center' },
+                ]);
+            });
+        };
+
+        pushRankSection(
+            '주간 실적',
+            `이번 주 집계 · 매주 월요일 초기화${appleWeekStart ? ` (${appleWeekStart} 기준)` : ''}`,
+            appleWeekly,
+            '이번 주 집계된 실적이 없습니다 — 좌측 🍎 버튼으로 참여하면 기록됩니다',
+        );
+        pushRankSection(
+            '누적 실적',
+            '전체 기간 누적 · 초기화 없음',
+            appleRecords,
+            '집계된 실적이 없습니다',
+        );
+    }
+
+    // ── 테트리스 전적·티어 — 접기/펼치기 되는 '품질 평가 등급' 집계 ─────────────────
+    rows.push([
+        {
+            text: `${tetrisRankOpen ? '－' : '＋'} 평가 등급`,
+            className: 'metric-label',
+            action: onToggleTetrisRank,
+            readOnly: true,
+        },
+        { text: '공정 검사 숙련도 — 담당자별 등급 및 처리 실적', className: 'live-title', readOnly: true },
+        {
+            text: tetrisRankOpen
+                ? '담당자'
+                : `대전 ${tetrisRecords.length}명 · 대응 ${tetrisSurvivalRecords.length}명`,
+            className: 'label',
+            readOnly: true,
+        },
+        { text: tetrisRankOpen ? '등급' : '', className: 'label', readOnly: true },
+        { text: tetrisRankOpen ? '평점' : '', className: 'label', readOnly: true },
+        { text: tetrisRankOpen ? '처리 건수' : '', className: 'label', readOnly: true },
+        { text: tetrisRankOpen ? '적합률' : '', className: 'label', readOnly: true },
+        { text: '', readOnly: true },
+        { text: tetrisRankOpen ? '순위' : '', className: 'label', readOnly: true },
+    ]);
+
+    if (tetrisRankOpen) {
+        // 대전 등급과 유입 대응(서바이벌) 등급을 각각의 구간으로 보여준다
+        const pushTetrisSection = (label: string, caption: string, records: TetrisRankRow[], emptyNote: string) => {
+            rows.push([
+                { text: label, className: 'metric-label', readOnly: true },
+                { text: caption, className: 'note', readOnly: true },
+                ...Array.from({ length: 7 }, () => ({ text: '', readOnly: true })),
+            ]);
+            if (tetrisRankingFailed) {
+                rows.push([
+                    { text: label },
+                    { text: '등급 집계를 불러오지 못했습니다 — 새로 고침으로 다시 시도해 주세요', className: 'note' },
+                    ...Array.from({ length: 7 }, () => ({ text: '' })),
+                ]);
+                return;
+            }
+            if (records.length === 0) {
+                rows.push([
+                    { text: label },
+                    { text: emptyNote, className: 'note' },
+                    ...Array.from({ length: 7 }, () => ({ text: '' })),
+                ]);
+                return;
+            }
+            records.forEach((row) => {
+                const mine = row.nickname === nickname;
+                rows.push([
+                    { text: label },
+                    { text: `${row.rank}위 · ${row.nickname}`, className: mine ? 'live-title' : '' },
+                    { text: mine ? `${row.nickname} (본인)` : row.nickname },
+                    {
+                        text: tierLabel(row),
+                        className: row.ranked ? 'status-done' : 'status-wait',
+                    },
+                    { text: `${row.ranked ? row.rp : row.rating}점`, className: 'center' },
+                    { text: `${row.matches}건`, className: 'center' },
+                    { text: `${row.winRate}%`, className: 'center' },
+                    { text: `적합 ${row.wins} · 부적합 ${row.losses}` },
+                    { text: `${row.rank}위`, className: 'center' },
+                ]);
+            });
+        };
+
+        pushTetrisSection(
+            '대전 등급',
+            '2~3명 동시 진행 기준 평가',
+            tetrisRecords,
+            '평가된 담당자가 없습니다 — 2인 이상 대전 시 집계됩니다',
+        );
+        pushTetrisSection(
+            '대응 등급',
+            '유입 대응 2인 이상 기준 평가 · 대전 등급과 별도',
+            tetrisSurvivalRecords,
+            '평가된 담당자가 없습니다 — 유입 대응을 2인 이상으로 진행하면 집계됩니다',
+        );
+    }
 
     BASE_ROWS.forEach((row) => {
         const status = row[3];
@@ -309,13 +483,27 @@ export default function ExcelLobby({
     const [digits, setDigits] = useState(3);
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
+    // 테트리스를 대전으로 열지, 혼자 버티는 서바이벌로 열지
+    const [tetrisSurvival, setTetrisSurvival] = useState(false);
     const [error, setError] = useState('');
     const [createSelection, setCreateSelection] = useState('B4');
+
+    const appleRanking = useAppleLeaderboard(10);
+    const appleRank = useAppleRankOpen();
+    const tetrisRanking = useTetrisLeaderboard(10);
+    const tetrisRank = useTetrisRankOpen();
 
     const activePeople = useMemo(
         () => new Set(rooms.flatMap((room) => room.playerNames ?? [])).size,
         [rooms],
     );
+
+    // 시트의 '새로 고침'은 방 목록과 실적·등급 집계를 함께 갱신한다
+    const handleRefresh = () => {
+        fetchRooms();
+        void appleRanking.reload();
+        void tetrisRanking.reload();
+    };
 
     const handleCreate = async () => {
         if (profileEditing || !nickname.trim()) {
@@ -329,9 +517,12 @@ export default function ExcelLobby({
                 studyType,
                 nickname: nickname.trim(),
                 sessionId,
-                maxPlayers: studyType === 'TETRIS' ? 3 : studyType === 'OMOK' ? 2 : maxPlayers,
+                maxPlayers: studyType === 'TETRIS'
+                    ? (tetrisSurvival ? Math.max(1, Math.min(3, maxPlayers)) : 3)
+                    : studyType === 'OMOK' ? 2 : maxPlayers,
                 digits,
                 boardSize: studyType === 'TETRIS' ? 20 : studyType === 'OMOK' ? 19 : studyType === 'ALKKAGI' || studyType === 'OLDMAID' ? 0 : boardSize,
+                mode: studyType === 'TETRIS' && tetrisSurvival ? 'SURVIVAL' : '',
             };
             const response = await fetch('/api/rooms', {
                 method: 'POST',
@@ -392,7 +583,7 @@ export default function ExcelLobby({
 
                     <div className="excel-create-cell label">게임 종류</div>
                     <div className={`excel-create-cell input-cell ${createSelection === 'B5' ? 'selected' : ''}`} style={{ gridColumn: 'span 3' }}>
-                        <select value={studyType} onFocus={() => selectCreateCell('B5', BUSINESS_LABELS[studyType])} onChange={(event) => { const type = event.target.value as StudyType; configureType(type, setStudyType, setMaxPlayers, setBoardSize, setDigits); onCellSelect('B5', BUSINESS_LABELS[type]); }}>
+                        <select value={studyType} onFocus={() => selectCreateCell('B5', BUSINESS_LABELS[studyType])} onChange={(event) => { const type = event.target.value as StudyType; configureType(type, setStudyType, setMaxPlayers, setBoardSize, setDigits); if (type !== 'TETRIS') setTetrisSurvival(false); onCellSelect('B5', BUSINESS_LABELS[type]); }}>
                             {STUDY_TYPES.map((type) => <option key={type} value={type}>{BUSINESS_LABELS[type]}</option>)}
                         </select>
                     </div>
@@ -401,6 +592,32 @@ export default function ExcelLobby({
                         <input type="number" min={1} max={7} value={maxPlayers} onFocus={() => selectCreateCell('F5', String(maxPlayers))} onChange={(event) => { setMaxPlayers(Number(event.target.value)); onCellSelect('F5', event.target.value); }} />
                     </div>
                     <div className="excel-create-cell label">공개 범위</div><div className="excel-create-cell" style={{ gridColumn: 'span 2' }}>로비 전체</div>
+
+                    {studyType === 'TETRIS' && (
+                        <>
+                            <div className="excel-create-cell label">진행 방식</div>
+                            <div className={`excel-create-cell input-cell ${createSelection === 'B7' ? 'selected' : ''}`} style={{ gridColumn: 'span 3' }}>
+                                <select
+                                    value={tetrisSurvival ? 'SURVIVAL' : 'VERSUS'}
+                                    onFocus={() => selectCreateCell('B7', tetrisSurvival ? '단독 대응' : '대전')}
+                                    onChange={(event) => {
+                                        const survival = event.target.value === 'SURVIVAL';
+                                        setTetrisSurvival(survival);
+                                        setMaxPlayers(survival ? 1 : 3);
+                                        onCellSelect('B7', survival ? '단독 대응' : '대전');
+                                    }}
+                                >
+                                    <option value="VERSUS">대전 (2~3명)</option>
+                                    <option value="SURVIVAL">유입 대응 (1~3명)</option>
+                                </select>
+                            </div>
+                            <div className="excel-create-cell muted" style={{ gridColumn: 'span 5' }}>
+                                {tetrisSurvival
+                                    ? '유입 항목을 버티는 방식입니다. 2명 이상이면 별도 등급으로 집계됩니다.'
+                                    : '2~3명이 함께 진행하며 평가 등급에 반영됩니다.'}
+                            </div>
+                        </>
+                    )}
 
                     <div className="excel-create-cell label">{configLabel}</div>
                     <div className={`excel-create-cell input-cell number ${createSelection === 'B6' ? 'selected' : ''}`} style={{ gridColumn: 'span 2' }}>
@@ -426,11 +643,22 @@ export default function ExcelLobby({
                     rooms={rooms}
                     activePeople={activePeople}
                     onJoin={onJoin}
-                    onRefresh={fetchRooms}
+                    onRefresh={handleRefresh}
                     onCreate={() => setShowCreate(true)}
-                    loading={loading}
+                    loading={loading || appleRanking.loading || tetrisRanking.loading}
                     onCellSelect={onCellSelect}
                     onRangeSelect={onRangeSelect}
+                    appleRecords={appleRanking.records}
+                    appleWeekly={appleRanking.weekly}
+                    appleWeekStart={appleRanking.weekStart}
+                    appleRankingFailed={appleRanking.failed}
+                    appleRankOpen={appleRank.open}
+                    onToggleAppleRank={appleRank.toggle}
+                    tetrisRecords={tetrisRanking.records}
+                    tetrisSurvivalRecords={tetrisRanking.survival}
+                    tetrisRankingFailed={tetrisRanking.failed}
+                    tetrisRankOpen={tetrisRank.open}
+                    onToggleTetrisRank={tetrisRank.toggle}
                 />
             )}
         </div>
