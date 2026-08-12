@@ -233,7 +233,8 @@ function InteractiveTaskGrid({
             readOnly: true,
         },
         { text: appleRankOpen ? '최고 건수' : '', className: 'label', readOnly: true },
-        ...Array.from({ length: 4 }, () => ({ text: '', readOnly: true })),
+        { text: appleRankOpen ? '수행 횟수' : '', className: 'label', readOnly: true },
+        ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
         { text: appleRankOpen ? '순위' : '', className: 'label', readOnly: true },
     ]);
 
@@ -268,7 +269,8 @@ function InteractiveTaskGrid({
                     { text: `${record.rank}위 · ${record.nickname}`, className: mine ? 'live-title' : '' },
                     { text: mine ? `${record.nickname} (본인)` : record.nickname },
                     { text: `${record.best}건`, className: 'center' },
-                    ...Array.from({ length: 4 }, () => ({ text: '' })),
+                    { text: `${record.games}회`, className: 'center' },
+                    ...Array.from({ length: 3 }, () => ({ text: '' })),
                     { text: `${record.rank}위`, className: 'center' },
                 ]);
             });

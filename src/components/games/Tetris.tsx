@@ -450,12 +450,26 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
           name: names[index] ?? `P${index + 1}`,
           isMe: index === myPlayerIndex,
           survivedMs: result.survivedMs,
+          survivedSeconds: result.survivedSeconds,
+          score: result.score,
           lines: result.lines,
           total: result.total,
         };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   }, [data?.survivalResults, data?.finalRanking, studyState?.playerNames, myPlayerIndex]);
+
+  /* 혼자 하는 판은 내가 죽으면 그걸로 끝이지만(서버 응답을 기다리지 않는다),
+     여럿이 겨루는 판은 전원이 탈락해 서버가 순위를 확정해야 끝이다. */
+  const survivalSolo = (data?.numPlayers ?? 1) <= 1;
+  const survivalMatchOver = survival
+    && (studyState?.status === 'FINISHED' || (survivalSolo && gameOver));
+  /** 나는 탈락했지만 남은 사람이 아직 버티는 중 */
+  const survivalWaiting = survival && gameOver && !survivalMatchOver;
+  const survivalAliveCount = useMemo(() => {
+    const states = data?.playerStates ?? {};
+    return Object.values(states).filter((state) => !state.gameOver).length;
+  }, [data?.playerStates]);
 
   const publicBoard = useMemo(
     () => mergePiece(board, piece),
@@ -1221,10 +1235,19 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
         </div>
       )}
 
+      {/* 내가 먼저 탈락한 경우 — 경기는 계속되므로 화면을 가리지 않고 알려만 준다 */}
+      {survivalWaiting && (
+        <div className="tetris-survival-wait">
+          <strong>내 대응 종료</strong>
+          <span>{formatSurvivalClock(survivalElapsed)} · {lines}건 · {score.toLocaleString()}점</span>
+          <em>{survivalAliveCount}명이 아직 버티는 중 — 전원 종료 후 순위가 정해집니다</em>
+        </div>
+      )}
+
       {/* ── 서바이벌 결과 ─────────────────────────────────────────────────
-          혼자 한 판은 그 자리 기록만 보여주고, 2명 이상이면 서버가 확정한 순위와
-          합산 점수를 보여준다(합산 점수는 생존 시간 비중이 커서 오래 버틴 쪽이 앞선다). */}
-      {survival && gameOver && !resultDismissed && (
+          전원이 탈락하면 서버가 확정한 순위와 합산 점수 계산 내역을 보여준다.
+          이긴 사람도 이 시점에 함께 뜬다(내 탈락이 아니라 경기 종료 기준). */}
+      {survivalMatchOver && !resultDismissed && (
         <div className="tetris-survival-result">
           <div className="tetris-survival-result__box">
             <strong>{survivalRanking.length > 1 ? '대응 종료 — 순위' : '대응 종료'}</strong>
@@ -1232,14 +1255,26 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
               <ol className="tetris-survival-rank">
                 {survivalRanking.map((entry, position) => (
                   <li key={entry.index} className={entry.isMe ? 'is-mine' : ''}>
-                    <span className="tetris-survival-rank__no">{position + 1}</span>
-                    <span className="tetris-survival-rank__name">
-                      {entry.name}{entry.isMe && <em> (나)</em>}
-                    </span>
-                    <span className="tetris-survival-rank__detail">
-                      {formatSurvivalClock(entry.survivedMs)} · {entry.lines}건
-                    </span>
-                    <b>{entry.total.toLocaleString()}</b>
+                    <div className="tetris-survival-rank__head">
+                      <span className="tetris-survival-rank__no">{position + 1}</span>
+                      <span className="tetris-survival-rank__name">
+                        {entry.name}{entry.isMe && <em> (나)</em>}
+                      </span>
+                      <b>{entry.total.toLocaleString()}</b>
+                    </div>
+                    <div className="tetris-survival-rank__calc">
+                      <span>생존 {formatSurvivalClock(entry.survivedMs)}</span>
+                      <span>{entry.survivedSeconds} × 100</span>
+                      <b>{(entry.survivedSeconds * 100).toLocaleString()}</b>
+
+                      <span>처리 {entry.lines}건</span>
+                      <span>{entry.lines} × 20</span>
+                      <b>{(entry.lines * 20).toLocaleString()}</b>
+
+                      <span>점수 {entry.score.toLocaleString()}</span>
+                      <span>÷ 10</span>
+                      <b>{Math.floor(entry.score / 10).toLocaleString()}</b>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1251,9 +1286,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
               </dl>
             )}
             <small>
-              {survivalRanking.length > 1
-                ? '합산 점수 = 생존 초 × 100 + 처리 건수 × 20 + 점수 ÷ 10'
-                : '혼자 한 판은 전적·티어에 반영되지 않습니다.'}
+              {data?.aborted
+                ? '중간에 나간 사람이 있어 순위가 확정되지 않았습니다.'
+                : survivalRanking.length > 1
+                  ? '합산 점수 = 생존 초 × 100 + 처리 건수 × 20 + 점수 ÷ 10'
+                  : '혼자 한 판은 전적·티어에 반영되지 않습니다.'}
             </small>
             <div className="tetris-survival-result__actions">
               {onRestart && (

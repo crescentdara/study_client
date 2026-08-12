@@ -12,6 +12,7 @@ import VendingMachineWidget from './components/VendingMachineWidget';
 import DeskTrashBin from './components/DeskTrashBin';
 import LobbyDrawingLayer from './components/LobbyDrawingLayer';
 import { useLobbyChat } from './hooks/useLobbyChat';
+import { useServerRedeployReload } from './hooks/useServerRedeployReload';
 import { useChatTabNotification } from './hooks/useChatTabNotification';
 import { ToastContainer, useToast } from './components/Toast';
 import ExcelChrome from './components/workspace/ExcelChrome';
@@ -172,6 +173,8 @@ function App() {
 
     // ── 토스트 ─────────────────────────────────────────────────────────────────
     const { toasts, addToast, dismiss } = useToast();
+    // 서버가 재배포되면 방·채팅 상태가 사라지므로 화면을 새로 불러온다
+    const serverRedeployed = useServerRedeployReload();
     const nicknameRef = useRef(nickname);
     nicknameRef.current = nickname;
 
@@ -610,6 +613,11 @@ function App() {
             } as React.CSSProperties}
         >
             {noiseOn && <div className="noise"></div>}
+            {serverRedeployed && (
+                <div className="server-reload-notice" role="status">
+                    서버가 새로 배포되었습니다 — 화면을 다시 불러옵니다…
+                </div>
+            )}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
             <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
             <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />

@@ -53,6 +53,9 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
     // 판 중간에 프로필을 고쳐도 진행 중인 판이 다시 시작되지 않게 ref로 읽는다
     const nicknameRef = useRef(nickname);
     useEffect(() => { nicknameRef.current = nickname; }, [nickname]);
+    // 새로 시작할 때 직전 판을 끝맺기 위해 최신 상태를 ref로도 들고 있는다
+    const snapshotRef = useRef<SoloSnapshot | null>(null);
+    useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
 
     useEffect(() => {
         aliveRef.current = true;
@@ -63,6 +66,20 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
         setStarting(true);
         setError('');
         const seq = (seqRef.current += 1);
+
+        /*
+         * 진행 중인 판이 있으면 먼저 끝맺는다.
+         *
+         * 그냥 새 판을 만들면 직전 판이 집계되지 않아서, 열심히 하다가 새로 시작한 판이
+         * 판수에서 사라진다. 반대로 한 칸도 정리하지 못한 판(보드만 보고 넘긴 경우)은
+         * 서버가 기록하지 않고 세션만 비우므로, 리롤을 반복해도 판수가 부풀지 않는다.
+         * 결과는 쓰지 않으므로 응답을 기다리지 않는다.
+         */
+        const previous = snapshotRef.current;
+        if (previous && !previous.finished) {
+            void postJson('/api/apple/finish', { instanceId: previous.instanceId }).catch(() => {});
+        }
+
         try {
             const next = await postJson('/api/apple/start', { nickname: nicknameRef.current });
             if (!aliveRef.current || seq !== seqRef.current) return;

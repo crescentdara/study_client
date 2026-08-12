@@ -139,7 +139,9 @@ function Lobby({
                     {`"${record.nickname}"`}
                 </span><span className="pct">, </span>
                 <span className="var">best</span><span className="pct">: </span>
-                <span className="num">{record.best}</span>
+                <span className="num">{record.best}</span><span className="pct">, </span>
+                <span className="var">games</span><span className="pct">: </span>
+                <span className="num">{record.games}</span>
                 <span className="pct">{' },'}</span>
             </span>,
             1,
