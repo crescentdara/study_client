@@ -119,6 +119,21 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
             });
     }, [snapshot]);
 
+    /**
+     * 나가기 — 진행 중인 판을 먼저 끝맺고 닫는다.
+     *
+     * 그냥 닫으면 서버는 판이 끝난 걸 모른 채 세션만 남아, 지운 칸이 있어도 판수와
+     * 점수가 반영되지 않는다. 한 칸도 못 지운 판은 서버가 기록하지 않으므로 그대로
+     * 끝맺어도 판수가 부풀지 않는다.
+     */
+    const close = useCallback(() => {
+        const current = snapshotRef.current;
+        if (current && !current.finished) {
+            void postJson('/api/apple/finish', { instanceId: current.instanceId }).catch(() => {});
+        }
+        onClose();
+    }, [onClose]);
+
     const studyState: StudyStateResponse | null = useMemo(() => {
         if (!snapshot) return null;
         return {
@@ -141,7 +156,7 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
                     <button type="button" onClick={() => void start()} disabled={starting}>
                         {starting ? '시작 중…' : '새 판 시작'}
                     </button>
-                    <button type="button" onClick={onClose}>닫기</button>
+                    <button type="button" onClick={close}>닫기</button>
                 </div>
             )}
             <AppleGame
@@ -152,7 +167,7 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
                 workspaceMode={workspaceMode}
                 onCellSelect={onCellSelect}
                 onRestart={() => void start()}
-                onClose={onClose}
+                onClose={close}
                 restarting={starting}
             />
         </div>
