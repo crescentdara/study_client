@@ -15,9 +15,8 @@ interface ChatProps {
   messages: ChatMessage[];
   myNickname: string;
   myEmoji: string;
-  myBubbleColor?: string;
   sessionId: string;
-  onSend: (text: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number, bubbleColor?: string) => void;
+  onSend: (text: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number) => void;
   onClearMessages?: () => void;
   playerNames?: string[];
   scrollResetKey?: string;
@@ -71,7 +70,7 @@ function renderWithMentions(text: string, myNickname: string) {
   });
 }
 
-function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [chatChannel, setChatChannel] = useState<1 | 2>(1);
@@ -180,7 +179,7 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
       setMentionQuery(null);
       return;
     }
-    onSend(text, sessionId, undefined, replyTarget?.id, myBubbleColor);
+    onSend(text, sessionId, undefined, replyTarget?.id);
     setInput("");
     setMentionQuery(null);
     setReplyTarget(null);
@@ -408,7 +407,6 @@ function Chat({ messages, myNickname, myEmoji, myBubbleColor, sessionId, onSend,
               next={visibleMessages[index + 1]}
               myNickname={myNickname}
               myEmoji={myEmoji}
-              myBubbleColor={myBubbleColor}
               onPreview={setPreviewImage}
               onReply={setReplyTarget}
               onNicknameClick={(nickname, event) => {
@@ -874,7 +872,6 @@ const ChatMessageItem = memo(function ChatMessageItem({
   next,
   myNickname,
   myEmoji,
-  myBubbleColor,
   onPreview,
   onReply,
   onNicknameClick,
@@ -884,7 +881,6 @@ const ChatMessageItem = memo(function ChatMessageItem({
   next?: ChatMessage;
   myNickname: string;
   myEmoji: string;
-  myBubbleColor?: string;
   onPreview: (image: { url: string; fileName?: string }) => void;
   onReply: (message: ChatMessage) => void;
   onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
@@ -973,13 +969,9 @@ const ChatMessageItem = memo(function ChatMessageItem({
           title={message.id != null ? "클릭하여 답글 달기" : undefined}
           style={{
             maxWidth: "80%",
-            background: isMe && myBubbleColor
-              ? myBubbleColor
-              : !isMe && message.bubbleColor
-                ? message.bubbleColor
-                : mentionsMe
-                  ? "rgba(255,158,59,0.12)"
-                  : isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
+            background: mentionsMe
+              ? "rgba(255,158,59,0.12)"
+              : isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
             border: `1px solid ${mentionsMe ? "rgba(255,158,59,0.5)" : isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
             padding: "5px 10px",
             borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",

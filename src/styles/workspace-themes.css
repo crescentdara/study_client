@@ -2163,28 +2163,6 @@ html[data-workspace-mode='excel'] #root {
 .workspace--excel .nickname-required-overlay span:first-child {
     color: #185c37 !important;
 }
-.workspace--excel .chat-customize-button {
-    display: none !important;
-}
-.workspace--vscode .chat-customize-button {
-    display: none !important;
-}
-.workspace--excel .chat-customize-panel {
-    border-color: #b9b9b9 !important;
-    border-radius: 1px !important;
-    background: #fff !important;
-    color: #333 !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15) !important;
-}
-.workspace--excel .chat-customize-panel * {
-    color: #444 !important;
-}
-.workspace--excel .chat-customize-panel input,
-.workspace--excel .chat-customize-panel select {
-    border-color: #c5c5c5 !important;
-    background: #fff !important;
-    color: #333 !important;
-}
 /* Business workbook shown in Excel mode. */
 .excel-lobby {
     min-height: 100%;

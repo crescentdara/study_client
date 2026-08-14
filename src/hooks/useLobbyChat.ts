@@ -41,7 +41,7 @@ export function useLobbyChat({ onMessage, onHistory }: UsLobbyChatOptions) {
 
   const sendChat = useCallback((
     text: string, nickname: string, emoji: string, sessionId: string,
-    attachment?: ChatAttachment, replyToId?: number, bubbleColor?: string, 
+    attachment?: ChatAttachment, replyToId?: number,
   ) => {
     const c = clientRef.current;
     if (!c?.connected) return;
@@ -54,7 +54,6 @@ export function useLobbyChat({ onMessage, onHistory }: UsLobbyChatOptions) {
         emoji,
         sessionId,
         replyToId,
-        bubbleColor,
         ...(attachment ?? { type: 'TEXT' }),
       }),
     });

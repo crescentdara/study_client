@@ -113,7 +113,6 @@ interface LobbyChatPanelProps {
     sessionId: string;
     playerNames: string[];
     onIncomingMessage: (msg: ChatMessage) => void;
-    bubbleColor: string;
     workspaceMode: WorkspaceMode;
 }
 
@@ -123,7 +122,6 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     sessionId,
     playerNames,
     onIncomingMessage,
-    bubbleColor,
     workspaceMode,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -141,9 +139,9 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback(
         (text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
-            sendChat(text, nickname, emoji, sessionId, attachment, replyToId, bubbleColor); // bubbleColor 추가
+            sendChat(text, nickname, emoji, sessionId, attachment, replyToId);
         },
-        [sendChat, nickname, emoji, sessionId, bubbleColor],
+        [sendChat, nickname, emoji, sessionId],
     );
     const handleClear = useCallback(() => setMessages([]), []);
 
@@ -528,32 +526,6 @@ function App() {
 
     const [noiseOn, setNoiseOn] = useState(false);
 
-    //채팅창 꾸미기
-    const [chatBgImage, setChatBgImage] = useState<string | null>(() => localStorage.getItem('study.chatBg'));
-    const [bubbleColor, setBubbleColor] = useState(() => localStorage.getItem('study.bubbleColor') ?? '#2d2d30');
-    const [chatFont, setChatFont] = useState(() => localStorage.getItem('study.chatFont') ?? 'inherit');
-
-    const handleChatBgUpload = useCallback((file: File) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = reader.result as string;
-            setChatBgImage(dataUrl);
-            localStorage.setItem('study.chatBg', dataUrl);
-        };
-        reader.readAsDataURL(file);
-    }, []);
-
-    const handleBubbleColorChange = useCallback((color: string) => {
-        setBubbleColor(color);
-        localStorage.setItem('study.bubbleColor', color);
-    }, []);
-
-    const handleChatFontChange = useCallback((font: string) => {
-        setChatFont(font);
-        localStorage.setItem('study.chatFont', font);
-    }, []);
-
-    const [customizeOpen, setCustomizeOpen] = useState(false);
     const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() =>
         localStorage.getItem('study.workspaceMode') === 'excel' ? 'excel' : 'vscode',
     );
@@ -1973,11 +1945,6 @@ function App() {
                             borderLeft: workspaceMode === 'excel' ? 'none' : '1px solid #3e3e42',
                             position: 'relative',
                             display: 'flex',
-                            backgroundImage: chatBgImage ? `url(${chatBgImage})` : undefined,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            ['--chat-bubble-color' as string]: bubbleColor,
-                            ['--chat-font' as string]: chatFont,
                         } as React.CSSProperties
                     }
                 >
@@ -2017,156 +1984,6 @@ function App() {
                         }}
                     />
 
-                    {/* 커스텀 설정 버튼 */}
-                    <button
-                        className="chat-customize-button"
-                        onClick={() => setCustomizeOpen((v) => !v)}
-                        title="채팅창 꾸미기"
-                        style={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            zIndex: 4,
-                            width: 22,
-                            height: 22,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: customizeOpen ? '#0e639c' : 'rgba(45,45,48,0.85)',
-                            border: '1px solid #3e3e42',
-                            borderRadius: '4px',
-                            color: '#ccc',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        ⚙️
-                    </button>
-
-                    {/* 커스텀 설정 팝업 */}
-                    {customizeOpen && (
-                        <div
-                            className="chat-customize-panel"
-                            style={{
-                                position: 'absolute',
-                                top: 32,
-                                right: 6,
-                                zIndex: 5,
-                                width: 180,
-                                background: '#252526',
-                                border: '1px solid #3e3e42',
-                                borderRadius: '6px',
-                                padding: '10px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '8px',
-                            }}
-                        >
-                            <div
-                                style={{
-                                    fontSize: '11px',
-                                    color: '#bbb',
-                                    fontWeight: 700,
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                채팅창 꾸미기
-                                <span
-                                    style={{ cursor: 'pointer', color: '#858585' }}
-                                    onClick={() => setCustomizeOpen(false)}
-                                >
-                                    ✕
-                                </span>
-                            </div>
-
-                            <label
-                                style={{
-                                    fontSize: '11px',
-                                    color: '#ccc',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px',
-                                }}
-                            >
-                                배경 이미지
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ fontSize: '10px', color: '#ccc' }}
-                                    onChange={(e) => e.target.files?.[0] && handleChatBgUpload(e.target.files[0])}
-                                />
-                                {chatBgImage && (
-                                    <button
-                                        className="btn-secondary"
-                                        style={{ fontSize: '10px', padding: '2px 0' }}
-                                        onClick={() => {
-                                            setChatBgImage(null);
-                                            localStorage.removeItem('study.chatBg');
-                                        }}
-                                    >
-                                        배경 제거
-                                    </button>
-                                )}
-                            </label>
-
-                            <label
-                                style={{
-                                    fontSize: '11px',
-                                    color: '#ccc',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                말풍선 색상
-                                <input
-                                    type="color"
-                                    value={bubbleColor}
-                                    onChange={(e) => handleBubbleColorChange(e.target.value)}
-                                    style={{
-                                        width: 24,
-                                        height: 20,
-                                        padding: 0,
-                                        border: 'none',
-                                        background: 'none',
-                                        cursor: 'pointer',
-                                    }}
-                                />
-                            </label>
-
-                            <label
-                                style={{
-                                    fontSize: '11px',
-                                    color: '#ccc',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px',
-                                }}
-                            >
-                                폰트
-                                <select
-                                    value={chatFont}
-                                    onChange={(e) => handleChatFontChange(e.target.value)}
-                                    style={{
-                                        fontSize: '11px',
-                                        background: '#1e1e1e',
-                                        color: '#ccc',
-                                        border: '1px solid #3e3e42',
-                                        padding: '3px',
-                                    }}
-                                >
-                                    <option value="inherit">기본</option>
-                                    <option value="'Pretendard', sans-serif">Pretendard</option>
-                                    <option value="'Nanum Gothic', sans-serif">나눔고딕</option>
-                                    <option value="'Consolas', monospace">고정폭</option>
-                                </select>
-                            </label>
-                        </div>
-                    )}
-
                     {/* 닉네임 미입력 안내 오버레이 */}
                     {!nickname.trim() && (
                         <div
@@ -2204,7 +2021,6 @@ function App() {
                         sessionId={sessionId}
                         playerNames={chatPlayerNames}
                         onIncomingMessage={handleIncomingChat}
-                        bubbleColor={bubbleColor}
                         workspaceMode={workspaceMode}
                     />
                 </div>
