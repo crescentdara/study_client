@@ -101,10 +101,15 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
 
         const request = move.moveType === 'APPLE_FINISH'
             ? postJson('/api/apple/finish', { instanceId: current.instanceId })
-            : postJson('/api/apple/clear', {
-                instanceId: current.instanceId,
-                ...(move.payload as Record<string, number>),
-            });
+            : move.moveType === 'APPLE_PAUSE'
+                ? postJson('/api/apple/pause', {
+                    instanceId: current.instanceId,
+                    ...(move.payload as Record<string, boolean>),
+                })
+                : postJson('/api/apple/clear', {
+                    instanceId: current.instanceId,
+                    ...(move.payload as Record<string, number>),
+                });
 
         request
             .then((next) => {

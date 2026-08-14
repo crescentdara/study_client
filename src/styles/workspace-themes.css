@@ -5098,6 +5098,235 @@ html[data-workspace-mode='excel'] #root {
     white-space: pre;
 }
 
+/* ── 퍼즈(P) 화면 ────────────────────────────────────────────────────────────
+ * 상단 버튼줄까지 포함해 .apple-game 전체를 덮는다. 클릭이나 P 키로 풀린다.
+ *
+ * 뭔가 실행 중인 척하지 않는다 — 스피너나 진행률은 오히려 눈에 띈다. 그냥
+ * 평소에 켜 두는 정적인 화면(코드 파일 / 데이터가 채워진 시트+차트)으로
+ * 통째로 바꿔치기해서, 옆에서 슬쩍 봐도 그냥 하던 일처럼 보이게 한다.
+ * 상태바의 "P"는 실제 IDE·엑셀 상태바에 있을 법한 자리에 작게 숨겨 둔다.
+ * ──────────────────────────────────────────────────────────────────────── */
+.apple-game {
+    position: relative;
+}
+.apple-pause-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+}
+.apple-pause-cover__spacer {
+    flex: 1;
+}
+.apple-pause-cover__statusbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 22px;
+    padding: 0 10px;
+    font-size: 10px;
+}
+.apple-pause-cover__hint {
+    opacity: 0.55;
+}
+
+/* ── 엑셀 — 데이터가 채워진 시트 + 막대 차트 ─────────────────────────────── */
+.apple-game--excel .apple-pause-cover {
+    background: #fff;
+    color: #333;
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+}
+.apple-pause-cover__titlebar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 32px;
+    padding: 0 12px;
+    border-bottom: 1px solid #d1d1d1;
+    background: #fff;
+    font-size: 11px;
+}
+.apple-pause-cover__excel-mark {
+    display: grid;
+    width: 17px;
+    height: 17px;
+    place-items: center;
+    border-radius: 2px;
+    background: #217346;
+    color: #fff;
+    font-family: Georgia, serif;
+    font-weight: 700;
+}
+.apple-pause-cover__title-spacer { flex: 1; }
+.apple-pause-cover__avatar {
+    display: grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    border-radius: 50%;
+    background: #5b9bd5;
+    color: #fff !important;
+    font-size: 9px;
+}
+.apple-pause-cover__titlebar b {
+    color: #185c37;
+    font-weight: 600;
+}
+.apple-pause-cover__titlebar span {
+    color: #888;
+}
+.apple-pause-cover__ribbon { flex-shrink: 0; border-bottom: 1px solid #c6c6c6; background: #f7f7f7; }
+.apple-pause-cover__ribbon-tabs { display: flex; align-items: flex-end; gap: 2px; height: 25px; padding: 0 10px; border-bottom: 1px solid #d9d9d9; color: #4d4d4d; font-size: 10px; }
+.apple-pause-cover__ribbon-tabs > * { display: flex; align-items: center; height: 24px; padding: 0 7px; white-space: nowrap; font-weight: 400; }
+.apple-pause-cover__ribbon-tabs b { color: #fff; background: #217346; margin-left: -10px; padding: 0 12px; }
+.apple-pause-cover__ribbon-tabs .active { border-bottom: 2px solid #217346; color: #185c37; font-weight: 700; }
+.apple-pause-cover__ribbon-tools { display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; color: #555; font-size: 9px; }
+.apple-pause-cover__ribbon-tools span { display: flex; align-items: center; height: 22px; padding: 0 7px; border-right: 1px solid #d6d6d6; }
+.apple-pause-cover__ribbon-tools .wide { min-width: 50px; }
+.apple-pause-cover__ribbon-tools .font { min-width: 86px; border: 1px solid #d1d1d1; background: #fff; }
+.apple-pause-cover__ribbon-tools i { font-family: Georgia, serif; }
+.apple-pause-cover__formula { display: flex; flex-shrink: 0; align-items: center; gap: 8px; height: 25px; padding: 0 8px; border-bottom: 1px solid #c6c6c6; color: #555; font-size: 10px; }
+.apple-pause-cover__namebox { width: 42px; padding: 3px 5px; border: 1px solid #bbb; background: #fff; text-align: center; }
+.apple-pause-cover__formula b { padding-right: 7px; border-right: 1px solid #d1d1d1; color: #777; font-family: Georgia, serif; font-style: italic; }
+.apple-pause-cover__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 1px;
+    overflow: hidden;
+    background: #d1d1d1;
+}
+.apple-pause-cover__sheet {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    background: #fff;
+}
+.apple-pause-cover__row {
+    display: grid;
+    grid-template-columns: 30px 68px minmax(140px, 1.6fr) 56px 68px 68px 54px 62px;
+    height: 22px;
+}
+.apple-pause-cover__columns { display: grid; grid-template-columns: 30px 68px minmax(140px, 1.6fr) 56px 68px 68px 54px 62px; height: 19px; background: #f3f3f3; border-bottom: 1px solid #c8c8c8; color: #555; font-size: 9px; }
+.apple-pause-cover__columns > * { display: flex; align-items: center; justify-content: center; border-right: 1px solid #d7d7d7; font-style: normal; }
+.apple-pause-cover__columns i { background: linear-gradient(135deg, transparent 49%, #d0d0d0 50%, transparent 51%); }
+.apple-pause-cover__row.is-head {
+    background: #eef3ef;
+}
+.apple-pause-cover__row.is-head span {
+    color: #185c37;
+    font-weight: 600;
+}
+.apple-pause-cover__row span,
+.apple-pause-cover__row i {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    overflow: hidden;
+    border-right: 1px solid #ededed;
+    border-bottom: 1px solid #ededed;
+    color: #555;
+    font-size: 10px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.apple-pause-cover__row i { justify-content: center; padding: 0; background: #f3f3f3; color: #666; font-style: normal; }
+.apple-pause-cover__row span.is-diff.is-short {
+    color: #c0392b;
+    font-weight: 600;
+}
+.apple-pause-cover__row span.is-diff.is-over {
+    color: #b7791f;
+    font-weight: 600;
+}
+.apple-pause-cover__row span.is-diff.is-match {
+    color: #217346;
+}
+.apple-pause-cover__row span.is-status {
+    justify-content: center;
+    font-weight: 600;
+    text-align: center;
+}
+.apple-pause-cover__row span.is-status.is-done {
+    color: #217346;
+}
+.apple-pause-cover__row span.is-status.is-checking {
+    color: #1f6fb2;
+}
+.apple-pause-cover__row span.is-status.is-flagged {
+    color: #c0392b;
+}
+.apple-game--excel .apple-pause-cover__statusbar {
+    border-top: 1px solid #d1d1d1;
+    background: #f3f3f3;
+    color: #555;
+}
+.apple-pause-cover__sheet-tabs { display: flex; flex-shrink: 0; align-items: center; gap: 1px; height: 24px; padding: 0 7px; border-top: 1px solid #d1d1d1; background: #f3f3f3; color: #555; font-size: 9px; }
+.apple-pause-cover__sheet-tabs > span, .apple-pause-cover__sheet-tabs > b { padding: 5px 8px; font-weight: 400; white-space: nowrap; }
+.apple-pause-cover__sheet-tabs b { align-self: stretch; border-top: 2px solid #217346; background: #fff; color: #185c37; }
+.apple-pause-cover__sheet-tabs .nav, .apple-pause-cover__sheet-tabs .plus { color: #217346; font-size: 13px; }
+.apple-pause-cover__sheet-tabs i { flex: 1; }
+
+/* ── VS Code — 그냥 열어 둔 소스 파일 ─────────────────────────────────────── */
+.apple-game--vscode .apple-pause-cover {
+    background: #1e1e1e;
+    color: #c6c6c6;
+    font-family: Consolas, 'Courier New', monospace;
+}
+.apple-pause-cover__tabbar {
+    flex-shrink: 0;
+    display: flex;
+    height: 28px;
+    border-bottom: 1px solid #2d2d30;
+    background: #252526;
+    font-size: 11px;
+}
+.apple-pause-cover__tabbar span {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-right: 1px solid #2d2d30;
+    color: #969696;
+}
+.apple-pause-cover__tabbar span.is-active {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-top: 1px solid #569cd6;
+}
+.apple-pause-cover__code {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 0;
+}
+.apple-pause-cover__code .apple-pause-cover__line {
+    display: flex;
+    gap: 16px;
+    padding: 0 16px;
+    line-height: 19px;
+    font-size: 11px;
+}
+.apple-pause-cover__ln {
+    width: 24px;
+    flex-shrink: 0;
+    text-align: right;
+    color: #5a5a5a;
+}
+.apple-pause-cover__code code {
+    color: #c6c6c6;
+    white-space: pre;
+}
+.apple-game--vscode .apple-pause-cover__statusbar {
+    background: #007acc;
+    color: #fff;
+}
+
 @media (max-width: 1320px) {
     .apple-game {
         --apple-cell-w: 38px;

@@ -1027,7 +1027,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     const isTyping = target instanceof HTMLInputElement
       || target instanceof HTMLTextAreaElement
       || Boolean(target?.isContentEditable);
-    if (globalPaused && isHost && (event.key.toLowerCase() === 'p' || event.key === 'Escape')) {
+    if (globalPaused && (event.key.toLowerCase() === 'p' || event.key === 'Escape')) {
       event.preventDefault();
       clearLockDelay();
       toggleGlobalPause();
@@ -1057,11 +1057,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     if (event.key === 'ArrowUp') rotate();
     if (event.key === ' ') hardDrop();
     if (event.key.toLowerCase() === 'c') hold();
-    if (event.key.toLowerCase() === 'p' && isHost) {
+    if (event.key.toLowerCase() === 'p') {
       clearLockDelay();
       toggleGlobalPause();
     }
-  }, [clearLockDelay, globalPaused, hardDrop, hold, isHost, move, rotate, startHorizontalHold, toggleGlobalPause]);
+  }, [clearLockDelay, globalPaused, hardDrop, hold, move, rotate, startHorizontalHold, toggleGlobalPause]);
 
   const onKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') stopHorizontalHold();
@@ -1142,7 +1142,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
         onDasDelay={updateDasDelay}
         onArrInterval={updateArrInterval}
         onPause={toggleGlobalPause}
-        canPause={isHost}
+        canPause
       />
       {workspaceMode === 'excel' && (
         <div className="tetris-sheet-session-actions">
@@ -1321,7 +1321,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
           onClose={() => setResultDismissed(true)}
         />
       )}
-      {globalPaused && <TetrisWorkCover canResume={isHost} onResume={toggleGlobalPause} />}
+      {globalPaused && <TetrisWorkCover canResume onResume={toggleGlobalPause} />}
     </div>
   );
 }

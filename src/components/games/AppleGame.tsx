@@ -94,6 +94,133 @@ const DESK_CODE_BOTTOM = [
     'export default { diff, flagged }',
 ];
 
+/* ── 퍼즈(P) 화면 ────────────────────────────────────────────────────────────
+ * 진짜로 시간을 멈추는 퍼즈다(악용 여지는 알지만 사내에서는 양심에 맡기기로 했다).
+ * 그래서 화면도 "게임을 가린 상태"가 아니라 "완전히 다른 화면"처럼 보여야 한다 —
+ * 상단 버튼줄까지 포함해 게임 전체를 덮는다.
+ *
+ * 핵심은 '뭔가 실행되고 있다'는 연출이 아니라 '그냥 평소에 보던 업무 화면'이다.
+ * 로그가 흐르거나 진행률이 도는 건 오히려 눈에 띈다 — 코드 파일을 가만히 보고
+ * 있거나, 데이터 채운 시트를 보고 있는 정적인 화면이 훨씬 자연스럽다.
+ * ──────────────────────────────────────────────────────────────────────── */
+const PAUSE_CODE_LINES = [
+    "import { ReconcileResult, SheetRange } from './types'",
+    "import { fetchSnapshot, diffCells } from './erp-client'",
+    '',
+    'interface ReconcileOptions {',
+    '  range: SheetRange',
+    "  tolerance: number",
+    "  unit: 'EA' | 'KG' | 'BOX'",
+    '}',
+    '',
+    'const DEFAULT_OPTIONS: ReconcileOptions = {',
+    "  range: { sheet: 'inventory/2026H1', from: 'A1', to: 'Q10' },",
+    '  tolerance: 0,',
+    "  unit: 'EA',",
+    '}',
+    '',
+    'const cache = new Map<string, SheetRange>()',
+    '',
+    'export async function reconcile(',
+    '  options: ReconcileOptions = DEFAULT_OPTIONS,',
+    '): Promise<ReconcileResult> {',
+    '  const snapshot = await fetchSnapshot(options.range)',
+    '  const previous = await loadPreviousSnapshot(options.range.sheet)',
+    '  const diff = diffCells(previous, snapshot, options.tolerance)',
+    '',
+    '  return {',
+    '    range: options.range,',
+    '    checkedAt: new Date().toISOString(),',
+    "    flagged: diff.filter((row) => row.gap !== 0),",
+    '  }',
+    '}',
+    '',
+    'function loadPreviousSnapshot(sheetId: string) {',
+    "  return cache.get(sheetId) ?? fetchSnapshot({ sheet: sheetId, from: 'A1', to: 'Z999' })",
+    '}',
+    '',
+    'export function formatSummary(result: ReconcileResult): string {',
+    '  const { flagged } = result',
+    '  return `검증 완료 · 확인 필요 ${flagged.length}건`',
+    '}',
+];
+
+/** [자재코드, 품목명, 담당, 전기 재고, 실사 수량, 차이, 확인]. 마지막 두 칸(차이·확인)에 색을 입힌다. */
+const PAUSE_SHEET_ROWS: string[][] = [
+    ['SM-1042', '스테인리스 밸브 3/4"', '자재팀', '1,240', '1,238', '-2', '재실사'],
+    ['BR-2207', '황동 니플 1/2"', '자재팀', '3,180', '3,180', '0', '완료'],
+    ['PK-0918', '내열 개스킷 KIT-A', '품질팀', '742', '739', '-3', '재실사'],
+    ['MT-5531', '감속 모터 0.4kW', '생산1팀', '96', '96', '0', '완료'],
+    ['CB-7714', '제어 케이블 4C x 2.5', '생산2팀', '1,905', '1,906', '+1', '확인 중'],
+    ['FT-3320', '유량계 DN50', '품질팀', '58', '57', '-1', '확인 중'],
+    ['SW-1180', '리밋 스위치 LS-22', '생산1팀', '412', '412', '0', '완료'],
+    ['HS-6602', '고압 호스 SAE100', '자재팀', '867', '866', '-1', '확인 중'],
+    ['BT-4409', '앵커 볼트 M12', '생산2팀', '5,340', '5,340', '0', '완료'],
+    ['OR-2255', 'O링 NBR 세트', '품질팀', '2,118', '2,116', '-2', '재실사'],
+    ['GS-3391', '가스켓 시트 A4', '자재팀', '640', '638', '-2', '재실사'],
+    ['WP-8820', '방수 커넥터 IP67', '생산1팀', '1,024', '1,024', '0', '완료'],
+    ['LB-1147', '윤활유 20L', '품질팀', '212', '210', '-2', '재실사'],
+    ['FL-6603', '필터 카트리지 40인치', '생산2팀', '388', '388', '0', '완료'],
+    ['VB-9012', '진동 방지 마운트', '생산1팀', '164', '163', '-1', '확인 중'],
+    ['RB-2244', '고무 패킹 세트', '품질팀', '926', '926', '0', '완료'],
+    ['TC-5567', '열전대 센서 K타입', '품질팀', '48', '46', '-2', '재실사'],
+    ['CN-3381', '커넥터 하우징 4P', '자재팀', '1,512', '1,513', '+1', '확인 중'],
+    ['SP-7729', '스프링 와셔 M8', '생산2팀', '3,004', '3,004', '0', '완료'],
+    ['DR-4416', '드라이브 벨트 A형', '생산1팀', '220', '218', '-2', '재실사'],
+];
+
+/** 값 부호에 따라 색을 다르게 주기 위한 클래스 이름 */
+const diffTone = (value: string) => (
+    value.startsWith('-') ? 'is-short' : value.startsWith('+') ? 'is-over' : 'is-match'
+);
+
+const statusTone = (value: string) => (
+    value === '완료' ? 'is-done' : value === '확인 중' ? 'is-checking' : 'is-flagged'
+);
+
+const CODE_KEYWORDS = new Set([
+    'import', 'from', 'export', 'const', 'let', 'interface', 'type', 'async',
+    'function', 'return', 'await', 'new', 'default', 'extends', 'as',
+]);
+const CODE_TYPES = new Set(['string', 'number', 'boolean', 'void', 'any', 'Promise', 'Map']);
+
+interface CodeToken {
+    text: string;
+    className?: string;
+}
+
+/**
+ * 아주 단순한 구문 강조 — VS Code 기본 다크 테마 색을 그대로 쓴다(전역 --syn-* 변수).
+ * 완벽한 파서일 필요는 없다, 슬쩍 봤을 때 코드처럼 보이기만 하면 된다.
+ */
+const highlightCodeLine = (line: string): CodeToken[] => {
+    if (/^\s*(\/\/|\*|\/\*)/.test(line)) return [{ text: line, className: 'cmt' }];
+
+    const raw: { text: string; kind: 'str' | 'num' | 'word' | 'other' }[] = [];
+    const pattern = /("[^"]*"|'[^']*'|`[^`]*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)|([^\sA-Za-z0-9_$'"`]+)|(\s+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(line))) {
+        const [full, str, num, word] = match;
+        if (str) raw.push({ text: str, kind: 'str' });
+        else if (num) raw.push({ text: full, kind: 'num' });
+        else if (word) raw.push({ text: word, kind: 'word' });
+        else raw.push({ text: full, kind: 'other' });
+    }
+
+    return raw.map((token, index) => {
+        if (token.kind === 'str') return { text: token.text, className: 'str' };
+        if (token.kind === 'num') return { text: token.text, className: 'num' };
+        if (token.kind !== 'word') return { text: token.text };
+        if (CODE_KEYWORDS.has(token.text)) return { text: token.text, className: 'kw' };
+        const next = raw[index + 1];
+        if (next && next.kind === 'other' && next.text.startsWith('(')) {
+            return { text: token.text, className: 'fn' };
+        }
+        if (CODE_TYPES.has(token.text) || /^[A-Z]/.test(token.text)) return { text: token.text, className: 'typ' };
+        return { text: token.text };
+    });
+};
+
 const columnLabel = (index: number) => {
     // 0 → A … 25 → Z … 26 → AA
     let label = '';
@@ -136,6 +263,14 @@ export default function AppleGame({
         return raw >= 20 && raw <= 100 ? raw : 100;
     });
     const [showOpacity, setShowOpacity] = useState(false);
+    /**
+     * 퍼즈는 켤 때도 풀 때도 서버 응답을 기다리지 않고 그 자리에서 바로 반영한다
+     * — 어느 쪽이든 왕복 지연만큼도 손해를 보면 안 되기 때문이다. 서버에는
+     * 별도로 요청을 보내 실제 시계도 맞춰 멈추고 풀지만, 화면은 그 응답을
+     * 기다리지 않는다. 요청이 실패하는 드문 경우를 대비해 서버가 알려주는
+     * 값과 어긋나면 그쪽을 따라가도록 뒤에서 조용히 맞춰 준다.
+     */
+    const [paused, setPaused] = useState(false);
 
     const boardRef = useRef<HTMLDivElement | null>(null);
     const deadlineRef = useRef(0);
@@ -176,6 +311,54 @@ export default function AppleGame({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverCleared.length]);
 
+    /**
+     * 서버 쪽 실제 상태와 어긋났을 때만 조용히 맞춘다 (요청 실패 등의 안전망).
+     * 정상적인 경우엔 이 값이 우리가 이미 낙관적으로 반영해 둔 값과 같아서
+     * 아무 변화도 만들지 않는다.
+     */
+    useEffect(() => {
+        if (typeof data?.paused === 'boolean') setPaused(data.paused);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data?.paused]);
+
+    /**
+     * 퍼즈 요청 — 화면은 그 자리에서 바로 바뀌고, 서버 시계는 뒤따라 맞춰진다.
+     *
+     * 풀 때는 deadlineRef를 여기서 '즉시' 다시 잡는다. useEffect에 맡기면 effect는
+     * 화면이 이미 그려진 뒤에야 실행되므로, 커버가 걷히는 바로 그 프레임은 여전히
+     * 퍼즈 시작 전 기준점으로 계산돼 '가려져 있던 만큼 줄어든' 남은 시간이
+     * 한 프레임 노출된다 — 길게 가렸을수록 눈에 띄게 튄다. 이벤트 핸들러 안에서
+     * 상태를 바꾸기 전에 ref를 먼저 맞춰 두면, paused=false로 그려지는 첫 프레임부터
+     * 이미 올바른 값을 쓴다.
+     */
+    const requestPause = useCallback((next: boolean) => {
+        if (!next && data) {
+            deadlineRef.current = Date.now() + data.remainingSeconds * 1000;
+        }
+        setPaused(next);
+        sendMove({ moveType: 'APPLE_PAUSE', data: '', sessionId, payload: { paused: next } });
+    }, [data, sendMove, sessionId]);
+
+    // P 키로 즉시 토글 — 이 화면엔 텍스트 입력 요소가 없으므로 항상 받는다
+    useEffect(() => {
+        if (!playing || finished) return undefined;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key.toLowerCase() !== 'p') return;
+            event.preventDefault();
+            requestPause(!paused);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [playing, finished, paused, requestPause]);
+
+    // 가려진 동안 진행 중이던 드래그 선택은 지운다 — 풀렸을 때 엉뚱한 범위가 남지 않도록
+    useEffect(() => {
+        if (!paused) return;
+        setAnchor(null);
+        setCursor(null);
+        setDragging(false);
+    }, [paused]);
+
     // ── 남은 시간 — 서버가 보낸 remainingSeconds로 매번 재보정한다 ────────────
     useEffect(() => {
         if (!data) return;
@@ -183,10 +366,10 @@ export default function AppleGame({
     }, [data?.remainingSeconds, data?.instanceId]);
 
     useEffect(() => {
-        if (finished || !playing) return;
+        if (finished || !playing || paused) return;
         const id = setInterval(() => setTick((value) => value + 1), 200);
         return () => clearInterval(id);
-    }, [finished, playing]);
+    }, [finished, playing, paused]);
 
     const duration = data?.durationSeconds ?? 120;
     // 시작 전에는 제한 시간이 그대로 멈춰 있고, 시작한 뒤에만 줄어든다
@@ -195,14 +378,22 @@ export default function AppleGame({
     const gaugeRatio = Math.max(0, Math.min(1, msLeft / (duration * 1000)));
     void tick; // 게이지를 부드럽게 갱신하기 위한 리렌더 트리거
 
-    // 내 시간이 끝나면 서버에 알린다 (모두 끝나면 서버가 순위를 확정)
+    /**
+     * 내 시간이 끝나면 서버에 알린다 (모두 끝나면 서버가 순위를 확정).
+     *
+     * 퍼즈 중에는 절대 보내면 안 된다 — 가려진 동안에도 로컬 secondsLeft는
+     * Date.now() 기준으로 계속 흐르므로(위 재보정 effect가 풀리는 순간 바로잡긴
+     * 하지만 멈춰 있는 동안은 그대로 둠), 오래 가려 두면 화면상 시간이 0 밑으로
+     * 내려간 것처럼 보일 수 있다. 그때 이 알림이 나가면 서버는 아직 시간이
+     * 남았다고 보는 판을 클라이언트가 멋대로 끝내버리게 된다.
+     */
     useEffect(() => {
-        if (!data || finished || !playing || myPlayerIndex < 0) return;
+        if (!data || finished || !playing || paused || myPlayerIndex < 0) return;
         if (secondsLeft > 0) return;
         if (finishSentRef.current === data.instanceId) return;
         finishSentRef.current = data.instanceId;
         sendMove({ moveType: 'APPLE_FINISH', data: '', sessionId });
-    }, [secondsLeft, finished, data, myPlayerIndex, sendMove, sessionId]);
+    }, [secondsLeft, finished, playing, paused, data, myPlayerIndex, sendMove, sessionId]);
 
     // 새 판이 시작되면 낙관적 상태를 비운다
     useEffect(() => {
@@ -213,6 +404,7 @@ export default function AppleGame({
         setAnchor(null);
         setCursor(null);
         setDragging(false);
+        setPaused(false);
     }, [data?.instanceId]);
 
     useEffect(() => () => { if (hitTimerRef.current) clearTimeout(hitTimerRef.current); }, []);
@@ -262,7 +454,7 @@ export default function AppleGame({
         return count === 0 ? null : { x: sumX / count, y: sumY / count };
     }, []);
 
-    const playable = playing && !finished && secondsLeft > 0 && myPlayerIndex >= 0 && !!data;
+    const playable = playing && !finished && !paused && secondsLeft > 0 && myPlayerIndex >= 0 && !!data;
 
     const beginDrag = (index: number) => {
         if (!playable || myCleared.has(index)) return;
@@ -442,6 +634,16 @@ export default function AppleGame({
                         {restarting
                             ? (excel ? '준비 중…' : 'starting...')
                             : (excel ? '새 대조 시작' : 'new round')}
+                    </button>
+                )}
+                {playing && !finished && (
+                    <button
+                        type="button"
+                        className="apple-btn"
+                        onClick={() => requestPause(true)}
+                        title={excel ? '단축키 P' : 'shortcut: P'}
+                    >
+                        {excel ? '퍼즈 (P)' : 'pause (p)'}
                     </button>
                 )}
                 <button
@@ -731,6 +933,113 @@ export default function AppleGame({
                     )}
                 </div>
             </div>
+
+            {/* ── 퍼즈 화면 — 상단 버튼줄까지 포함해 게임 전체를 덮는다 ─────────── */}
+            {paused && (
+                <div
+                    className="apple-pause-cover"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={excel ? '계산 재개' : 'resume'}
+                    onClick={() => requestPause(false)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') requestPause(false);
+                    }}
+                >
+                    {excel ? (
+                        <>
+                            <div className="apple-pause-cover__titlebar">
+                                <span className="apple-pause-cover__excel-mark">X</span>
+                                <b>2026년 상반기 재고 실사 리포트.xlsx</b>
+                                <span>저장됨</span>
+                                <span className="apple-pause-cover__title-spacer" />
+                                <span>자동 저장</span>
+                                <span className="apple-pause-cover__avatar">운</span>
+                            </div>
+                            <div className="apple-pause-cover__ribbon">
+                                <div className="apple-pause-cover__ribbon-tabs">
+                                    <b>파일</b><span className="active">홈</span><span>삽입</span><span>페이지 레이아웃</span><span>수식</span><span>데이터</span><span>검토</span><span>보기</span>
+                                </div>
+                                <div className="apple-pause-cover__ribbon-tools" aria-hidden="true">
+                                    <span className="wide">붙여넣기</span><span className="font">맑은 고딕　11</span><span>B　<i>I</i>　<u>U</u></span><span>▦　▤　▥</span><span className="wide">표시 형식　일반</span><span>자동 합계　Σ</span>
+                                </div>
+                            </div>
+                            <div className="apple-pause-cover__formula">
+                                <span className="apple-pause-cover__namebox">B4</span>
+                                <b>fx</b>
+                                <span>재고 실사 대조표 · 2026년 상반기</span>
+                            </div>
+                            <div className="apple-pause-cover__body">
+                                <div className="apple-pause-cover__sheet" role="presentation">
+                                    <div className="apple-pause-cover__columns"><i /><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span></div>
+                                    <div className="apple-pause-cover__row is-head">
+                                        <i>1</i>
+                                        <span>자재코드</span><span>품목명</span><span>담당</span>
+                                        <span>전기 재고</span><span>실사 수량</span><span>차이</span><span>확인</span>
+                                    </div>
+                                    {PAUSE_SHEET_ROWS.map((row) => (
+                                        <div className="apple-pause-cover__row" key={row[0]}>
+                                            <i>{PAUSE_SHEET_ROWS.indexOf(row) + 2}</i>
+                                            {row.map((cell, index) => (
+                                                <span
+                                                    key={index}
+                                                    className={
+                                                        index === 5 ? `is-diff ${diffTone(cell)}`
+                                                            : index === 6 ? `is-status ${statusTone(cell)}`
+                                                                : undefined
+                                                    }
+                                                >
+                                                    {cell}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="apple-pause-cover__sheet-tabs">
+                                <span className="nav">‹　›</span><b>재고 실사</b><span>요약</span><span>원본 데이터</span><span className="plus">＋</span>
+                                <i />
+                                <span>보기 100%　−　╋</span>
+                            </div>
+                            <div className="apple-pause-cover__statusbar">
+                                <span>준비</span><span>접근성: 양호</span>
+                                <span>합계: 15,918　개수: 340</span>
+                                <span className="apple-pause-cover__spacer" />
+                                <span className="apple-pause-cover__hint">P</span>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="apple-pause-cover__tabbar">
+                                <span className="is-active">reconcile.ts</span>
+                                <span>types.ts</span>
+                                <span>erp-client.ts</span>
+                            </div>
+                            <div className="apple-pause-cover__code">
+                                {PAUSE_CODE_LINES.map((line, index) => (
+                                    <div className="apple-pause-cover__line" key={index}>
+                                        <span className="apple-pause-cover__ln">{index + 1}</span>
+                                        <code>
+                                            {line
+                                                ? highlightCodeLine(line).map((token, tokenIndex) => (
+                                                    <span key={tokenIndex} className={token.className}>{token.text}</span>
+                                                ))
+                                                : ' '}
+                                        </code>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="apple-pause-cover__statusbar">
+                                <span>TypeScript</span>
+                                <span>UTF-8</span>
+                                <span>Ln 24, Col 3</span>
+                                <span className="apple-pause-cover__spacer" />
+                                <span className="apple-pause-cover__hint">P</span>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

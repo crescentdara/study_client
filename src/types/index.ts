@@ -77,6 +77,7 @@ export interface StudyMoveRequest {
     | 'ALKKAGI_SHOT'
     | 'APPLE_CLEAR'
     | 'APPLE_FINISH'
+    | 'APPLE_PAUSE'
     | 'CHAT';
   data: string;
   sessionId: string;
@@ -561,4 +562,6 @@ export interface AppleBoxGameData {
   weeklyLeaderboard?: AppleBoxRecord[];
   /** 이번 주가 시작된 날(월요일) — "2026-08-03" */
   weekStart?: string;
+  /** P키 퍼즈 — true면 서버 시계도 실제로 멈춰 있다 */
+  paused?: boolean;
 }
