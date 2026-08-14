@@ -16,6 +16,9 @@ export interface Room {
   mode?: string;
 }
 
+export type ChatWarningColor = 'yellow' | 'red';
+export type ChatWarnings = Record<string, ChatWarningColor[]>;
+
 export interface CreateRoomRequest {
   roomName: string;
   studyType: StudyType;

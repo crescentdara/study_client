@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment } from './types';
+import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment, ChatWarningColor, ChatWarnings } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import PuyoPuyo from './components/games/PuyoPuyo';
@@ -125,6 +125,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
     workspaceMode,
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [warnings, setWarnings] = useState<ChatWarnings>({});
     const handleHistory = useCallback((history: ChatMessage[]) => {
         setMessages(history.slice(-MAX_CHAT_MESSAGES));
     }, []);
@@ -135,7 +136,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
         },
         [onIncomingMessage],
     );
-    const { sendChat } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory });
+    const { sendChat, changeWarnings } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, onWarnings: setWarnings });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback(
         (text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
@@ -155,7 +156,10 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
             onClearMessages={handleClear}
             playerNames={playerNames}
             scrollResetKey={workspaceMode}
-        />
+            warningCards={warnings}
+            onWarningChange={(targetNickname: string, color: ChatWarningColor, action: 'add' | 'remove' | 'clear') =>
+                changeWarnings(nickname, targetNickname, color, action)}
+          />
     );
 });
 

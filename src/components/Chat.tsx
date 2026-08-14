@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChatAttachment, ChatMessage } from "../types";
+import { ChatAttachment, ChatMessage, ChatWarningColor, ChatWarnings } from "../types";
 import imgCh1 from '../assets/images/ch1.png';
 import imgCh2 from '../assets/images/ch2.png';
 import imgCh3 from '../assets/images/ch3.png';
@@ -20,9 +20,27 @@ interface ChatProps {
   onClearMessages?: () => void;
   playerNames?: string[];
   scrollResetKey?: string;
+  warningCards?: ChatWarnings;
+  onWarningChange?: (targetNickname: string, color: ChatWarningColor, action: 'add' | 'remove' | 'clear') => Promise<void>;
 }
 
 const CHAT_RENDER_LIMIT = 80;
+
+const warningMenuButtonStyle = (color: string) => ({
+  width: '100%', display: 'block', textAlign: 'left' as const, border: 0,
+  background: 'transparent', color, padding: '6px 8px', cursor: 'pointer', fontSize: 12,
+});
+
+const WarningCards = ({ cards }: { cards: ChatWarningColor[] }) => (
+  cards.length ? <span aria-label={`경고 카드 ${cards.length}장`} title={`경고 카드 ${cards.length}장`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 2 }}>
+    {cards.map((color, index) => <span key={`${color}-${index}`} aria-hidden="true" style={{
+      display: 'inline-block', width: 8, height: 12, borderRadius: 2,
+      border: `1px solid ${color === 'red' ? '#a83232' : '#b78d16'}`,
+      background: color === 'red' ? 'linear-gradient(90deg, #ff6a63, #df3d3d)' : 'linear-gradient(90deg, #ffe878, #efba27)',
+      boxShadow: 'inset 1px 0 rgba(255,255,255,0.55), 0 1px 1px rgba(0,0,0,0.35)',
+    }} />)}
+  </span> : null
+);
 
 const PLAYER_AVATARS: { id: string; src: string | null; label: string }[] = [
   { id: "ch1", src: imgCh1, label: "😀" },
@@ -70,7 +88,7 @@ function renderWithMentions(text: string, myNickname: string) {
   });
 }
 
-function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey, warningCards = {}, onWarningChange }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [chatChannel, setChatChannel] = useState<1 | 2>(1);
@@ -82,6 +100,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [previewImage, setPreviewImage] = useState<{ url: string; fileName?: string } | null>(null);
   const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [warningError, setWarningError] = useState("");
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -276,6 +295,17 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     },
   ], []);
 
+  const changeWarning = async (targetNickname: string, color: ChatWarningColor, action: 'add' | 'remove' | 'clear') => {
+    if (!onWarningChange) return;
+    setWarningError("");
+    try {
+      await onWarningChange(targetNickname, color, action);
+      setNicknameMenu(null);
+    } catch (error) {
+      setWarningError(error instanceof Error ? error.message : '카드를 변경하지 못했습니다.');
+    }
+  };
+
   const uploadAndSendImage = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       setUploadError("Only image files can be uploaded.");
@@ -409,6 +439,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               myEmoji={myEmoji}
               onPreview={setPreviewImage}
               onReply={setReplyTarget}
+              warningCards={warningCards[message.nickname] ?? []}
               onNicknameClick={(nickname, event) => {
                 event.stopPropagation();
                 setNicknameMenu({ nickname, x: event.clientX, y: event.clientY });
@@ -595,6 +626,16 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               {action.label}
             </button>
           ))}
+          {myNickname === '뚱이' && nicknameMenu.nickname !== '뚱이' && (
+            <>
+              <div style={{ margin: '4px 0', borderTop: '1px solid #3e3e42' }} />
+              <button onClick={() => void changeWarning(nicknameMenu.nickname, 'yellow', 'add')} style={warningMenuButtonStyle('#f4c542')}>🟨 노란 카드 주기</button>
+              <button onClick={() => void changeWarning(nicknameMenu.nickname, 'red', 'add')} style={warningMenuButtonStyle('#f14c4c')}>🟥 빨간 카드 주기</button>
+              <button onClick={() => void changeWarning(nicknameMenu.nickname, 'yellow', 'remove')} style={warningMenuButtonStyle('#d8b44b')}>노란 카드 수거</button>
+              <button onClick={() => void changeWarning(nicknameMenu.nickname, 'red', 'remove')} style={warningMenuButtonStyle('#df7474')}>빨간 카드 수거</button>
+              <button onClick={() => void changeWarning(nicknameMenu.nickname, 'yellow', 'clear')} style={warningMenuButtonStyle('#d4d4d4')}>카드 모두 수거</button>
+            </>
+          )}
         </div>
       )}
 
@@ -680,6 +721,11 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
           {uploadError && (
             <div style={{ padding: "4px 10px", borderTop: "1px solid #3e3e42", color: "#f14c4c", fontSize: "10px" }}>
               {uploadError}
+            </div>
+          )}
+          {warningError && (
+            <div style={{ padding: '4px 10px', borderTop: '1px solid #3e3e42', color: '#f14c4c', fontSize: '10px' }}>
+              {warningError}
             </div>
           )}
 
@@ -875,6 +921,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   onPreview,
   onReply,
   onNicknameClick,
+  warningCards,
 }: {
   message: ChatMessage;
   prev?: ChatMessage;
@@ -884,6 +931,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   onPreview: (image: { url: string; fileName?: string }) => void;
   onReply: (message: ChatMessage) => void;
   onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
+  warningCards: ChatWarningColor[];
 }) {
   const isMe = message.nickname === myNickname;
   const time = new Date(message.timestamp).toLocaleTimeString("en-US", {
@@ -948,6 +996,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
         >
           {renderAvatar(message.emoji || (isMe ? myEmoji : ""))}
           {message.nickname}
+          <WarningCards cards={warningCards} />
         </span>
 
       <div
