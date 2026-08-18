@@ -626,7 +626,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               {action.label}
             </button>
           ))}
-          {myNickname === '뚱이' && nicknameMenu.nickname !== '뚱이' && (
+          {myNickname === '막냉' && nicknameMenu.nickname !== '막냉' && (
             <>
               <div style={{ margin: '4px 0', borderTop: '1px solid #3e3e42' }} />
               <button onClick={() => void changeWarning(nicknameMenu.nickname, 'yellow', 'add')} style={warningMenuButtonStyle('#f4c542')}>🟨 노란 카드 주기</button>
