@@ -13,6 +13,11 @@ interface Props {
     onRestart?: () => void;
     onClose?: () => void;
     restarting?: boolean;
+    modeOverride?: 'SPRINT' | 'CLEAR_ALL';
+    onVerify?: () => void;
+    onRearrange?: () => void;
+    rearrangeEnabled?: boolean;
+    clearAllMeta?: string;
 }
 
 /* ── 사과게임(APPLE_BOX) ─────────────────────────────────────────────────────
@@ -245,6 +250,11 @@ export default function AppleGame({
     onRestart,
     onClose,
     restarting = false,
+    modeOverride,
+    onVerify,
+    onRearrange,
+    rearrangeEnabled = false,
+    clearAllMeta = '',
 }: Props) {
     const excel = workspaceMode === 'excel';
     const data = (studyState?.gameData ?? null) as AppleBoxGameData | null;
@@ -277,6 +287,7 @@ export default function AppleGame({
     const finishSentRef = useRef('');
     const popSeedRef = useRef(0);
     const hitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const elapsedMillisecondsRef = useRef(0);
 
     const rows = data?.rows ?? 10;
     const cols = data?.cols ?? 17;
@@ -286,6 +297,7 @@ export default function AppleGame({
     const finished = studyState?.status === 'FINISHED';
     /** 방장이 시작을 누른 뒤에만 시계가 흐르고 정리가 반영된다 */
     const playing = studyState?.status === 'PLAYING';
+    const clearAllMode = modeOverride === 'CLEAR_ALL' || data?.mode === 'CLEAR_ALL';
 
     const myState = data?.playerStates?.[String(myPlayerIndex)];
     const serverCleared = myState?.cleared ?? [];
@@ -332,12 +344,15 @@ export default function AppleGame({
      * 이미 올바른 값을 쓴다.
      */
     const requestPause = useCallback((next: boolean) => {
+        if (paused === next) return;
         if (!next && data) {
-            deadlineRef.current = Date.now() + data.remainingSeconds * 1000;
+            deadlineRef.current = clearAllMode
+                ? Date.now() - elapsedMillisecondsRef.current
+                : Date.now() + data.remainingSeconds * 1000;
         }
         setPaused(next);
         sendMove({ moveType: 'APPLE_PAUSE', data: '', sessionId, payload: { paused: next } });
-    }, [data, sendMove, sessionId]);
+    }, [paused, data, clearAllMode, sendMove, sessionId]);
 
     // P 키로 즉시 토글 — 이 화면엔 텍스트 입력 요소가 없으므로 항상 받는다
     useEffect(() => {
@@ -362,8 +377,11 @@ export default function AppleGame({
     // ── 남은 시간 — 서버가 보낸 remainingSeconds로 매번 재보정한다 ────────────
     useEffect(() => {
         if (!data) return;
-        deadlineRef.current = Date.now() + data.remainingSeconds * 1000;
-    }, [data?.remainingSeconds, data?.instanceId]);
+        // 올 클리어는 새 세션을 열 때만 서버 경과 시간을 기준으로 잡는다.
+        // 매 이동 응답마다 초 단위 서버 값으로 다시 맞추면 퍼즈 후 시간이 뒤로 튄다.
+        deadlineRef.current = clearAllMode ? Date.now() - (data.elapsedSeconds ?? 0) * 1000 : Date.now() + data.remainingSeconds * 1000;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data?.instanceId, clearAllMode]);
 
     useEffect(() => {
         if (finished || !playing || paused) return;
@@ -373,9 +391,10 @@ export default function AppleGame({
 
     const duration = data?.durationSeconds ?? 120;
     // 시작 전에는 제한 시간이 그대로 멈춰 있고, 시작한 뒤에만 줄어든다
-    const msLeft = finished ? 0 : playing ? Math.max(0, deadlineRef.current - Date.now()) : duration * 1000;
+    const msLeft = clearAllMode ? Math.max(0, Date.now() - deadlineRef.current) : (finished ? 0 : playing ? Math.max(0, deadlineRef.current - Date.now()) : duration * 1000);
     const secondsLeft = Math.ceil(msLeft / 1000);
-    const gaugeRatio = Math.max(0, Math.min(1, msLeft / (duration * 1000)));
+    elapsedMillisecondsRef.current = msLeft;
+    const gaugeRatio = clearAllMode ? 1 : Math.max(0, Math.min(1, msLeft / (duration * 1000)));
     void tick; // 게이지를 부드럽게 갱신하기 위한 리렌더 트리거
 
     /**
@@ -388,12 +407,12 @@ export default function AppleGame({
      * 남았다고 보는 판을 클라이언트가 멋대로 끝내버리게 된다.
      */
     useEffect(() => {
-        if (!data || finished || !playing || paused || myPlayerIndex < 0) return;
+        if (!data || clearAllMode || finished || !playing || paused || myPlayerIndex < 0) return;
         if (secondsLeft > 0) return;
         if (finishSentRef.current === data.instanceId) return;
         finishSentRef.current = data.instanceId;
         sendMove({ moveType: 'APPLE_FINISH', data: '', sessionId });
-    }, [secondsLeft, finished, playing, paused, data, myPlayerIndex, sendMove, sessionId]);
+    }, [secondsLeft, clearAllMode, finished, playing, paused, data, myPlayerIndex, sendMove, sessionId]);
 
     // 새 판이 시작되면 낙관적 상태를 비운다
     useEffect(() => {
@@ -454,7 +473,7 @@ export default function AppleGame({
         return count === 0 ? null : { x: sumX / count, y: sumY / count };
     }, []);
 
-    const playable = playing && !finished && !paused && secondsLeft > 0 && myPlayerIndex >= 0 && !!data;
+    const playable = playing && !finished && !paused && (clearAllMode || secondsLeft > 0) && myPlayerIndex >= 0 && !!data;
 
     const beginDrag = (index: number) => {
         if (!playable || myCleared.has(index)) return;
@@ -710,13 +729,23 @@ export default function AppleGame({
                     <div className="apple-layout">
                         <div className="apple-main">
                             {/* ── 남은 시간 게이지 — 엑셀 조건부 서식의 데이터 표시줄처럼 ── */}
-                            <div className={`apple-gauge${gaugeTone}`}>
-                                <span className="apple-gauge__caption">{excel ? '검증 진행 시간' : 'time'}</span>
-                                <span className="apple-gauge__track">
-                                    <i style={{ width: `${gaugeRatio * 100}%` }} />
-                                </span>
-                                <b className="apple-gauge__value">{formatClock(secondsLeft)}</b>
-                            </div>
+                            {clearAllMode ? (
+                                <div className="apple-gauge is-clear-all" style={{ gridTemplateColumns: '1fr auto auto auto', borderColor: excel ? '#8fb49d' : '#4f8d70' }}>
+                                    <span className="apple-gauge__caption">{excel ? '올 클리어 경과 시간' : 'elapsed time'}</span>
+                                    <b className="apple-gauge__value" style={{ color: excel ? '#226843' : '#7ee0a3', fontSize: '20px' }}>{formatClock(secondsLeft)}</b>
+                                    {onVerify && <button type="button" className="apple-btn" onClick={onVerify}>검증</button>}
+                                    {onRearrange && <button type="button" className="apple-btn" onClick={onRearrange} disabled={!rearrangeEnabled} style={!rearrangeEnabled ? { opacity: .38, cursor: 'not-allowed' } : undefined}>재배치</button>}
+                                </div>
+                            ) : (
+                                <div className={`apple-gauge${gaugeTone}`}>
+                                    <span className="apple-gauge__caption">{excel ? '검증 진행 시간' : 'time'}</span>
+                                    <span className="apple-gauge__track">
+                                        <i style={{ width: `${gaugeRatio * 100}%` }} />
+                                    </span>
+                                    <b className="apple-gauge__value">{formatClock(secondsLeft)}</b>
+                                </div>
+                            )}
+                            {clearAllMode && clearAllMeta && <div style={{ fontSize: '11px', color: excel ? '#4d6d5c' : '#a9c7b6', margin: '-5px 0 7px 2px' }}>{clearAllMeta}</div>}
 
                             {/* ── 보드 ─────────────────────────────────────────── */}
                             <div className="apple-board" ref={boardRef}>
