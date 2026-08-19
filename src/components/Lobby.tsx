@@ -142,12 +142,6 @@ function Lobby({
                 <span className="num">{record.best}</span><span className="pct">, </span>
                 <span className="var">games</span><span className="pct">: </span>
                 <span className="num">{record.games}</span>
-                <span className="pct">, </span>
-                <span className="var">clearBest</span><span className="pct">: </span>
-                <span className="num">{record.clearBestSeconds ? `${record.clearBestSeconds}s` : '-'}</span>
-                <span className="pct">, </span>
-                <span className="var">clearCount</span><span className="pct">: </span>
-                <span className="num">{record.clearGames ?? 0}</span>
                 <span className="pct">{' },'}</span>
             </span>,
             1,

@@ -46,9 +46,6 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
     const [snapshot, setSnapshot] = useState<SoloSnapshot | null>(null);
     const [error, setError] = useState('');
     const [starting, setStarting] = useState(false);
-    const [mode, setMode] = useState<'SPRINT' | 'CLEAR_ALL'>('SPRINT');
-    const [verification, setVerification] = useState('');
-    const [rearrangeReady, setRearrangeReady] = useState(false);
 
     const aliveRef = useRef(true);
     /** 빠르게 여러 번 정리했을 때 늦게 도착한 응답으로 되돌아가지 않도록 */
@@ -65,7 +62,7 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
         return () => { aliveRef.current = false; };
     }, []);
 
-    const start = useCallback(async (nextMode = mode) => {
+    const start = useCallback(async () => {
         setStarting(true);
         setError('');
         const seq = (seqRef.current += 1);
@@ -84,7 +81,7 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
         }
 
         try {
-            const next = await postJson('/api/apple/start', { nickname: nicknameRef.current, mode: nextMode });
+            const next = await postJson('/api/apple/start', { nickname: nicknameRef.current });
             if (!aliveRef.current || seq !== seqRef.current) return;
             setSnapshot(next);
         } catch {
@@ -92,15 +89,10 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
         } finally {
             if (aliveRef.current) setStarting(false);
         }
-    }, [mode]);
+    }, []);
 
     // 열리는 순간 바로 한 판이 시작된다
-    const chooseMode = (nextMode: 'SPRINT' | 'CLEAR_ALL') => { setMode(nextMode); setVerification(''); setRearrangeReady(false); void start(nextMode); };
-    const verify = () => {
-        const current = snapshotRef.current; if (!current || current.gameData.mode !== 'CLEAR_ALL') return;
-        void postJson('/api/apple/verify', { instanceId: current.instanceId }).then(next => { const stuck = next.gameData.verification === 'STUCK'; setSnapshot(next); setRearrangeReady(stuck); setVerification(stuck ? '제거 가능한 타일이 없습니다. 재배치할 수 있습니다.' : '제거 가능한 조합이 남아 있습니다.'); });
-    };
-    const rearrange = () => { const current=snapshotRef.current; if (!current || !rearrangeReady) return; setRearrangeReady(false); void postJson('/api/apple/rearrange',{instanceId:current.instanceId}).then(next=>{setSnapshot(next);setVerification('남은 타일을 재배치했습니다. 다시 검증할 수 있습니다.');}).catch(()=>{setRearrangeReady(false);setVerification('재배치할 수 없습니다. 먼저 검증해 주세요.');}); };
+    useEffect(() => { void start(); }, [start]);
 
     const sendMove = useCallback((move: StudyMoveRequest) => {
         const current = snapshot;
@@ -163,18 +155,6 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
 
     return (
         <div className="apple-solo">
-            {!snapshot ? (
-                <div style={{ height:'100%', minHeight:420, display:'grid', placeItems:'center', background:workspaceMode === 'excel' ? '#f3f6f2' : 'linear-gradient(145deg,#1d2730,#111519)', color:workspaceMode === 'excel' ? '#18342b' : '#ecf4ef', padding:24 }}>
-                    <div style={{ width:'min(620px,100%)', textAlign:'center' }}>
-                        <div style={{ fontSize:48, marginBottom:8 }}>🍎</div><h2 style={{ margin:0 }}>{workspaceMode === 'excel' ? '재고 실사 대조 방식 선택' : '사과게임'}</h2><p style={{ color:workspaceMode === 'excel' ? '#597166' : '#aebdb4', margin:'8px 0 22px' }}>{workspaceMode === 'excel' ? '작업 모드를 선택하면 새로운 대조 시트가 시작됩니다.' : '플레이할 모드를 선택하세요.'}</p>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,minmax(0,1fr))', gap:14, textAlign:'left' }}>
-                            <button type="button" onClick={() => chooseMode('SPRINT')} disabled={starting} style={workspaceMode === 'excel' ? excelModeCard : modeCard}><b>{workspaceMode === 'excel' ? '긴급 대조 · 2분 스프린트' : '2분 스프린트'}</b><span>120초 동안 가장 많은 타일을 제거합니다.</span><em>점수 기록</em></button>
-                            <button type="button" onClick={() => chooseMode('CLEAR_ALL')} disabled={starting} style={workspaceMode === 'excel' ? excelModeCard : modeCard}><b>{workspaceMode === 'excel' ? '정밀 대조 · 올 클리어' : '올 클리어'}</b><span>시간 제한 없이 모든 타일 제거에 도전합니다.</span><em>최단 시간 기록 · 재배치 +10초</em></button>
-                        </div>
-                        <button type="button" className="apple-btn" style={{ marginTop:18 }} onClick={onClose}>닫기</button>
-                    </div>
-                </div>
-            ) : <>
             {error && (
                 <div className="apple-solo__error">
                     <span>{error}</span>
@@ -194,16 +174,7 @@ export default function AppleSolo({ nickname, workspaceMode = 'vscode', onCellSe
                 onRestart={() => void start()}
                 onClose={close}
                 restarting={starting}
-                modeOverride={mode}
-                onVerify={snapshot.gameData.mode === 'CLEAR_ALL' ? verify : undefined}
-                onRearrange={snapshot.gameData.mode === 'CLEAR_ALL' ? rearrange : undefined}
-                rearrangeEnabled={rearrangeReady}
-                clearAllMeta={`재배치 ${snapshot.gameData.rearranges ?? 0}회 · 패널티 +${snapshot.gameData.rearrangePenaltySeconds ?? 0}초${verification ? ` · ${verification}` : ''}`}
             />
-            </>}
         </div>
     );
 }
-
-const modeCard: React.CSSProperties = { minHeight:145, display:'flex', flexDirection:'column', gap:10, padding:20, border:'1px solid #ffffff28', borderRadius:12, background:'#ffffff0d', color:'#edf8ef', cursor:'pointer', textAlign:'left' };
-const excelModeCard: React.CSSProperties = { minHeight:145, display:'flex', flexDirection:'column', gap:10, padding:20, border:'1px solid #9dbdaa', borderRadius:3, background:'#fff', color:'#18342b', cursor:'pointer', textAlign:'left', boxShadow:'0 2px 5px #2d52331a' };

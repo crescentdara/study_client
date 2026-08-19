@@ -544,10 +544,6 @@ export interface AppleBoxRecord {
   lastScore: number;
   average: number;
   lastPlayedAt: number;
-  clearBestSeconds?: number;
-  clearLastSeconds?: number;
-  clearLastRearranges?: number;
-  clearGames?: number;
 }
 
 export interface AppleBoxGameData {
@@ -571,10 +567,4 @@ export interface AppleBoxGameData {
   weekStart?: string;
   /** P키 퍼즈 — true면 서버 시계도 실제로 멈춰 있다 */
   paused?: boolean;
-  mode?: 'SPRINT' | 'CLEAR_ALL';
-  elapsedSeconds?: number;
-  rearranges?: number;
-  rearrangePenaltySeconds?: number;
-  effectiveElapsedSeconds?: number;
-  verification?: 'AVAILABLE' | 'STUCK' | 'REARRANGED' | '';
 }
