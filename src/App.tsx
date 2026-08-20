@@ -2,7 +2,6 @@ import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment, ChatWarningColor, ChatWarnings } from './types';
 import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
-import PuyoPuyo from './components/games/PuyoPuyo';
 import Sudoku from './components/games/Sudoku';
 import AppleSolo from './components/games/AppleSolo';
 import WordRain from './components/games/WordRain';
@@ -214,8 +213,9 @@ function App() {
 
     // ── 뿌요뿌요 / 스도쿠 / 사과게임 / 워드레인 ────────────────────────────────
     // 사과게임은 방을 쓰지 않는다 — 버튼을 누르면 그 자리에서 한 판이 시작된다.
-    const [showPuyo, setShowPuyo] = useState(false);
     const [showSudoku, setShowSudoku] = useState(false);
+    // Legacy Puyo shortcut is kept hidden while old activity-bar layout is retained.
+    const [showPuyo, setShowPuyo] = useState(false);
     const [showApple, setShowApple] = useState(false);
     const [smokingDeskOn, setSmokingDeskOn] = useState(false);
     const [smokingOpacity, setSmokingOpacity] = useState<SmokingDeskOpacity>(loadSmokingOpacity);
@@ -488,13 +488,11 @@ function App() {
 
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
     const tabLabel =
-        showPuyo && !currentRoom
-            ? 'puyo_puyo.ts'
-            : showSudoku && !currentRoom
+        showSudoku && !currentRoom
               ? 'sudoku.ts'
               : showApple && !currentRoom
                 ? 'inventory_recon.ts'
-                  : currentRoom
+              : currentRoom
                 ? `${currentRoom.roomName}.${
                       currentRoom.studyType === 'BASEBALL'
                           ? 'bs'
@@ -810,7 +808,6 @@ function App() {
                                     }
                                 }
                                 setActivePanel(panel);
-                                setShowPuyo(false);
                             }}
                             style={{
                                 width: '32px',
@@ -823,13 +820,11 @@ function App() {
                                 borderRadius: '4px',
                                 background:
                                     activePanel === panel &&
-                                    !showPuyo &&
                                     (workspaceMode !== 'excel' || panel !== 'explorer' || excelSidebarOpen)
                                         ? 'rgba(255,255,255,0.08)'
                                         : 'transparent',
                                 borderLeft:
                                     activePanel === panel &&
-                                    !showPuyo &&
                                     (workspaceMode !== 'excel' || panel !== 'explorer' || excelSidebarOpen)
                                         ? '2px solid #ccc'
                                         : '2px solid transparent',
@@ -1109,7 +1104,7 @@ function App() {
                                 marginBottom: '8px',
                             }}
                         >
-                            <div
+                            <div hidden
                                 className={`activity-game-button excel-rail-action-18 ${isExcelRowSelected(18) ? 'excel-range-header-selected' : ''}`}
                                 title="Puyo Puyo"
                                 onClick={() => {
@@ -1675,11 +1670,9 @@ function App() {
                                 transition: 'opacity .15s ease',
                             }}
                         >
-                            {currentRoom === null && showPuyo ? (
-                                <PuyoPuyo onClose={() => setShowPuyo(false)} />
-                            ) : currentRoom === null && showSudoku ? (
+                            {currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
-                                                        ) : currentRoom === null && showApple ? (
+                            ) : currentRoom === null && showApple ? (
                                 <AppleSolo
                                     nickname={nickname}
                                     workspaceMode={workspaceMode}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Room, StudyType, CreateRoomRequest, AppleBoxRecord, TetrisRankRow } from '../types';
 import { useAppleLeaderboard, useAppleRankOpen } from '../hooks/useAppleLeaderboard';
 import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../hooks/useTetrisLeaderboard';
+import LunchVote from './LunchVote';
 
 interface LobbyProps {
     nickname: string;
@@ -351,6 +352,10 @@ function Lobby({
                 )}
 
                 {/* ── 사과게임 랭킹 — 접었다 펼 수 있다 (설명 주석 없이 값만) ── */}
+                {!showCreate && (
+                    <LunchVote nickname={nickname} theme="vscode" />
+                )}
+
                 {!showCreate && (
                     <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
                         {L(<></>)}
