@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 
 type Menu = { id: string; menu: string; nickname: string; votes: number; winner: boolean };
-type Lunch = { date: string; menus: Menu[]; voterCount: number };
+type Lunch = { date: string; menus: Menu[]; voterCount: number; myVoteMenuId?: string };
 
 export default function LunchVote({ nickname, theme }: { nickname: string; theme: 'vscode' | 'excel' }) {
     const excel = theme === 'excel';
     const [data, setData] = useState<Lunch>({ date: '', menus: [], voterCount: 0 });
     const [menu, setMenu] = useState('');
     const [message, setMessage] = useState('');
-    const load = async () => { try { const response = await fetch('/api/lunch/today'); if (response.ok) setData(await response.json()); } catch { setMessage('점심 메뉴를 불러오지 못했습니다.'); } };
-    useEffect(() => { void load(); const timer = window.setInterval(load, 30000); return () => window.clearInterval(timer); }, []);
+    const load = async () => { try { const response = await fetch(`/api/lunch/today?nickname=${encodeURIComponent(nickname)}`); if (response.ok) setData(await response.json()); } catch { setMessage('점심 메뉴를 불러오지 못했습니다.'); } };
+    useEffect(() => { void load(); const timer = window.setInterval(load, 30000); return () => window.clearInterval(timer); }, [nickname]);
     const request = async (url: string, body: Record<string, string>) => {
         if (!nickname.trim()) { setMessage('닉네임을 먼저 입력하세요.'); return; }
         const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname, ...body }) });
@@ -20,7 +20,7 @@ export default function LunchVote({ nickname, theme }: { nickname: string; theme
     const colors = excel ? { paper: '#fff', line: '#c9d8ca', head: '#e2f0d9', ink: '#18372a', accent: '#217346', mute: '#637568' } : { paper: '#1e2733', line: '#3a4655', head: '#252f3d', ink: '#dce8f4', accent: '#4ec9b0', mute: '#94a5b7' };
     if (!excel) return <section className="code-block" style={{ margin: '12px 0 0', borderRadius: 0, border: 'none', borderTop: `1px solid ${colors.line}`, borderBottom: `1px solid ${colors.line}`, color: colors.ink }}>
         <div className="c-line"><span className="ln">🍱</span><span className="c-line-body"><span className="kw">const </span><span className="var">todayLunch</span><span className="pct">: </span><span className="typ">LunchMenu</span><span className="pct">[] = [</span><span className="cmt">  // {data.date || 'today'} · {data.voterCount} votes</span></span></div>
-        {data.menus.length === 0 ? <div className="c-line"><span className="ln">·</span><span className="c-line-body"><span className="cmt">// 메뉴를 한 줄 등록해 보세요.</span></span></div> : data.menus.map((item) => <div className="c-line" key={item.id}><span className="ln">{item.winner ? '👑' : '·'}</span><span className="c-line-body" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span className="pct">{'{ menu: '}</span><b className="str">"{item.menu}"</b><span className="pct">{', by: '}</span><span className="var">{item.nickname}</span><span className="pct">{', votes: '}</span><span className="num">{item.votes}</span><span className="pct">{' },'}</span><button type="button" onClick={() => void request('/api/lunch/votes', { menuId: item.id })} disabled={item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase()} className="btn-secondary" style={{ marginLeft: 4, padding: '1px 6px', fontSize: 10 }}>vote()</button></span></div>)}
+        {data.menus.length === 0 ? <div className="c-line"><span className="ln">·</span><span className="c-line-body"><span className="cmt">// 메뉴를 한 줄 등록해 보세요.</span></span></div> : data.menus.map((item) => <div className="c-line" key={item.id}><span className="ln">{item.winner ? '👑' : '·'}</span><span className="c-line-body" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span className="pct">{'{ menu: '}</span><b className="str">"{item.menu}"</b><span className="pct">{', by: '}</span><span className="var">{item.nickname}</span><span className="pct">{', votes: '}</span><span className="num">{item.votes}</span><span className="pct">{' },'}</span><button type="button" onClick={() => void request('/api/lunch/votes', { menuId: item.id })} disabled={Boolean(data.myVoteMenuId)} className="btn-secondary" style={{ marginLeft: 4, padding: '1px 6px', fontSize: 10 }}>{data.myVoteMenuId === item.id ? 'voted' : 'vote()'}</button></span></div>)}
         <div className="c-line"><span className="ln">+</span><span className="c-line-body" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span className="pct">{'{ menu: "'}</span><input value={menu} onChange={(event) => setMenu(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void request('/api/lunch/menus', { menu }); }} maxLength={30} placeholder="메뉴 입력" style={{ width: 130, border: 'none', borderBottom: '1px solid #4ec9b0', background: 'transparent', color: '#ce9178', outline: 'none', font: 'inherit', fontSize: 12, padding: '1px 2px' }} /><span className="pct">{'" },'}</span><button type="button" onClick={() => void request('/api/lunch/menus', { menu })} className="btn-secondary" style={{ padding: '1px 6px', fontSize: 10 }}>register()</button></span></div>
         <div className="c-line"><span className="ln">·</span><span className="c-line-body"><span className="pct">]</span>{message && <span style={{ color: '#f44747', marginLeft: 8, fontSize: 11 }}>{message}</span>}</span></div>
     </section>;

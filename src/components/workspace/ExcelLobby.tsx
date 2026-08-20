@@ -87,6 +87,7 @@ interface GridValue {
     action?: () => void;
     disabled?: boolean;
     readOnly?: boolean;
+    input?: boolean;
 }
 
 interface LunchMenuRow {
@@ -101,6 +102,7 @@ interface LunchSnapshot {
     date: string;
     menus: LunchMenuRow[];
     voterCount: number;
+    myVoteMenuId?: string;
 }
 
 interface InteractiveTaskGridProps {
@@ -147,7 +149,7 @@ function InteractiveTaskGrid({
 
     const loadLunch = async () => {
         try {
-            const response = await fetch('/api/lunch/today');
+            const response = await fetch(`/api/lunch/today?nickname=${encodeURIComponent(nickname)}`);
             if (response.ok) setLunch(await response.json());
         } catch {
             setLunchMessage('점심 메뉴 데이터를 불러오지 못했습니다.');
@@ -183,7 +185,7 @@ function InteractiveTaskGrid({
         };
     }, []);
 
-    useEffect(() => { void loadLunch(); }, []);
+    useEffect(() => { void loadLunch(); }, [nickname]);
 
     const selectionBounds = useMemo(() => {
         const parse = (address: string) => ({
@@ -279,15 +281,15 @@ function InteractiveTaskGrid({
             { text: item.nickname, readOnly: true },
             { text: item.nickname, readOnly: true },
             { text: `${item.votes}표`, className: 'center', readOnly: true },
-            { text: item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase() ? '내 메뉴' : '투표', action: () => void lunchRequest('/api/lunch/votes', { menuId: item.id }), disabled: item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase(), readOnly: true },
+            { text: lunch.myVoteMenuId === item.id ? '투표 완료' : '투표', action: () => void lunchRequest('/api/lunch/votes', { menuId: item.id }), disabled: Boolean(lunch.myVoteMenuId), readOnly: true },
             ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
         ]));
     }
     const lunchInputAddress = `B${rows.length + 1}`;
     rows.push([
         { text: '＋ 메뉴 등록', className: 'note-label', readOnly: true },
-        { text: '이 셀을 더블클릭해 메뉴 입력', className: 'note' },
-        { text: '닉네임 기준 하루 1회', className: 'note', readOnly: true },
+        { text: '', input: true },
+        { text: '← 이 빈 셀을 더블클릭해 메뉴 입력', className: 'note', readOnly: true },
         { text: '', readOnly: true },
         { text: '', readOnly: true },
         { text: '등록', action: () => { const value = edits[lunchInputAddress] ?? ''; void lunchRequest('/api/lunch/menus', { menu: value }).then(() => setEdits((current) => ({ ...current, [lunchInputAddress]: '' }))); }, readOnly: true },
@@ -478,12 +480,13 @@ function InteractiveTaskGrid({
                                 className={`excel-grid-cell ${cell.className ?? ''} ${rangeClassName(rowIndex, columnIndex)} ${selected === address ? 'selected' : ''}`}
                                 role="gridcell"
                                 tabIndex={0}
-                                contentEditable={!cell.readOnly && !cell.action}
+                                contentEditable={!cell.readOnly && !cell.action && !cell.input}
                                 suppressContentEditableWarning
                                 data-address={address}
                                 onFocus={() => select(address, value)}
                                 onMouseDown={(event) => {
                                     if (event.button !== 0) return;
+                                    if (cell.input) return;
                                     event.preventDefault();
                                     select(address, value);
                                     setDragging(true);
@@ -498,6 +501,7 @@ function InteractiveTaskGrid({
                                     if (!cell.readOnly && !cell.action) event.currentTarget.focus();
                                 }}
                                 onInput={(event) => {
+                                    if (cell.input) return;
                                     const next = event.currentTarget.textContent ?? '';
                                     setEdits((current) => ({ ...current, [address]: next }));
                                     onCellSelect(address, next);
@@ -517,6 +521,20 @@ function InteractiveTaskGrid({
                                     >
                                         {cell.text}
                                     </button>
+                                ) : cell.input ? (
+                                    <input
+                                        value={value}
+                                        onFocus={() => select(address, value)}
+                                        onChange={(event) => {
+                                            const next = event.target.value;
+                                            setEdits((current) => ({ ...current, [address]: next }));
+                                            onCellSelect(address, next);
+                                        }}
+                                        onMouseDown={(event) => event.stopPropagation()}
+                                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                                        aria-label="오늘의 점심 메뉴"
+                                        style={{ width: '100%', height: '100%', border: 0, outline: 'none', background: 'transparent', font: 'inherit', padding: 0 }}
+                                    />
                                 ) : value}
                             </div>
                         );
