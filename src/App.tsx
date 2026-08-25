@@ -5,6 +5,7 @@ import StudyRoom from './components/StudyRoom';
 import Sudoku from './components/games/Sudoku';
 import AppleSolo from './components/games/AppleSolo';
 import AnnouncementCenter from './components/AnnouncementCenter';
+import CalendarCenter from './components/CalendarCenter';
 import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import SmokingWidget from './components/SmokingWidget';
@@ -236,6 +237,7 @@ function App() {
     const [showPuyo, setShowPuyo] = useState(false);
     const [showApple, setShowApple] = useState(false);
     const [showAnnouncements, setShowAnnouncements] = useState(false);
+    const [showCalendar, setShowCalendar] = useState(false);
     const [announcementPopup, setAnnouncementPopup] = useState<AnnouncementPopup | null>(null);
     useEffect(() => {
         const checkAnnouncements = async () => {
@@ -523,7 +525,9 @@ function App() {
 
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
     const tabLabel =
-        showAnnouncements && !currentRoom
+        showCalendar && !currentRoom
+              ? 'calendar.md'
+              : showAnnouncements && !currentRoom
               ? 'announcements.md'
               : showSudoku && !currentRoom
               ? 'sudoku.ts'
@@ -632,12 +636,12 @@ function App() {
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
             {announcementPopup && (
                 <div
-                    role="dialog"
-                    aria-modal="true"
+                    role="status"
+                    aria-live="polite"
                     aria-label="새 공지"
-                    style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(0, 0, 0, .58)' }}
+                    style={{ position: 'fixed', top: 48, right: 20, zIndex: 10000, width: 'min(380px, calc(100vw - 40px))', pointerEvents: 'none' }}
                 >
-                    <section style={{ width: 'min(460px, 100%)', overflow: 'hidden', border: workspaceMode === 'excel' ? '1px solid #a8c5ad' : '1px solid #454545', borderRadius: 8, background: workspaceMode === 'excel' ? '#ffffff' : '#252526', color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4', boxShadow: '0 20px 50px rgba(0,0,0,.38)' }}>
+                    <section style={{ overflow: 'hidden', border: workspaceMode === 'excel' ? '1px solid #a8c5ad' : '1px solid #454545', borderRadius: 8, background: workspaceMode === 'excel' ? '#ffffff' : '#252526', color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4', boxShadow: '0 12px 28px rgba(0,0,0,.32)', pointerEvents: 'auto' }}>
                         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: workspaceMode === 'excel' ? '#e2f0d9' : '#333338', borderBottom: workspaceMode === 'excel' ? '1px solid #c5dfc8' : '1px solid #454545' }}>
                             <b>{workspaceMode === 'excel' ? '새 공지' : 'NEW NOTICE'}</b>
                             <button
@@ -689,8 +693,8 @@ function App() {
                         </svg>
                     </button>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
-                        {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Notice', 'Help'].map((m) => (
-                            <li key={m} onClick={() => { if (m === 'Notice') { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'Notice' ? 'pointer' : 'default' }}>
+                        {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Notice', 'Calendar', 'Help'].map((m) => (
+                            <li key={m} onClick={() => { if (m === 'Notice') { setShowAnnouncements(true); setShowCalendar(false); setShowApple(false); setShowSudoku(false); } if (m === 'Calendar') { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'Notice' || m === 'Calendar' ? 'pointer' : 'default' }}>
                                 {m}
                             </li>
                         ))}
@@ -807,6 +811,7 @@ function App() {
                 fontFamily={excelFontFamily}
                 onFontFamilyChange={handleExcelFontFamilyChange}
                 onNoticeOpen={() => { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); }}
+                onCalendarOpen={() => { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); }}
             />
 
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
@@ -1732,7 +1737,9 @@ function App() {
                                 transition: 'opacity .15s ease',
                             }}
                         >
-                            {currentRoom === null && showAnnouncements ? (
+                            {currentRoom === null && showCalendar ? (
+                                <CalendarCenter workspaceMode={workspaceMode} nickname={nickname} onClose={() => setShowCalendar(false)} />
+                            ) : currentRoom === null && showAnnouncements ? (
                                 <AnnouncementCenter workspaceMode={workspaceMode} nickname={nickname} onClose={() => setShowAnnouncements(false)} />
                             ) : currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
