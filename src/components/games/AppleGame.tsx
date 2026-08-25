@@ -270,7 +270,6 @@ export default function AppleGame({
      * 기다리지 않는다. 요청이 실패하는 드문 경우를 대비해 서버가 알려주는
      * 값과 어긋나면 그쪽을 따라가도록 뒤에서 조용히 맞춰 준다.
      */
-    const [paused, setPaused] = useState(false);
 
     const boardRef = useRef<HTMLDivElement | null>(null);
     const deadlineRef = useRef(0);
@@ -316,10 +315,8 @@ export default function AppleGame({
      * 정상적인 경우엔 이 값이 우리가 이미 낙관적으로 반영해 둔 값과 같아서
      * 아무 변화도 만들지 않는다.
      */
-    useEffect(() => {
-        if (typeof data?.paused === 'boolean') setPaused(data.paused);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data?.paused]);
+    const paused = false;
+    const requestPause = (_next: boolean) => {};
 
     /**
      * 퍼즈 요청 — 화면은 그 자리에서 바로 바뀌고, 서버 시계는 뒤따라 맞춰진다.
@@ -331,33 +328,10 @@ export default function AppleGame({
      * 상태를 바꾸기 전에 ref를 먼저 맞춰 두면, paused=false로 그려지는 첫 프레임부터
      * 이미 올바른 값을 쓴다.
      */
-    const requestPause = useCallback((next: boolean) => {
-        if (!next && data) {
-            deadlineRef.current = Date.now() + data.remainingSeconds * 1000;
-        }
-        setPaused(next);
-        sendMove({ moveType: 'APPLE_PAUSE', data: '', sessionId, payload: { paused: next } });
-    }, [data, sendMove, sessionId]);
-
     // P 키로 즉시 토글 — 이 화면엔 텍스트 입력 요소가 없으므로 항상 받는다
-    useEffect(() => {
-        if (!playing || finished) return undefined;
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key.toLowerCase() !== 'p') return;
-            event.preventDefault();
-            requestPause(!paused);
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [playing, finished, paused, requestPause]);
-
     // 가려진 동안 진행 중이던 드래그 선택은 지운다 — 풀렸을 때 엉뚱한 범위가 남지 않도록
     useEffect(() => {
-        if (!paused) return;
-        setAnchor(null);
-        setCursor(null);
-        setDragging(false);
-    }, [paused]);
+    }, []);
 
     // ── 남은 시간 — 서버가 보낸 remainingSeconds로 매번 재보정한다 ────────────
     useEffect(() => {
@@ -366,10 +340,10 @@ export default function AppleGame({
     }, [data?.remainingSeconds, data?.instanceId]);
 
     useEffect(() => {
-        if (finished || !playing || paused) return;
+        if (finished || !playing) return;
         const id = setInterval(() => setTick((value) => value + 1), 200);
         return () => clearInterval(id);
-    }, [finished, playing, paused]);
+    }, [finished, playing]);
 
     const duration = data?.durationSeconds ?? 120;
     // 시작 전에는 제한 시간이 그대로 멈춰 있고, 시작한 뒤에만 줄어든다
@@ -388,12 +362,12 @@ export default function AppleGame({
      * 남았다고 보는 판을 클라이언트가 멋대로 끝내버리게 된다.
      */
     useEffect(() => {
-        if (!data || finished || !playing || paused || myPlayerIndex < 0) return;
+        if (!data || finished || !playing || myPlayerIndex < 0) return;
         if (secondsLeft > 0) return;
         if (finishSentRef.current === data.instanceId) return;
         finishSentRef.current = data.instanceId;
         sendMove({ moveType: 'APPLE_FINISH', data: '', sessionId });
-    }, [secondsLeft, finished, playing, paused, data, myPlayerIndex, sendMove, sessionId]);
+    }, [secondsLeft, finished, playing, data, myPlayerIndex, sendMove, sessionId]);
 
     // 새 판이 시작되면 낙관적 상태를 비운다
     useEffect(() => {
@@ -404,7 +378,6 @@ export default function AppleGame({
         setAnchor(null);
         setCursor(null);
         setDragging(false);
-        setPaused(false);
     }, [data?.instanceId]);
 
     useEffect(() => () => { if (hitTimerRef.current) clearTimeout(hitTimerRef.current); }, []);
@@ -454,7 +427,7 @@ export default function AppleGame({
         return count === 0 ? null : { x: sumX / count, y: sumY / count };
     }, []);
 
-    const playable = playing && !finished && !paused && secondsLeft > 0 && myPlayerIndex >= 0 && !!data;
+    const playable = playing && !finished && secondsLeft > 0 && myPlayerIndex >= 0 && !!data;
 
     const beginDrag = (index: number) => {
         if (!playable || myCleared.has(index)) return;
@@ -634,16 +607,6 @@ export default function AppleGame({
                         {restarting
                             ? (excel ? '준비 중…' : 'starting...')
                             : (excel ? '새 대조 시작' : 'new round')}
-                    </button>
-                )}
-                {playing && !finished && (
-                    <button
-                        type="button"
-                        className="apple-btn"
-                        onClick={() => requestPause(true)}
-                        title={excel ? '단축키 P' : 'shortcut: P'}
-                    >
-                        {excel ? '퍼즈 (P)' : 'pause (p)'}
                     </button>
                 )}
                 <button

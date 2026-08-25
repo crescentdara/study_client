@@ -151,6 +151,8 @@ input, select {
 }
 input:focus, select:focus { border-color: var(--border-focus); }
 input::placeholder { color: var(--text-muted); }
+.announcement-input::placeholder { color: #c5c5c5 !important; opacity: 1; }
+.workspace--excel .announcement-input::placeholder { color: #5e7566 !important; }
 select option { background: var(--bg-sidebar); }
 
 /* ── Syntax color spans ────────────────────────── */

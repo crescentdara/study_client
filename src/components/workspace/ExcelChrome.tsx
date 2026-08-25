@@ -56,6 +56,7 @@ interface ExcelChromeProps {
     formulaText: string;
     fontFamily: string;
     onFontFamilyChange: (fontFamily: string) => void;
+    onNoticeOpen?: () => void;
 }
 
 const EXCEL_FONT_OPTIONS = [
@@ -70,7 +71,7 @@ const EXCEL_FONT_OPTIONS = [
     { label: 'Consolas', value: 'Consolas, monospace' },
 ];
 
-export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange }: ExcelChromeProps) {
+export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange, onNoticeOpen }: ExcelChromeProps) {
     return (
         <header className="excel-chrome">
             <div className="excel-titlebar">
@@ -95,9 +96,9 @@ export default function ExcelChrome({ onModeChange, workbookName, activeCell, fo
             </div>
 
             <nav className="excel-menu" aria-label="Excel 메뉴">
-                {['파일', '홈', '삽입', '그리기', '페이지 레이아웃', '수식', '데이터', '검토', '보기', '자동화', '도움말'].map(
+                {['파일', '홈', '삽입', '그리기', '페이지 레이아웃', '수식', '데이터', '검토', '보기', '공지', '자동화', '도움말'].map(
                     (item, index) => (
-                        <button key={item} type="button" className={index === 1 ? 'active' : ''}>
+                        <button key={item} type="button" className={index === 1 ? 'active' : ''} onClick={() => item === '공지' && onNoticeOpen?.()}>
                             {item}
                         </button>
                     ),

@@ -146,6 +146,7 @@ function InteractiveTaskGrid({
     const [edits, setEdits] = useState<Record<string, string>>({});
     const [lunch, setLunch] = useState<LunchSnapshot>({ date: '', menus: [], voterCount: 0 });
     const [lunchMessage, setLunchMessage] = useState('');
+    const [lunchOpen, setLunchOpen] = useState(true);
 
     const loadLunch = async () => {
         try {
@@ -260,7 +261,7 @@ function InteractiveTaskGrid({
 
     // ── 오늘의 점심 — 별도 카드가 아니라 기존 워크시트의 데이터 행으로 표시한다 ──
     rows.push([
-        { text: '🍱 점심 투표', className: 'metric-label', readOnly: true },
+        { text: `${lunchOpen ? '－' : '＋'} 점심 투표`, className: 'metric-label', action: () => setLunchOpen((value) => !value), readOnly: true },
         { text: `오늘의 메뉴 · ${lunch.date || '오늘'}`, className: 'live-title', readOnly: true },
         { text: `${lunch.voterCount}명 참여`, className: 'label', readOnly: true },
         { text: '등록자', className: 'label', readOnly: true },
@@ -268,23 +269,24 @@ function InteractiveTaskGrid({
         { text: '투표', className: 'label', readOnly: true },
         ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
     ]);
-    if (lunch.menus.length === 0) {
+    if (lunchOpen && lunch.menus.length === 0) {
         rows.push([
             { text: '메뉴', className: 'note-label', readOnly: true },
             { text: '아직 등록된 메뉴가 없습니다', className: 'note', readOnly: true },
             ...Array.from({ length: 7 }, () => ({ text: '', readOnly: true })),
         ]);
-    } else {
+    } else if (lunchOpen) {
         lunch.menus.forEach((item, index) => rows.push([
             { text: item.winner ? '👑 1위' : `${index + 1}위`, className: item.winner ? 'metric-label' : 'center', readOnly: true },
             { text: item.menu, className: item.winner ? 'live-title' : '', readOnly: true },
             { text: item.nickname, readOnly: true },
             { text: item.nickname, readOnly: true },
             { text: `${item.votes}표`, className: 'center', readOnly: true },
-            { text: lunch.myVoteMenuId === item.id ? '투표 완료' : '투표', action: () => void lunchRequest('/api/lunch/votes', { menuId: item.id }), disabled: Boolean(lunch.myVoteMenuId), readOnly: true },
+            { text: lunch.myVoteMenuId === item.id ? '투표 완료' : item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase() ? '내 메뉴' : lunch.menus.length < 3 ? '3명 등록 필요' : '투표', action: () => void lunchRequest('/api/lunch/votes', { menuId: item.id }), disabled: Boolean(lunch.myVoteMenuId) || lunch.menus.length < 3 || item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase(), readOnly: true },
             ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
         ]));
     }
+    if (lunchOpen) {
     const lunchInputAddress = `B${rows.length + 1}`;
     rows.push([
         { text: '＋ 메뉴 등록', className: 'note-label', readOnly: true },
@@ -298,6 +300,7 @@ function InteractiveTaskGrid({
     if (lunchMessage) rows.push([
         { text: '안내', className: 'note-label', readOnly: true }, { text: lunchMessage, className: 'note', readOnly: true }, ...Array.from({ length: 7 }, () => ({ text: '', readOnly: true })),
     ]);
+    }
 
     // ── 사과게임 랭킹 — 접기/펼치기 되는 실적 집계 (주간 / 누적) ──────────────────
     rows.push([

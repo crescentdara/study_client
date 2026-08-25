@@ -4,6 +4,7 @@ import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import Sudoku from './components/games/Sudoku';
 import AppleSolo from './components/games/AppleSolo';
+import AnnouncementCenter from './components/AnnouncementCenter';
 import WordRain from './components/games/WordRain';
 import Chat from './components/Chat';
 import SmokingWidget from './components/SmokingWidget';
@@ -80,6 +81,23 @@ const GAME_EXT: Record<StudyType, string> = {
 const MAX_CHAT_MESSAGES = 200;
 const TERMINAL_HEIGHT = 160;
 const EXCEL_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+type AnnouncementPopup = { id: string; title: string; body: string };
+const ANNOUNCEMENT_SEEN_KEY = 'study.announcement.seenIds';
+
+function readSeenAnnouncementIds(): string[] {
+    try {
+        const stored = JSON.parse(localStorage.getItem(ANNOUNCEMENT_SEEN_KEY) ?? '[]');
+        const legacy = localStorage.getItem('study.announcement.dismissed');
+        return Array.isArray(stored) ? [...new Set([...stored, ...(legacy ? [legacy] : [])])] : legacy ? [legacy] : [];
+    } catch {
+        return [];
+    }
+}
+
+function markAnnouncementsSeen(ids: string[]) {
+    const next = [...new Set([...readSeenAnnouncementIds(), ...ids])].slice(-200);
+    localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, JSON.stringify(next));
+}
 
 interface SmokingDeskOpacity {
     cigarette: number;
@@ -217,6 +235,23 @@ function App() {
     // Legacy Puyo shortcut is kept hidden while old activity-bar layout is retained.
     const [showPuyo, setShowPuyo] = useState(false);
     const [showApple, setShowApple] = useState(false);
+    const [showAnnouncements, setShowAnnouncements] = useState(false);
+    const [announcementPopup, setAnnouncementPopup] = useState<AnnouncementPopup | null>(null);
+    useEffect(() => {
+        const checkAnnouncements = async () => {
+            try {
+                const response = await fetch('/api/announcements');
+                const items = response.ok ? await response.json() : [];
+                const latest = items[0];
+                if (latest && !readSeenAnnouncementIds().includes(latest.id)) {
+                    setAnnouncementPopup((current) => current?.id === latest.id ? current : latest);
+                }
+            } catch { /* keep the workspace usable when the server is unavailable */ }
+        };
+        void checkAnnouncements();
+        const timer = window.setInterval(checkAnnouncements, 10000);
+        return () => window.clearInterval(timer);
+    }, []);
     const [smokingDeskOn, setSmokingDeskOn] = useState(false);
     const [smokingOpacity, setSmokingOpacity] = useState<SmokingDeskOpacity>(loadSmokingOpacity);
     const [vendingOn, setVendingOn] = useState(false);
@@ -488,7 +523,9 @@ function App() {
 
     // ── 탭 라벨 ────────────────────────────────────────────────────────────────
     const tabLabel =
-        showSudoku && !currentRoom
+        showAnnouncements && !currentRoom
+              ? 'announcements.md'
+              : showSudoku && !currentRoom
               ? 'sudoku.ts'
               : showApple && !currentRoom
                 ? 'inventory_recon.ts'
@@ -593,6 +630,30 @@ function App() {
                 </div>
             )}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            {announcementPopup && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="새 공지"
+                    style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(0, 0, 0, .58)' }}
+                >
+                    <section style={{ width: 'min(460px, 100%)', overflow: 'hidden', border: workspaceMode === 'excel' ? '1px solid #a8c5ad' : '1px solid #454545', borderRadius: 8, background: workspaceMode === 'excel' ? '#ffffff' : '#252526', color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4', boxShadow: '0 20px 50px rgba(0,0,0,.38)' }}>
+                        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: workspaceMode === 'excel' ? '#e2f0d9' : '#333338', borderBottom: workspaceMode === 'excel' ? '1px solid #c5dfc8' : '1px solid #454545' }}>
+                            <b>{workspaceMode === 'excel' ? '새 공지' : 'NEW NOTICE'}</b>
+                            <button
+                                type="button"
+                                aria-label="공지 닫기"
+                                onClick={() => { markAnnouncementsSeen([announcementPopup.id]); setAnnouncementPopup(null); }}
+                                style={{ border: 0, background: 'transparent', color: 'inherit', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+                            >×</button>
+                        </header>
+                        <div style={{ padding: '20px 18px 22px' }}>
+                            <h2 style={{ margin: '0 0 10px', fontSize: 17 }}>{announcementPopup.title}</h2>
+                            <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.65, opacity: .9 }}>{announcementPopup.body}</p>
+                        </div>
+                    </section>
+                </div>
+            )}
             <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
             <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />
             <LobbyDrawingLayer nickname={nickname} sessionId={sessionId} editing={drawingMode} onEditingChange={setDrawingMode} />
@@ -628,8 +689,8 @@ function App() {
                         </svg>
                     </button>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
-                        {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'].map((m) => (
-                            <li key={m} style={{ color: '#888', fontSize: '12px' }}>
+                        {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Notice', 'Help'].map((m) => (
+                            <li key={m} onClick={() => { if (m === 'Notice') { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'Notice' ? 'pointer' : 'default' }}>
                                 {m}
                             </li>
                         ))}
@@ -745,6 +806,7 @@ function App() {
                 formulaText={excelSelection.value}
                 fontFamily={excelFontFamily}
                 onFontFamilyChange={handleExcelFontFamilyChange}
+                onNoticeOpen={() => { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); }}
             />
 
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
@@ -1670,7 +1732,9 @@ function App() {
                                 transition: 'opacity .15s ease',
                             }}
                         >
-                            {currentRoom === null && showSudoku ? (
+                            {currentRoom === null && showAnnouncements ? (
+                                <AnnouncementCenter workspaceMode={workspaceMode} nickname={nickname} onClose={() => setShowAnnouncements(false)} />
+                            ) : currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
                             ) : currentRoom === null && showApple ? (
                                 <AppleSolo
