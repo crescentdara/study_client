@@ -4121,3 +4121,13 @@ select option { background: var(--bg-sidebar); }
 ::-webkit-scrollbar-thumb:hover { background: #333333; }
 
 @keyframes toastProgress { from { width: 100%; } to { width: 0%; } }
+
+.calendar-popup-countdown {
+  transform-origin: left center;
+  animation: calendar-popup-countdown 6s linear forwards;
+}
+
+@keyframes calendar-popup-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}

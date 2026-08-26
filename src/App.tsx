@@ -84,6 +84,29 @@ const TERMINAL_HEIGHT = 160;
 const EXCEL_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 type AnnouncementPopup = { id: string; title: string; body: string };
 const ANNOUNCEMENT_SEEN_KEY = 'study.announcement.seenIds';
+type CalendarEventNotice = { id: string; date: string; title: string; time: string; nickname: string };
+type CalendarPopup = { title: string; events: CalendarEventNotice[]; key: string };
+const CALENDAR_TODAY_NOTICE_PREFIX = 'study.calendar.todayNotice.';
+
+const localDateKey = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const calendarTimeOrder = (time: string) => {
+    const match = time.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return 0;
+    let hour = Number(match[1]);
+    if (time.includes('오전') && hour === 12) hour = 0;
+    if (time.includes('오후') && hour < 12) hour += 12;
+    return hour * 60 + Number(match[2]);
+};
+
+const calendarNoticeColor = (nickname: string) => {
+    let hash = 0;
+    for (const character of (nickname.trim() || '익명')) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+    return `hsl(${Math.abs(hash) % 360} 62% 52%)`;
+};
 
 function readSeenAnnouncementIds(): string[] {
     try {
@@ -239,6 +262,8 @@ function App() {
     const [showAnnouncements, setShowAnnouncements] = useState(false);
     const [showCalendar, setShowCalendar] = useState(false);
     const [announcementPopup, setAnnouncementPopup] = useState<AnnouncementPopup | null>(null);
+    const [calendarPopup, setCalendarPopup] = useState<CalendarPopup | null>(null);
+    const calendarKnownEventIdsRef = useRef<Set<string> | null>(null);
     useEffect(() => {
         const checkAnnouncements = async () => {
             try {
@@ -252,6 +277,40 @@ function App() {
         };
         void checkAnnouncements();
         const timer = window.setInterval(checkAnnouncements, 10000);
+        return () => window.clearInterval(timer);
+    }, []);
+    useEffect(() => {
+        if (!calendarPopup) return undefined;
+        const timer = window.setTimeout(() => setCalendarPopup(null), 6000);
+        return () => window.clearTimeout(timer);
+    }, [calendarPopup]);
+    useEffect(() => {
+        const checkCalendarEvents = async () => {
+            try {
+                const response = await fetch('/api/calendar-events');
+                const events = response.ok ? await response.json() as CalendarEventNotice[] : [];
+                if (!Array.isArray(events)) return;
+
+                const today = localDateKey();
+                const todayEvents = events.filter((event) => event.date === today).sort((first, second) => calendarTimeOrder(first.time) - calendarTimeOrder(second.time));
+                const todayNoticeKey = `${CALENDAR_TODAY_NOTICE_PREFIX}${today}`;
+                const showToday = todayEvents.length > 0 && localStorage.getItem(todayNoticeKey) !== 'shown';
+                if (showToday) {
+                    localStorage.setItem(todayNoticeKey, 'shown');
+                    setCalendarPopup({ title: '오늘 일정', events: todayEvents, key: `today:${today}` });
+                }
+
+                const knownIds = calendarKnownEventIdsRef.current;
+                const newEvents = knownIds ? events.filter((event) => !knownIds.has(event.id)) : [];
+                calendarKnownEventIdsRef.current = new Set(events.map((event) => event.id));
+                if (!showToday && newEvents.length > 0) {
+                    const latestEvents = newEvents.sort((first, second) => calendarTimeOrder(first.time) - calendarTimeOrder(second.time));
+                    setCalendarPopup({ title: latestEvents.length === 1 ? '새 일정 등록' : `새 일정 ${latestEvents.length}건 등록`, events: latestEvents, key: `new:${latestEvents.map((event) => event.id).join(',')}` });
+                }
+            } catch { /* Calendar notifications are optional and must not interrupt the workspace. */ }
+        };
+        void checkCalendarEvents();
+        const timer = window.setInterval(checkCalendarEvents, 10000);
         return () => window.clearInterval(timer);
     }, []);
     const [smokingDeskOn, setSmokingDeskOn] = useState(false);
@@ -565,7 +624,16 @@ function App() {
         [currentRoom, rooms, nickname],
     );
 
-    const [overlayOpacity, setOverlayOpacity] = useState(0.6);
+    const [overlayOpacity, setOverlayOpacity] = useState(() => {
+        const stored = Number(localStorage.getItem('study.workspaceOpacity'));
+        return stored >= 0.2 && stored <= 1 ? stored : 0.6;
+    });
+    const [showOpacitySettings, setShowOpacitySettings] = useState(false);
+    const updateOverlayOpacity = (value: number) => {
+        const next = Math.max(0.2, Math.min(1, value));
+        setOverlayOpacity(next);
+        localStorage.setItem('study.workspaceOpacity', String(next));
+    };
 
     const [noiseOn, setNoiseOn] = useState(false);
 
@@ -658,10 +726,64 @@ function App() {
                     </section>
                 </div>
             )}
+            {calendarPopup && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label={calendarPopup.title}
+                    style={{ position: 'fixed', top: announcementPopup ? 'auto' : 48, right: 20, bottom: announcementPopup ? 20 : 'auto', zIndex: 9999, width: 'min(380px, calc(100vw - 40px))', pointerEvents: 'none' }}
+                >
+                    <section style={{ overflow: 'hidden', border: workspaceMode === 'excel' ? '1px solid #a8c5ad' : '1px solid #454545', borderRadius: 8, background: workspaceMode === 'excel' ? '#ffffff' : '#252526', color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4', boxShadow: '0 12px 28px rgba(0,0,0,.32)', pointerEvents: 'auto' }}>
+                        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: workspaceMode === 'excel' ? '#e2f0d9' : '#333338', borderBottom: workspaceMode === 'excel' ? '1px solid #c5dfc8' : '1px solid #454545' }}>
+                            <b>{workspaceMode === 'excel' ? calendarPopup.title : calendarPopup.title.toUpperCase()}</b>
+                            <button type="button" aria-label="일정 알림 닫기" onClick={() => setCalendarPopup(null)} style={{ border: 0, background: 'transparent', color: 'inherit', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        </header>
+                        <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflowY: 'auto', padding: '12px 14px' }}>
+                            {calendarPopup.events.map((event) => (
+                                <div key={event.id} style={{ display: 'grid', gridTemplateColumns: '8px minmax(0, 1fr)', gap: 8, alignItems: 'start' }}>
+                                    <i aria-hidden="true" style={{ width: 7, height: 7, marginTop: 5, borderRadius: '50%', background: calendarNoticeColor(event.nickname) }} />
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', minWidth: 0 }}><b style={{ flex: '0 0 auto', fontSize: 12 }}>{event.time || '시간 미정'}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>{event.title}</span></div>
+                                        <small style={{ display: 'block', marginTop: 2, fontSize: 11, opacity: .72 }}>등록: {event.nickname || '익명'}</small>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <footer style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 14px 12px' }}><button type="button" onClick={() => { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); setCalendarPopup(null); }} style={{ border: 0, background: 'transparent', color: workspaceMode === 'excel' ? '#217346' : '#4ec9b0', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>캘린더 열기</button></footer>
+                        <div style={{ height: 3, background: workspaceMode === 'excel' ? '#d9e9da' : '#3b3b40' }}><div key={calendarPopup.key} className="calendar-popup-countdown" style={{ height: '100%', background: workspaceMode === 'excel' ? '#217346' : '#4ec9b0' }} /></div>
+                    </section>
+                </div>
+            )}
             <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
             <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />
             <LobbyDrawingLayer nickname={nickname} sessionId={sessionId} editing={drawingMode} onEditingChange={setDrawingMode} />
             <DeskTrashBin />
+            {showOpacitySettings && (
+                <section
+                    style={{
+                        position: 'fixed',
+                        top: workspaceMode === 'excel' ? 118 : 30,
+                        left: workspaceMode === 'excel' ? 420 : 130,
+                        zIndex: 10060,
+                        width: 232,
+                        padding: '11px 12px',
+                        border: workspaceMode === 'excel' ? '1px solid #b7cbb7' : '1px solid #454545',
+                        borderRadius: workspaceMode === 'excel' ? 3 : 5,
+                        background: workspaceMode === 'excel' ? '#ffffff' : '#252526',
+                        color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4',
+                        boxShadow: '0 8px 22px rgba(0,0,0,.28)',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+                        <strong style={{ fontSize: 11 }}>{workspaceMode === 'excel' ? '화면 투명도' : 'WORKSPACE OPACITY'}</strong>
+                        <button type="button" onClick={() => setShowOpacitySettings(false)} aria-label="닫기" style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min={20} max={100} value={Math.round(overlayOpacity * 100)} onChange={(event) => updateOverlayOpacity(Number(event.target.value) / 100)} style={{ flex: 1, accentColor: workspaceMode === 'excel' ? '#217346' : '#4ec9b0', cursor: 'pointer' }} />
+                        <span style={{ width: 34, textAlign: 'right', fontSize: 11 }}>{Math.round(overlayOpacity * 100)}%</span>
+                    </div>
+                </section>
+            )}
 
             {/* ── VS Code 타이틀 바 ───────────────────────────────────────── */}
             <div
@@ -694,7 +816,7 @@ function App() {
                     </button>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
                         {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Notice', 'Calendar', 'Help'].map((m) => (
-                            <li key={m} onClick={() => { if (m === 'Notice') { setShowAnnouncements(true); setShowCalendar(false); setShowApple(false); setShowSudoku(false); } if (m === 'Calendar') { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'Notice' || m === 'Calendar' ? 'pointer' : 'default' }}>
+                            <li key={m} onClick={() => { if (m === 'View') setShowOpacitySettings((visible) => !visible); if (m === 'Notice') { setShowAnnouncements(true); setShowCalendar(false); setShowApple(false); setShowSudoku(false); } if (m === 'Calendar') { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'View' || m === 'Notice' || m === 'Calendar' ? 'pointer' : 'default' }}>
                                 {m}
                             </li>
                         ))}
@@ -1693,41 +1815,6 @@ function App() {
                                 ))}
                             </div>
                         )}
-                        <div
-                            className="opacity-toolbar"
-                            style={{
-                                // position: 'absolute',
-                                // top: 12,
-                                // right: 12,
-                                // zIndex: 9999,
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: 8,
-                                padding: '8px 24px',
-                                background: 'rgba(30,30,30,.8)',
-                                borderRadius: 8,
-                                color: '#fff',
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '10px',
-                                    opacity: '0.3',
-                                }}
-                            >
-                                <span>Opacity</span>
-                                <input
-                                    type="range"
-                                    min={20}
-                                    max={100}
-                                    value={overlayOpacity * 100}
-                                    onChange={(e) => setOverlayOpacity(Number(e.target.value) / 100)}
-                                />
-                                <span>{Math.round(overlayOpacity * 100)}%</span>
-                            </div>
-                        </div>
                         {/* 오페시티 적용 */}
                         <div
                             className="content-surface"

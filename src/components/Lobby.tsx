@@ -409,19 +409,6 @@ function Lobby({
                                 )}
                                 {appleRanking.weekly.map(appleRankRow)}
                                 {L(<><span className="pct">]</span></>)}
-                                {L(<></>)}
-
-                                {L(
-                                    <>
-                                        <span className="kw">const </span>
-                                        <span className="var">allTime</span>
-                                        <span className="pct">: </span>
-                                        <span className="typ">AppleScore</span>
-                                        <span className="pct">[] = [</span>
-                                    </>,
-                                )}
-                                {appleRanking.records.map(appleRankRow)}
-                                {L(<><span className="pct">]</span></>)}
                             </>
                         )}
                     </div>
@@ -480,19 +467,6 @@ function Lobby({
                                     </>,
                                 )}
                                 {tetrisRanking.records.map(tetrisRankRow)}
-                                {L(<><span className="pct">]</span></>)}
-                                {L(<></>)}
-
-                                {L(
-                                    <>
-                                        <span className="kw">const </span>
-                                        <span className="var">survival</span>
-                                        <span className="pct">: </span>
-                                        <span className="typ">TetrisRank</span>
-                                        <span className="pct">[] = [</span>
-                                    </>,
-                                )}
-                                {tetrisRanking.survival.map(tetrisRankRow)}
                                 {L(<><span className="pct">]</span></>)}
                             </>
                         )}
