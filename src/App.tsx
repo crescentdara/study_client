@@ -84,8 +84,10 @@ const TERMINAL_HEIGHT = 160;
 const EXCEL_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 type AnnouncementPopup = { id: string; title: string; body: string };
 const ANNOUNCEMENT_SEEN_KEY = 'study.announcement.seenIds';
+const SUGGESTION_SEEN_KEY = 'study.suggestion.seenIds';
 type CalendarEventNotice = { id: string; date: string; title: string; time: string; nickname: string };
-type CalendarPopup = { title: string; events: CalendarEventNotice[]; key: string };
+type CalendarPopup = { title: string; events: CalendarEventNotice[]; key: string; autoDismiss: boolean };
+type SuggestionNotice = { id: string };
 const CALENDAR_TODAY_NOTICE_PREFIX = 'study.calendar.todayNotice.';
 
 const localDateKey = () => {
@@ -121,6 +123,20 @@ function readSeenAnnouncementIds(): string[] {
 function markAnnouncementsSeen(ids: string[]) {
     const next = [...new Set([...readSeenAnnouncementIds(), ...ids])].slice(-200);
     localStorage.setItem(ANNOUNCEMENT_SEEN_KEY, JSON.stringify(next));
+}
+
+function readSeenSuggestionIds(): string[] {
+    try {
+        const stored = JSON.parse(localStorage.getItem(SUGGESTION_SEEN_KEY) ?? '[]');
+        return Array.isArray(stored) ? stored : [];
+    } catch {
+        return [];
+    }
+}
+
+function markSuggestionsSeen(ids: string[]) {
+    const next = [...new Set([...readSeenSuggestionIds(), ...ids])].slice(-300);
+    localStorage.setItem(SUGGESTION_SEEN_KEY, JSON.stringify(next));
 }
 
 interface SmokingDeskOpacity {
@@ -263,6 +279,7 @@ function App() {
     const [showCalendar, setShowCalendar] = useState(false);
     const [announcementPopup, setAnnouncementPopup] = useState<AnnouncementPopup | null>(null);
     const [calendarPopup, setCalendarPopup] = useState<CalendarPopup | null>(null);
+    const [unreadSuggestionCount, setUnreadSuggestionCount] = useState(0);
     const calendarKnownEventIdsRef = useRef<Set<string> | null>(null);
     useEffect(() => {
         const checkAnnouncements = async () => {
@@ -279,8 +296,26 @@ function App() {
         const timer = window.setInterval(checkAnnouncements, 10000);
         return () => window.clearInterval(timer);
     }, []);
+    const markCurrentSuggestionsSeen = useCallback((ids: string[]) => {
+        markSuggestionsSeen(ids);
+        setUnreadSuggestionCount(0);
+    }, []);
     useEffect(() => {
-        if (!calendarPopup) return undefined;
+        const checkSuggestions = async () => {
+            try {
+                const response = await fetch('/api/suggestions');
+                const suggestions = response.ok ? await response.json() as SuggestionNotice[] : [];
+                if (!Array.isArray(suggestions)) return;
+                const seen = new Set(readSeenSuggestionIds());
+                setUnreadSuggestionCount(suggestions.filter((suggestion) => !seen.has(suggestion.id)).length);
+            } catch { /* A badge must not affect the rest of the workspace. */ }
+        };
+        void checkSuggestions();
+        const timer = window.setInterval(checkSuggestions, 10000);
+        return () => window.clearInterval(timer);
+    }, []);
+    useEffect(() => {
+        if (!calendarPopup?.autoDismiss) return undefined;
         const timer = window.setTimeout(() => setCalendarPopup(null), 6000);
         return () => window.clearTimeout(timer);
     }, [calendarPopup]);
@@ -297,7 +332,7 @@ function App() {
                 const showToday = todayEvents.length > 0 && localStorage.getItem(todayNoticeKey) !== 'shown';
                 if (showToday) {
                     localStorage.setItem(todayNoticeKey, 'shown');
-                    setCalendarPopup({ title: '오늘 일정', events: todayEvents, key: `today:${today}` });
+                    setCalendarPopup({ title: '오늘 일정', events: todayEvents, key: `today:${today}`, autoDismiss: false });
                 }
 
                 const knownIds = calendarKnownEventIdsRef.current;
@@ -305,7 +340,7 @@ function App() {
                 calendarKnownEventIdsRef.current = new Set(events.map((event) => event.id));
                 if (!showToday && newEvents.length > 0) {
                     const latestEvents = newEvents.sort((first, second) => calendarTimeOrder(first.time) - calendarTimeOrder(second.time));
-                    setCalendarPopup({ title: latestEvents.length === 1 ? '새 일정 등록' : `새 일정 ${latestEvents.length}건 등록`, events: latestEvents, key: `new:${latestEvents.map((event) => event.id).join(',')}` });
+                    setCalendarPopup({ title: latestEvents.length === 1 ? '새 일정 등록' : `새 일정 ${latestEvents.length}건 등록`, events: latestEvents, key: `new:${latestEvents.map((event) => event.id).join(',')}`, autoDismiss: true });
                 }
             } catch { /* Calendar notifications are optional and must not interrupt the workspace. */ }
         };
@@ -750,7 +785,7 @@ function App() {
                             ))}
                         </div>
                         <footer style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 14px 12px' }}><button type="button" onClick={() => { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); setCalendarPopup(null); }} style={{ border: 0, background: 'transparent', color: workspaceMode === 'excel' ? '#217346' : '#4ec9b0', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>캘린더 열기</button></footer>
-                        <div style={{ height: 3, background: workspaceMode === 'excel' ? '#d9e9da' : '#3b3b40' }}><div key={calendarPopup.key} className="calendar-popup-countdown" style={{ height: '100%', background: workspaceMode === 'excel' ? '#217346' : '#4ec9b0' }} /></div>
+                        {calendarPopup.autoDismiss && <div style={{ height: 3, background: workspaceMode === 'excel' ? '#d9e9da' : '#3b3b40' }}><div key={calendarPopup.key} className="calendar-popup-countdown" style={{ height: '100%', background: workspaceMode === 'excel' ? '#217346' : '#4ec9b0' }} /></div>}
                     </section>
                 </div>
             )}
@@ -816,7 +851,7 @@ function App() {
                     </button>
                     <ul style={{ display: 'flex', gap: '14px', listStyle: 'none', margin: 0, padding: 0 }}>
                         {['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Notice', 'Calendar', 'Help'].map((m) => (
-                            <li key={m} onClick={() => { if (m === 'View') setShowOpacitySettings((visible) => !visible); if (m === 'Notice') { setShowAnnouncements(true); setShowCalendar(false); setShowApple(false); setShowSudoku(false); } if (m === 'Calendar') { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); } }} style={{ color: '#888', fontSize: '12px', cursor: m === 'View' || m === 'Notice' || m === 'Calendar' ? 'pointer' : 'default' }}>
+                            <li key={m} onClick={() => { if (m === 'View') setShowOpacitySettings((visible) => !visible); if (m === 'Notice') { setShowAnnouncements(true); setShowCalendar(false); setShowApple(false); setShowSudoku(false); } if (m === 'Calendar') { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); } }} style={{ color: m === 'Notice' && unreadSuggestionCount > 0 ? '#c6a36d' : '#888', fontSize: '12px', fontWeight: 400, cursor: m === 'View' || m === 'Notice' || m === 'Calendar' ? 'pointer' : 'default' }}>
                                 {m}
                             </li>
                         ))}
@@ -934,6 +969,7 @@ function App() {
                 onFontFamilyChange={handleExcelFontFamilyChange}
                 onNoticeOpen={() => { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); }}
                 onCalendarOpen={() => { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); }}
+                unreadSuggestionCount={unreadSuggestionCount}
             />
 
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
@@ -1827,7 +1863,7 @@ function App() {
                             {currentRoom === null && showCalendar ? (
                                 <CalendarCenter workspaceMode={workspaceMode} nickname={nickname} onClose={() => setShowCalendar(false)} />
                             ) : currentRoom === null && showAnnouncements ? (
-                                <AnnouncementCenter workspaceMode={workspaceMode} nickname={nickname} onClose={() => setShowAnnouncements(false)} />
+                                <AnnouncementCenter workspaceMode={workspaceMode} nickname={nickname} unreadSuggestionCount={unreadSuggestionCount} onSuggestionsSeen={markCurrentSuggestionsSeen} onClose={() => setShowAnnouncements(false)} />
                             ) : currentRoom === null && showSudoku ? (
                                 <Sudoku onClose={() => setShowSudoku(false)} />
                             ) : currentRoom === null && showApple ? (

@@ -58,6 +58,7 @@ interface ExcelChromeProps {
     onFontFamilyChange: (fontFamily: string) => void;
     onNoticeOpen?: () => void;
     onCalendarOpen?: () => void;
+    unreadSuggestionCount?: number;
 }
 
 const EXCEL_FONT_OPTIONS = [
@@ -72,7 +73,7 @@ const EXCEL_FONT_OPTIONS = [
     { label: 'Consolas', value: 'Consolas, monospace' },
 ];
 
-export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange, onNoticeOpen, onCalendarOpen }: ExcelChromeProps) {
+export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange, onNoticeOpen, onCalendarOpen, unreadSuggestionCount = 0 }: ExcelChromeProps) {
     return (
         <header className="excel-chrome">
             <div className="excel-titlebar">
@@ -99,7 +100,7 @@ export default function ExcelChrome({ onModeChange, workbookName, activeCell, fo
             <nav className="excel-menu" aria-label="Excel 메뉴">
                 {['파일', '홈', '삽입', '그리기', '페이지 레이아웃', '수식', '데이터', '검토', '보기', '공지', '일정', '자동화', '도움말'].map(
                     (item, index) => (
-                        <button key={item} type="button" className={index === 1 ? 'active' : ''} onClick={() => { if (item === '공지') onNoticeOpen?.(); if (item === '일정') onCalendarOpen?.(); }}>
+                        <button key={item} type="button" className={index === 1 ? 'active' : ''} onClick={() => { if (item === '공지') onNoticeOpen?.(); if (item === '일정') onCalendarOpen?.(); }} style={item === '공지' && unreadSuggestionCount > 0 ? { color: '#ad925e', fontWeight: 400 } : undefined}>
                             {item}
                         </button>
                     ),
