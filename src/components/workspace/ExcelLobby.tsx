@@ -529,12 +529,13 @@ function InteractiveTaskGrid({
                                         value={value}
                                         onFocus={() => select(address, value)}
                                         onChange={(event) => {
-                                            const next = event.target.value;
+                                            const next = event.target.value.slice(0, 100);
                                             setEdits((current) => ({ ...current, [address]: next }));
                                             onCellSelect(address, next);
                                         }}
                                         onMouseDown={(event) => event.stopPropagation()}
                                         onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                                        maxLength={100}
                                         aria-label="오늘의 점심 메뉴"
                                         style={{ width: '100%', height: '100%', border: 0, outline: 'none', background: 'transparent', font: 'inherit', padding: 0 }}
                                     />

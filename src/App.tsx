@@ -104,6 +104,11 @@ const calendarTimeOrder = (time: string) => {
     return hour * 60 + Number(match[2]);
 };
 
+const calendarDateLabel = (date: string) => {
+    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${Number(match[2])}월 ${Number(match[3])}일` : date;
+};
+
 const calendarNoticeColor = (nickname: string) => {
     let hash = 0;
     for (const character of (nickname.trim() || '익명')) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
@@ -778,7 +783,7 @@ function App() {
                                 <div key={event.id} style={{ display: 'grid', gridTemplateColumns: '8px minmax(0, 1fr)', gap: 8, alignItems: 'start' }}>
                                     <i aria-hidden="true" style={{ width: 7, height: 7, marginTop: 5, borderRadius: '50%', background: calendarNoticeColor(event.nickname) }} />
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', minWidth: 0 }}><b style={{ flex: '0 0 auto', fontSize: 12 }}>{event.time || '시간 미정'}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>{event.title}</span></div>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', minWidth: 0 }}><b style={{ flex: '0 0 auto', fontSize: 12 }}>{calendarDateLabel(event.date)} · {event.time || '시간 미정'}</b><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>{event.title}</span></div>
                                         <small style={{ display: 'block', marginTop: 2, fontSize: 11, opacity: .72 }}>등록: {event.nickname || '익명'}</small>
                                     </div>
                                 </div>

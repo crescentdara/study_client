@@ -98,6 +98,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [previewImage, setPreviewImage] = useState<{ url: string; fileName?: string } | null>(null);
+  const [yarVideoOpen, setYarVideoOpen] = useState(false);
   const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [warningError, setWarningError] = useState("");
@@ -111,6 +112,16 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionAt, setMentionAt] = useState(0); // index of '@' in input
   const inputRef = useRef<HTMLInputElement>(null);
+  const systemMessageTimersRef = useRef<ReturnType<typeof window.setTimeout>[]>([]);
+
+  useEffect(() => {
+    if (!yarVideoOpen) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setYarVideoOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [yarVideoOpen]);
+
+  useEffect(() => () => { systemMessageTimersRef.current.forEach((timer) => window.clearTimeout(timer)); }, []);
 
   useEffect(() => {
     const loadLunchWinner = async () => {
@@ -220,21 +231,31 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const cancelReply = () => setReplyTarget(null);
 
   const addSystemMessage = (text: string) => {
+    const timestamp = Date.now();
     const message: ChatMessage = {
       nickname: "system",
       text,
-      timestamp: Date.now(),
+      timestamp,
       emoji: "",
       type: "TEXT",
     };
     setLocalMessages((prev) => [...prev, message].slice(-20));
+    const timer = window.setTimeout(() => {
+      setLocalMessages((prev) => prev.filter((item) => item.nickname !== "system" || item.timestamp !== timestamp || item.text !== text));
+      systemMessageTimersRef.current = systemMessageTimersRef.current.filter((item) => item !== timer);
+    }, 4500);
+    systemMessageTimersRef.current.push(timer);
   };
 
   const handleCommand = (text: string) => {
     if (!text.startsWith("/")) return false;
     const lower = text.toLowerCase();
+    if (text === "/야르") {
+      setYarVideoOpen(true);
+      return true;
+    }
     if (lower === "/help") {
-      addSystemMessage("commands: /help, /clear, /opacity, /voice @nickname message");
+      addSystemMessage("commands: /help, /clear, /opacity, /야르, /voice @nickname message");
       return true;
     }
     if (lower === "/clear") {
@@ -919,6 +940,20 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               style={{ display: "block", maxWidth: "88vw", maxHeight: "calc(88vh - 34px)", objectFit: "contain" }}
             />
           </div>
+        </div>
+      )}
+      {yarVideoOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="야르 영상"
+          onClick={() => setYarVideoOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 2001, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(0,0,0,0.72)" }}
+        >
+          <section onClick={(event) => event.stopPropagation()} style={{ width: "min(880px, 92vw)", border: "1px solid #3e3e42", background: "#1e1e1e", boxShadow: "0 16px 40px rgba(0,0,0,0.55)" }}>
+            <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderBottom: "1px solid #3e3e42", color: "#d4d4d4", fontSize: 12 }}><span style={{ color: "#f44747", fontWeight: 700 }}>YARU</span><span style={{ color: "#858585" }}>youtube.com</span><button type="button" className="btn-secondary" style={{ marginLeft: "auto", fontSize: 11, padding: "2px 8px" }} onClick={() => setYarVideoOpen(false)}>close</button></header>
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "#000" }}><iframe title="야르 영상" src="https://www.youtube.com/embed/c2AbasThk3A?autoplay=1&rel=0&playsinline=1" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }} /></div>
+          </section>
         </div>
       )}
     </div>
