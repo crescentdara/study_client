@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppleBoxRecord, CreateRoomRequest, Room, StudyType, TetrisRankRow } from '../../types';
 import { useAppleLeaderboard, useAppleRankOpen } from '../../hooks/useAppleLeaderboard';
 import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../../hooks/useTetrisLeaderboard';
+import { InfiniteStairsRecord, useInfiniteStairsLeaderboard } from '../../hooks/useInfiniteStairsLeaderboard';
 
 interface ExcelLobbyProps {
     nickname: string;
@@ -123,6 +124,9 @@ interface InteractiveTaskGridProps {
     /** 엑셀 그룹 아웃라인처럼 ＋/－ 로 접었다 펼 수 있게 */
     appleRankOpen: boolean;
     onToggleAppleRank: () => void;
+    stairsRecords: InfiniteStairsRecord[];
+    stairsWeekStart: string;
+    stairsRankingFailed: boolean;
     /** 테트리스 전적·티어 — '품질 평가 등급' 집계처럼 보이게 끼워 넣는다 */
     tetrisRecords: TetrisRankRow[];
     /** 서바이벌 등급은 대전과 별개 장부다 */
@@ -137,6 +141,7 @@ const GRID_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 function InteractiveTaskGrid({
     nickname, rooms, activePeople, onJoin, onRefresh, onCreate, loading, onCellSelect, onRangeSelect,
     appleRecords, appleWeekly, appleWeekStart, appleRankingFailed, appleRankOpen, onToggleAppleRank,
+    stairsRecords, stairsWeekStart, stairsRankingFailed,
     tetrisRecords, tetrisSurvivalRecords, tetrisRankingFailed, tetrisRankOpen, onToggleTetrisRank,
 }: InteractiveTaskGridProps) {
     const [selected, setSelected] = useState('A1');
@@ -376,6 +381,30 @@ function InteractiveTaskGrid({
 
     // ── 테트리스 전적·티어 — 접기/펼치기 되는 '품질 평가 등급' 집계 ─────────────────
     rows.push([
+        { text: '끝없는 계단 주간 기록', className: 'metric-label', readOnly: true },
+        { text: stairsWeekStart ? `이번 주 · ${stairsWeekStart} 시작` : '매주 월요일 자동 초기화', className: 'note', readOnly: true },
+        { text: '닉네임', className: 'label', readOnly: true },
+        { text: '최고 계단', className: 'label', readOnly: true },
+        { text: '플레이', className: 'label', readOnly: true },
+        ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
+        { text: '순위', className: 'label', readOnly: true },
+    ]);
+    if (stairsRankingFailed) {
+        rows.push([{ text: '끝없는 계단' }, { text: '기록을 불러오지 못했습니다.', className: 'note' }, ...Array.from({ length: 7 }, () => ({ text: '' }))]);
+    } else if (stairsRecords.length === 0) {
+        rows.push([{ text: '끝없는 계단' }, { text: '이번 주 기록이 없습니다.', className: 'note' }, ...Array.from({ length: 7 }, () => ({ text: '' }))]);
+    } else {
+        stairsRecords.forEach((record) => {
+            const mine = record.nickname === nickname;
+            rows.push([
+                { text: '끝없는 계단' }, { text: `${record.rank}위 · ${record.nickname}`, className: mine ? 'live-title' : '' },
+                { text: mine ? `${record.nickname} (본인)` : record.nickname }, { text: `${record.best} 계단`, className: 'center' },
+                { text: `${record.games}회`, className: 'center' }, ...Array.from({ length: 3 }, () => ({ text: '' })), { text: `${record.rank}위`, className: 'center' },
+            ]);
+        });
+    }
+
+    rows.push([
         {
             text: `${tetrisRankOpen ? '－' : '＋'} 평가 등급`,
             className: 'metric-label',
@@ -595,6 +624,7 @@ export default function ExcelLobby({
     const appleRank = useAppleRankOpen();
     const tetrisRanking = useTetrisLeaderboard(10);
     const tetrisRank = useTetrisRankOpen();
+    const stairsRanking = useInfiniteStairsLeaderboard(10);
 
     const activePeople = useMemo(
         () => new Set(rooms.flatMap((room) => room.playerNames ?? [])).size,
@@ -606,6 +636,7 @@ export default function ExcelLobby({
         fetchRooms();
         void appleRanking.reload();
         void tetrisRanking.reload();
+        void stairsRanking.reload();
     };
 
     const handleCreate = async () => {
@@ -757,6 +788,9 @@ export default function ExcelLobby({
                     appleRankingFailed={appleRanking.failed}
                     appleRankOpen={appleRank.open}
                     onToggleAppleRank={appleRank.toggle}
+                    stairsRecords={stairsRanking.records}
+                    stairsWeekStart={stairsRanking.weekStart}
+                    stairsRankingFailed={stairsRanking.failed}
                     tetrisRecords={tetrisRanking.records}
                     tetrisSurvivalRecords={tetrisRanking.survival}
                     tetrisRankingFailed={tetrisRanking.failed}

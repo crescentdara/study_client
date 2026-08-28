@@ -4,6 +4,7 @@ import Lobby from './components/Lobby';
 import StudyRoom from './components/StudyRoom';
 import Sudoku from './components/games/Sudoku';
 import AppleSolo from './components/games/AppleSolo';
+import InfiniteStairs from './components/games/InfiniteStairs';
 import AnnouncementCenter from './components/AnnouncementCenter';
 import CalendarCenter from './components/CalendarCenter';
 import WordRain from './components/games/WordRain';
@@ -280,6 +281,7 @@ function App() {
     // Legacy Puyo shortcut is kept hidden while old activity-bar layout is retained.
     const [showPuyo, setShowPuyo] = useState(false);
     const [showApple, setShowApple] = useState(false);
+    const [showInfiniteStairs, setShowInfiniteStairs] = useState(false);
     const [showAnnouncements, setShowAnnouncements] = useState(false);
     const [showCalendar, setShowCalendar] = useState(false);
     const [announcementPopup, setAnnouncementPopup] = useState<AnnouncementPopup | null>(null);
@@ -1389,6 +1391,27 @@ function App() {
                                 🔢
                             </div>
                             <div
+                                className="activity-game-button"
+                                title="Infinite Stairs"
+                                onClick={() => {
+                                    setShowInfiniteStairs((visible) => !visible);
+                                    setShowPuyo(false);
+                                    setShowSudoku(false);
+                                    setShowApple(false);
+                                    setWordRainOn(false);
+                                    setWordRainVisible(true);
+                                }}
+                                style={{
+                                    width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '17px', cursor: 'pointer', borderRadius: '4px',
+                                    background: showInfiniteStairs ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    borderLeft: showInfiniteStairs ? '2px solid #4ec9b0' : '2px solid transparent',
+                                    opacity: showInfiniteStairs ? 1 : 0.6, transition: 'all 0.12s',
+                                }}
+                            >
+                                ↗
+                            </div>
+                            <div
                                 className={`activity-game-button excel-rail-action-26 ${isExcelRowSelected(26) ? 'excel-range-header-selected' : ''}`}
                                 title="재고 실사 대조 (합 10 범위 선택)"
                                 onClick={() => {
@@ -1880,6 +1903,12 @@ function App() {
                                     }
                                     onClose={() => setShowApple(false)}
                                 />
+                            ) : currentRoom === null && showInfiniteStairs ? (
+                                <InfiniteStairs
+                                    nickname={nickname}
+                                    workspaceMode={workspaceMode}
+                                    onClose={() => setShowInfiniteStairs(false)}
+                                />
                             ) : currentRoom === null && workspaceMode === 'excel' ? (
                                 <ExcelLobby
                                     nickname={nickname}
@@ -1943,7 +1972,7 @@ function App() {
                             )}
                         </div>
                         {/* 워드레인 오버레이 — 게임 실행 중 항상 마운트, display로만 표시/숨김 */}
-                        {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && !showApple && (
+                        {wordRainOn && currentRoom === null && !showPuyo && !showSudoku && !showApple && !showInfiniteStairs && (
                             <div
                                 style={{
                                     position: 'absolute',
