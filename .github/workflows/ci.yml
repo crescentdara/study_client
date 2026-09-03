@@ -24,3 +24,9 @@ jobs:
 
             - name: Build React
               run: npm run build
+
+            - name: Upload Frontend Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: frontend-build
+                  path: dist
