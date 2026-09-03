@@ -21,17 +21,27 @@ interface DrawingStroke {
 }
 
 interface DrawingMessage {
-    type: 'SNAPSHOT' | 'STROKE';
+    type: 'SNAPSHOT' | 'STROKE' | 'LOCK_STATE';
     strokeId?: string;
     stroke?: DrawingStroke;
     strokes?: DrawingStroke[];
+    locked?: boolean;
+}
+
+export interface DrawingCommand {
+    type: 'LOCK' | 'UNLOCK';
+    id: number;
 }
 
 interface LobbyDrawingLayerProps {
     nickname: string;
     sessionId: string;
     editing: boolean;
+    locked: boolean;
+    command: DrawingCommand | null;
     onEditingChange: (editing: boolean) => void;
+    onLockedChange: (locked: boolean) => void;
+    onNotice: (message: string) => void;
 }
 
 const MAX_LOCAL_POINTS = 400;
@@ -75,7 +85,7 @@ function drawSegment(
     ctx.restore();
 }
 
-function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: LobbyDrawingLayerProps) {
+function LobbyDrawingLayer({ nickname, sessionId, editing, locked, command, onEditingChange, onLockedChange, onNotice }: LobbyDrawingLayerProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const toolbarRef = useRef<HTMLDivElement | null>(null);
     const clientRef = useRef<Client | null>(null);
@@ -83,6 +93,7 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
     const hiddenStrokeIdsRef = useRef<Set<string>>(new Set());
     const draftRef = useRef<{ pointerId: number; stroke: DrawingStroke } | null>(null);
     const toolbarDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
+    const lockedRef = useRef(locked);
     const [strokes, setStrokes] = useState<DrawingStroke[]>([]);
     const [connected, setConnected] = useState(false);
     const [color, setColor] = useState('#60a5fa');
@@ -90,6 +101,11 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
     const [tool, setTool] = useState<DrawingTool>('PEN');
     const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
     const ownerSessionId = sessionId.trim().slice(0, 80);
+
+    useEffect(() => {
+        lockedRef.current = locked;
+        if (locked) onEditingChange(false);
+    }, [locked, onEditingChange]);
 
     const redraw = useCallback((nextStrokes: DrawingStroke[] = strokesRef.current) => {
         const canvas = canvasRef.current;
@@ -146,6 +162,8 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
                     try {
                         const incoming = JSON.parse(message.body) as DrawingMessage;
                         if (incoming.type === 'SNAPSHOT') {
+                            lockedRef.current = Boolean(incoming.locked);
+                            onLockedChange(lockedRef.current);
                             replaceStrokes((incoming.strokes ?? [])
                                 .filter(stroke => !hiddenStrokeIdsRef.current.has(stroke.strokeId))
                                 .slice(-600));
@@ -154,6 +172,10 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
                             if (hiddenStrokeIdsRef.current.has(nextStroke.strokeId)) return;
                             if (strokesRef.current.some(stroke => stroke.strokeId === nextStroke.strokeId)) return;
                             replaceStrokes([...strokesRef.current, nextStroke].slice(-600));
+                        } else if (incoming.type === 'LOCK_STATE') {
+                            lockedRef.current = Boolean(incoming.locked);
+                            onLockedChange(lockedRef.current);
+                            onNotice(lockedRef.current ? '펜이 압수되었습니다.' : '펜 압수가 해제되었습니다.');
                         }
                     } catch (error) {
                         console.warn('[drawing] invalid message', error);
@@ -173,7 +195,17 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
             client.deactivate();
             clientRef.current = null;
         };
-    }, [nickname, replaceStrokes, sessionId]);
+    }, [nickname, onLockedChange, onNotice, replaceStrokes, sessionId]);
+
+    useEffect(() => {
+        if (!command || !sessionId) return;
+        const client = clientRef.current;
+        if (!client?.connected) return;
+        client.publish({
+            destination: '/app/study/lobby/drawing',
+            body: JSON.stringify({ type: command.type, sessionId, nickname }),
+        });
+    }, [command, nickname, sessionId]);
 
     const pointFromEvent = (event: ReactPointerEvent<HTMLCanvasElement>): DrawingPoint => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -184,7 +216,7 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
     };
 
     const startStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-        if (!editing) return;
+        if (!editing || lockedRef.current) return;
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
         const now = Date.now();
@@ -205,7 +237,7 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
 
     const moveStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
         const draft = draftRef.current;
-        if (!editing || !draft || draft.pointerId !== event.pointerId) return;
+        if (!editing || lockedRef.current || !draft || draft.pointerId !== event.pointerId) return;
         const nextPoint = pointFromEvent(event);
         const previousPoint = draft.stroke.points[draft.stroke.points.length - 1];
         const canvas = event.currentTarget;
@@ -221,7 +253,7 @@ function LobbyDrawingLayer({ nickname, sessionId, editing, onEditingChange }: Lo
 
     const finishStroke = (event: ReactPointerEvent<HTMLCanvasElement>) => {
         const draft = draftRef.current;
-        if (!draft || draft.pointerId !== event.pointerId) return;
+        if (lockedRef.current || !draft || draft.pointerId !== event.pointerId) return;
         draftRef.current = null;
         if (draft.stroke.tool === 'ERASER') setTool('PEN');
         if (draft.stroke.points.length < 2) return;

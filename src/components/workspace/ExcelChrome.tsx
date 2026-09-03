@@ -59,6 +59,7 @@ interface ExcelChromeProps {
     onNoticeOpen?: () => void;
     onCalendarOpen?: () => void;
     unreadSuggestionCount?: number;
+    onDrawingCommand?: (command: 'LOCK' | 'UNLOCK') => void;
 }
 
 const EXCEL_FONT_OPTIONS = [
@@ -73,7 +74,7 @@ const EXCEL_FONT_OPTIONS = [
     { label: 'Consolas', value: 'Consolas, monospace' },
 ];
 
-export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange, onNoticeOpen, onCalendarOpen, unreadSuggestionCount = 0 }: ExcelChromeProps) {
+export default function ExcelChrome({ onModeChange, workbookName, activeCell, formulaText, fontFamily, onFontFamilyChange, onNoticeOpen, onCalendarOpen, unreadSuggestionCount = 0, onDrawingCommand }: ExcelChromeProps) {
     return (
         <header className="excel-chrome">
             <div className="excel-titlebar">
@@ -89,7 +90,7 @@ export default function ExcelChrome({ onModeChange, workbookName, activeCell, fo
                         <strong>{workbookName} - Excel</strong>
                     </div>
                 </div>
-                <WeatherSearch variant="excel" />
+                <WeatherSearch variant="excel" onDrawingCommand={onDrawingCommand} />
                 <div className="excel-title-controls">
                     <button className="excel-share-button" type="button">공유</button>
                     <span className="excel-account" aria-label="사용자">로그인</span>

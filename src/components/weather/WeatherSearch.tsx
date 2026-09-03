@@ -3,6 +3,7 @@ import { useWeatherSearch } from './useWeatherSearch';
 
 interface WeatherSearchProps {
     variant: 'vscode' | 'excel';
+    onDrawingCommand?: (command: 'LOCK' | 'UNLOCK') => void;
 }
 
 const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -12,7 +13,7 @@ const formatForecastDate = (date: string, index: number) => {
     return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' }).format(parsed);
 };
 
-export default function WeatherSearch({ variant }: WeatherSearchProps) {
+export default function WeatherSearch({ variant, onDrawingCommand }: WeatherSearchProps) {
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLFormElement>(null);
@@ -28,6 +29,14 @@ export default function WeatherSearch({ variant }: WeatherSearchProps) {
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
+        const command = query.trim();
+        if (command === '펜압수' || command === '펜압수해제') {
+            onDrawingCommand?.(command === '펜압수' ? 'LOCK' : 'UNLOCK');
+            setQuery('');
+            clear();
+            setOpen(false);
+            return;
+        }
         setOpen(true);
         void search(query);
     };

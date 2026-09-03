@@ -357,6 +357,14 @@ function App() {
     const [smokingOpacity, setSmokingOpacity] = useState<SmokingDeskOpacity>(loadSmokingOpacity);
     const [vendingOn, setVendingOn] = useState(false);
     const [drawingMode, setDrawingMode] = useState(false);
+    const [drawingLocked, setDrawingLocked] = useState(false);
+    const [drawingCommand, setDrawingCommand] = useState<{ type: 'LOCK' | 'UNLOCK'; id: number } | null>(null);
+    const handleDrawingCommand = useCallback((type: 'LOCK' | 'UNLOCK') => {
+        setDrawingCommand({ type, id: Date.now() });
+    }, []);
+    const handleDrawingNotice = useCallback((message: string) => {
+        addToast('✏️', '공유 그림', message);
+    }, [addToast]);
     const [vendingOpacity, setVendingOpacity] = useState(() => {
         const stored = Number(localStorage.getItem('study.vendingOpacity'));
         return stored >= 0.2 && stored <= 1 ? stored : 0.94;
@@ -796,7 +804,16 @@ function App() {
             )}
             <SmokingWidget nickname={nickname} sessionId={sessionId} packVisible={smokingDeskOn} opacity={smokingOpacity} />
             <VendingMachineWidget nickname={nickname} sessionId={sessionId} machineVisible={vendingOn} opacity={vendingOpacity} />
-            <LobbyDrawingLayer nickname={nickname} sessionId={sessionId} editing={drawingMode} onEditingChange={setDrawingMode} />
+            <LobbyDrawingLayer
+                nickname={nickname}
+                sessionId={sessionId}
+                editing={drawingMode}
+                locked={drawingLocked}
+                command={drawingCommand}
+                onEditingChange={setDrawingMode}
+                onLockedChange={setDrawingLocked}
+                onNotice={handleDrawingNotice}
+            />
             <DeskTrashBin />
             {showOpacitySettings && (
                 <section
@@ -927,7 +944,7 @@ function App() {
                         <div style={{ marginLeft: '10px' }}></div>
                         <li style={{ color: '#888', fontSize: '12px' }}>→</li>
                     </ul>
-                    <WeatherSearch variant="vscode" />
+                    <WeatherSearch variant="vscode" onDrawingCommand={handleDrawingCommand} />
                 </div>
                 <ul
                     style={{
@@ -975,6 +992,7 @@ function App() {
                 onNoticeOpen={() => { setShowAnnouncements(true); setShowApple(false); setShowSudoku(false); }}
                 onCalendarOpen={() => { setShowCalendar(true); setShowAnnouncements(false); setShowApple(false); setShowSudoku(false); }}
                 unreadSuggestionCount={unreadSuggestionCount}
+                onDrawingCommand={handleDrawingCommand}
             />
 
             {/* ── 메인 영역 ──────────────────────────────────────────────── */}
@@ -1227,20 +1245,26 @@ function App() {
                         </li>
                         <li
                             className={`drawing-activity-control excel-rail-action-12 ${isExcelRowSelected(12) ? 'excel-range-header-selected' : ''}`}
-                            title={drawingMode ? '그림 편집 종료' : '공유 그림 그리기'}
-                            onClick={() => setDrawingMode(value => !value)}
+                            title={drawingLocked ? '펜이 압수되었습니다.' : drawingMode ? '그림 편집 종료' : '공유 그림 그리기'}
+                            onClick={() => {
+                                if (drawingLocked) {
+                                    addToast('✏️', '공유 그림', '펜이 압수되었습니다.');
+                                    return;
+                                }
+                                setDrawingMode(value => !value);
+                            }}
                             style={{
                                 width: '32px',
                                 height: '32px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                cursor: 'pointer',
+                                cursor: drawingLocked ? 'not-allowed' : 'pointer',
                                 borderRadius: '4px',
                                 background: drawingMode ? 'rgba(255,255,255,0.08)' : 'transparent',
                                 borderLeft: drawingMode ? '2px solid #ccc' : '2px solid transparent',
                                 color: '#c5c5c5',
-                                opacity: drawingMode ? 1 : 0.45,
+                                opacity: drawingLocked ? 0.2 : drawingMode ? 1 : 0.45,
                                 transition: 'all .12s',
                                 position: 'relative',
                             }}
