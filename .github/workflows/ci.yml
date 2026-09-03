@@ -1,17 +1,26 @@
-name: CI Test
+name: Frontend CI
 
 on:
-  push:
-    branches:
-      - main
+    push:
+        branches:
+            - main
 
 jobs:
-  test:
-    runs-on: windows-latest
+    test:
+        runs-on: windows-latest
 
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout source
+              uses: actions/checkout@v4
 
-      - name: CI Test
-        run: echo "CI 실행 성공"
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build React
+              run: npm run build
