@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Room, StudyType, CreateRoomRequest, AppleBoxRecord, TetrisRankRow } from '../types';
 import { useAppleLeaderboard, useAppleRankOpen } from '../hooks/useAppleLeaderboard';
 import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../hooks/useTetrisLeaderboard';
-import { useInfiniteStairsLeaderboard } from '../hooks/useInfiniteStairsLeaderboard';
 import LunchVote from './LunchVote';
 
 interface LobbyProps {
@@ -49,7 +48,6 @@ function Lobby({
     const appleRank = useAppleRankOpen();
     const tetrisRanking = useTetrisLeaderboard(10);
     const tetrisRank = useTetrisRankOpen();
-    const stairsRanking = useInfiniteStairsLeaderboard(10);
     // 사과게임은 방을 만들지 않는다 — 좌측 🍎 버튼으로 혼자 바로 시작한다
     const mainStudyTypes: StudyType[] = ['BASEBALL', 'BINGO', 'OMOK', 'TETRIS', 'CATCHMIND', 'OLDMAID', 'WORD_CHAIN', 'RUMMIKUB', 'DAVINCI_CODE', 'RUSH_HOUR', 'UBONGO', 'ALKKAGI'];
 
@@ -356,24 +354,6 @@ function Lobby({
                 {/* ── 사과게임 랭킹 — 접었다 펼 수 있다 (설명 주석 없이 값만) ── */}
                 {!showCreate && (
                     <LunchVote nickname={nickname} theme="vscode" />
-                )}
-
-                {!showCreate && (
-                    <div className="code-block" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid #2a2a2a' }}>
-                        {L(
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span className="kw">const </span><span className="var">infiniteStairsWeekly</span><span className="pct">: </span><span className="typ">StairScore</span><span className="pct">[] = [</span>
-                                <button className="btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }} onClick={() => void stairsRanking.reload()}>reload()</button>
-                            </span>,
-                        )}
-                        {stairsRanking.records.length === 0
-                            ? L(<span className="cmt">// 이번 주 기록이 없습니다.</span>, 1)
-                            : stairsRanking.records.map((record) => L(
-                                <span><span className="pct">{'{ '}</span><span className="var">rank</span><span className="pct">: </span><span className="num">{record.rank}</span><span className="pct">, </span><span className="var">nickname</span><span className="pct">: </span><span className="str" style={record.nickname === nickname ? { color: '#4ec9b0', fontWeight: 700 } : undefined}>{`"${record.nickname}"`}</span><span className="pct">, </span><span className="var">best</span><span className="pct">: </span><span className="num">{record.best}</span><span className="pct">, </span><span className="var">games</span><span className="pct">: </span><span className="num">{record.games}</span><span className="pct">{' },'}</span></span>, 1,
-                            ))}
-                        {L(<span className="pct">]</span>)}
-                        <div style={{ padding: '2px 12px 8px 44px', color: '#6a9955', fontSize: 10 }}>// 주간 기록 · {stairsRanking.weekStart || '월요일 자동 초기화'}</div>
-                    </div>
                 )}
 
                 {!showCreate && (

@@ -2074,10 +2074,18 @@ function TetrisResultDialog({
                   const record = records[rankedNickname];
                   return (
                     <div className={`tetris-ranking-row rank-${index + 1}`} key={rankedNickname}>
-                      <b>#{index + 1}</b>
-                      <strong className="tetris-ranked-name"><TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} compact /><span>{rankedNickname}</span></strong>
-                      <span className={index === 0 ? 'typ' : 'str'}>{index === 0 ? 'WIN' : 'LOSS'}</span>
-                      <small>{rankLabel(record)} · {record?.wins ?? 0}W {record?.losses ?? 0}L</small>
+                      <div className="tetris-ranking-main">
+                        <b>#{index + 1}</b>
+                        <strong className="tetris-ranked-name"><TetrisRankEmblem tier={record?.ranked ? record.tier : 'UNRANKED'} compact /><span>{rankedNickname}</span></strong>
+                        <span className={index === 0 ? 'typ' : 'str'}>{index === 0 ? 'WIN' : 'LOSS'}</span>
+                      </div>
+                      <div className="tetris-ranking-meta">
+                        <b className={(record?.lastRankDelta ?? 0) > 0 ? 'gain' : (record?.lastRankDelta ?? 0) < 0 ? 'loss' : ''}>
+                          {(record?.lastRankDelta ?? 0) > 0 ? '+' : ''}{record?.lastRankDelta ?? 0} RP
+                        </b>
+                        <span>{record?.rating ?? 0} RP · {rankLabel(record)}</span>
+                        <small>{record?.wins ?? 0}W {record?.losses ?? 0}L</small>
+                      </div>
                     </div>
                   );
                 })}
