@@ -136,7 +136,6 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   }, [myNickname]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottomRef = useRef(true);
   const previousLatestMessageKeyRef = useRef("");
@@ -158,12 +157,19 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     ? "/voice".slice(voiceMatch[2].length)
     : "";
 
+  // Keep automatic scrolling inside the chat list. scrollIntoView() can also
+  // reposition scrollable ancestors when a preview state change causes a render.
+  const scrollListToBottom = () => {
+    const list = scrollRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  };
+
   useEffect(() => {
     const hasNewLatest = latestMessageKey !== "" && latestMessageKey !== previousLatestMessageKeyRef.current;
     previousLatestMessageKeyRef.current = latestMessageKey;
 
     if (!hasNewLatest) {
-      if (open && stickToBottomRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
+      if (open && stickToBottomRef.current) scrollListToBottom();
       return;
     }
     const isUnreadCandidate = latestMessage
@@ -172,7 +178,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     if (isUnreadCandidate && (!open || !stickToBottomRef.current)) {
       setUnreadCount((count) => count + 1);
     } else {
-      bottomRef.current?.scrollIntoView({ block: "end" });
+      scrollListToBottom();
     }
   }, [latestMessage, latestMessageKey, myNickname, open, visibleMessages.length]);
 
@@ -203,7 +209,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const scrollToBottom = () => {
     stickToBottomRef.current = true;
     setUnreadCount(0);
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    scrollListToBottom();
   };
 
   const toggleChat = () => {
@@ -455,7 +461,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
           className="chat-message-list"
           ref={scrollRef}
           onScroll={updateStickToBottom}
-          style={{ flex: 1, overflowY: "auto", padding: "6px 0 18px", minHeight: 0, scrollPaddingBottom: 18 }}
+          style={{ flex: 1, overflowY: "auto", padding: "6px 0 18px", minHeight: 0, scrollPaddingBottom: 18, overflowAnchor: "none" }}
         >
           {allMessages.length === 0 && (
             <div className="chat-empty-state" style={{ padding: "8px 12px", fontSize: "11px", color: "#4e4e4e" }}>
@@ -595,7 +601,6 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               </div>
             );
           })}
-          <div ref={bottomRef} style={{ height: 8 }} />
         </div>
       )}
 
@@ -1120,7 +1125,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
                 event.stopPropagation();
                 onPreview({ url: message.imageUrl || "", fileName: message.fileName });
               }}
-              style={{ textDecoration: "none", cursor: "zoom-in" }}
+              style={{ display: "block", width: "280px", maxWidth: "100%", textDecoration: "none", cursor: "zoom-in" }}
             >
               <img
                 src={message.imageUrl}
@@ -1129,8 +1134,8 @@ const ChatMessageItem = memo(function ChatMessageItem({
                 decoding="async"
                 style={{
                   display: "block",
-                  maxWidth: "100%",
-                  maxHeight: "220px",
+                  width: "100%",
+                  height: "180px",
                   borderRadius: "3px",
                   objectFit: "contain",
                 }}
