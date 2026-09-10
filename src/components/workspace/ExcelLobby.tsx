@@ -94,15 +94,11 @@ interface LunchMenuRow {
     id: string;
     menu: string;
     nickname: string;
-    votes: number;
-    winner: boolean;
 }
 
 interface LunchSnapshot {
     date: string;
     menus: LunchMenuRow[];
-    voterCount: number;
-    myVoteMenuId?: string;
 }
 
 interface InteractiveTaskGridProps {
@@ -144,13 +140,13 @@ function InteractiveTaskGrid({
     const [dragEnd, setDragEnd] = useState('A1');
     const [dragging, setDragging] = useState(false);
     const [edits, setEdits] = useState<Record<string, string>>({});
-    const [lunch, setLunch] = useState<LunchSnapshot>({ date: '', menus: [], voterCount: 0 });
+    const [lunch, setLunch] = useState<LunchSnapshot>({ date: '', menus: [] });
     const [lunchMessage, setLunchMessage] = useState('');
     const [lunchOpen, setLunchOpen] = useState(true);
 
     const loadLunch = async () => {
         try {
-            const response = await fetch(`/api/lunch/today?nickname=${encodeURIComponent(nickname)}`);
+            const response = await fetch('/api/lunch/today');
             if (response.ok) setLunch(await response.json());
         } catch {
             setLunchMessage('점심 메뉴 데이터를 불러오지 못했습니다.');
@@ -261,13 +257,10 @@ function InteractiveTaskGrid({
 
     // ── 오늘의 점심 — 별도 카드가 아니라 기존 워크시트의 데이터 행으로 표시한다 ──
     rows.push([
-        { text: `${lunchOpen ? '－' : '＋'} 점심 투표`, className: 'metric-label', action: () => setLunchOpen((value) => !value), readOnly: true },
+        { text: `${lunchOpen ? '－' : '＋'} 점심 메뉴`, className: 'metric-label', action: () => setLunchOpen((value) => !value), readOnly: true },
         { text: `오늘의 메뉴 · ${lunch.date || '오늘'}`, className: 'live-title', readOnly: true },
-        { text: `${lunch.voterCount}명 참여`, className: 'label', readOnly: true },
         { text: '등록자', className: 'label', readOnly: true },
-        { text: '득표', className: 'label', readOnly: true },
-        { text: '투표', className: 'label', readOnly: true },
-        ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
+        ...Array.from({ length: 6 }, () => ({ text: '', readOnly: true })),
     ]);
     if (lunchOpen && lunch.menus.length === 0) {
         rows.push([
@@ -276,14 +269,11 @@ function InteractiveTaskGrid({
             ...Array.from({ length: 7 }, () => ({ text: '', readOnly: true })),
         ]);
     } else if (lunchOpen) {
-        lunch.menus.forEach((item, index) => rows.push([
-            { text: item.winner ? '👑 1위' : `${index + 1}위`, className: item.winner ? 'metric-label' : 'center', readOnly: true },
-            { text: item.menu, className: item.winner ? 'live-title' : '', readOnly: true },
+        lunch.menus.forEach((item) => rows.push([
+            { text: '메뉴', className: 'note-label', readOnly: true },
+            { text: item.menu, className: 'live-title', readOnly: true },
             { text: item.nickname, readOnly: true },
-            { text: item.nickname, readOnly: true },
-            { text: `${item.votes}표`, className: 'center', readOnly: true },
-            { text: lunch.myVoteMenuId === item.id ? '투표 완료' : item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase() ? '내 메뉴' : lunch.menus.length < 3 ? '3명 등록 필요' : '투표', action: () => void lunchRequest('/api/lunch/votes', { menuId: item.id }), disabled: Boolean(lunch.myVoteMenuId) || lunch.menus.length < 3 || item.nickname.trim().toLowerCase() === nickname.trim().toLowerCase(), readOnly: true },
-            ...Array.from({ length: 3 }, () => ({ text: '', readOnly: true })),
+            ...Array.from({ length: 6 }, () => ({ text: '', readOnly: true })),
         ]));
     }
     if (lunchOpen) {
