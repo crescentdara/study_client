@@ -232,7 +232,7 @@ export interface TetrisPlayerRecord {
   placementRequired: number;
   ranked: boolean;
   tier: 'UNRANKED' | 'IRON' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'EMERALD' | 'DIAMOND' | 'MASTER' | 'GRANDMASTER' | 'CHALLENGER';
-  division: '' | 'IV' | 'III' | 'II' | 'I';
+  division: '' | 'II' | 'I';
   rp: number;
   rating: number;
   lastRankDelta: number;
