@@ -152,7 +152,13 @@ export default function CalendarCenter({ workspaceMode, nickname, onClose }: { w
     const save = async () => { if (!title.trim()) return; const time = `${period} ${hour}:${minute}`; const response = await fetch(editing ? `/api/calendar-events/${encodeURIComponent(editing.id)}` : '/api/calendar-events', { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: selectedDate, title, time, nickname }) }); if (response.ok) { await load(); resetForm(); setDayPanelOpen(false); } };
     const beginEdit = (event: CalendarEvent) => { const match = event.time.match(/(\d{1,2}):(\d{2})/); const rawHour = match ? Number(match[1]) : 9; const isKoreanPeriod = event.time.includes('오후'); const is24Hour = !event.time.includes('오전') && !isKoreanPeriod; const nextPeriod = is24Hour ? (rawHour >= 12 ? '오후' : '오전') : (isKoreanPeriod ? '오후' : '오전'); const hour12 = is24Hour ? (rawHour % 12 || 12) : rawHour; setEditing(event); setTitle(event.title); setPeriod(nextPeriod); setHour(String(hour12)); setMinute(match && Number(match[2]) % 10 === 0 ? match[2] : '00'); };
     const remove = async (id: string) => { const response = await fetch(`/api/calendar-events/${encodeURIComponent(id)}`, { method: 'DELETE' }); if (response.ok) { await load(); if (editing?.id === id) resetForm(); } };
-    const getPopoverPosition = (rect: DOMRect) => ({ x: Math.max(10, Math.min(rect.right + 8, window.innerWidth - 294)), y: Math.max(10, Math.min(rect.top, window.innerHeight - 190)) });
+    const getPopoverPosition = (rect: DOMRect) => {
+        const maxHeight = Math.min(620, window.innerHeight - 20);
+        return {
+            x: Math.max(10, Math.min(rect.right + 8, window.innerWidth - 374)),
+            y: Math.max(10, Math.min(rect.top, window.innerHeight - maxHeight - 10)),
+        };
+    };
     const moveMonth = (amount: number) => setMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
 
     return <div style={{ height: '100%', overflow: 'auto', background: colors.bg, color: colors.ink, padding: excel ? 16 : 22 }}>
