@@ -102,7 +102,6 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [warningError, setWarningError] = useState("");
-  const [isLunchWinner, setIsLunchWinner] = useState(false);
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -122,18 +121,6 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   }, [yarVideoOpen]);
 
   useEffect(() => () => { systemMessageTimersRef.current.forEach((timer) => window.clearTimeout(timer)); }, []);
-
-  useEffect(() => {
-    const loadLunchWinner = async () => {
-      try {
-        const response = await fetch(`/api/lunch/today?nickname=${encodeURIComponent(myNickname)}`);
-        if (response.ok) setIsLunchWinner(Boolean((await response.json()).isWinner));
-      } catch { setIsLunchWinner(false); }
-    };
-    void loadLunchWinner();
-    const timer = window.setInterval(loadLunchWinner, 30000);
-    return () => window.clearInterval(timer);
-  }, [myNickname]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -665,7 +652,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               {action.label}
             </button>
           ))}
-          {isLunchWinner && nicknameMenu.nickname !== myNickname && (
+          {nicknameMenu.nickname !== myNickname && (
             <>
               <div style={{ margin: '4px 0', borderTop: '1px solid #3e3e42' }} />
               <button onClick={() => void changeWarning(nicknameMenu.nickname, 'yellow', 'add')} style={warningMenuButtonStyle('#f4c542')}>🟨 노란 카드 주기</button>
