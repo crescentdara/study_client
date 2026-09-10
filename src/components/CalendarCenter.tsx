@@ -144,7 +144,8 @@ export default function CalendarCenter({ workspaceMode, nickname, onClose }: { w
     }, [events]);
     const selectedHoliday = KOREAN_HOLIDAYS[selectedDate];
     const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-    const cells = Array.from({ length: 42 }, (_, index) => index);
+    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const cells = Array.from({ length: Math.ceil((firstDay + daysInMonth) / 7) * 7 }, (_, index) => index);
     const inputStyle = { width: '100%', boxSizing: 'border-box' as const, border: `1px solid ${colors.line}`, borderRadius: 4, background: excel ? '#ffffff' : '#3c3c3c', color: colors.ink, padding: '9px 10px', font: 'inherit' };
     const resetForm = () => { setEditing(null); setTitle(''); setPeriod('오전'); setHour('9'); setMinute('00'); };
     const getDayPanelPosition = (x: number, y: number) => ({ x: Math.max(10, Math.min(x, window.innerWidth - 394)), y: Math.max(10, Math.min(y, window.innerHeight - 520)) });
