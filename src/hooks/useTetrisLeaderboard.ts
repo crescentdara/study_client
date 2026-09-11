@@ -67,5 +67,6 @@ export function useTetrisRankOpen() {
 /** "SILVER III" 같은 표시용 티어 문자열 (배치 중이면 진행 수를 보여준다) */
 export function tierLabel(row: TetrisRankRow) {
     if (!row.ranked) return `배치 ${row.placementGames}/${row.placementRequired}`;
-    return row.division ? `${row.tier} ${row.division}` : row.tier;
+    const tier = row.tier === 'BUG' ? '벌레' : row.tier === 'BEGGAR' ? '거지' : row.tier;
+    return row.division ? `${tier} ${row.division}` : tier;
 }
