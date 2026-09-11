@@ -1891,6 +1891,8 @@ const recordRate = (wins: number, losses: number) => {
 
 const TIER_LABELS: Record<TetrisPlayerRecord['tier'], string> = {
   UNRANKED: '배치 중',
+  BUG: '벌레',
+  BEGGAR: '거지',
   IRON: '아이언',
   BRONZE: '브론즈',
   SILVER: '실버',
@@ -1904,8 +1906,8 @@ const TIER_LABELS: Record<TetrisPlayerRecord['tier'], string> = {
 };
 
 const TIER_LEVELS: Record<TetrisPlayerRecord['tier'], number> = {
-  UNRANKED: 0, IRON: 1, BRONZE: 2, SILVER: 3, GOLD: 4, PLATINUM: 5,
-  EMERALD: 6, DIAMOND: 7, MASTER: 8, GRANDMASTER: 9, CHALLENGER: 10,
+  UNRANKED: 0, BUG: 1, BEGGAR: 2, IRON: 3, BRONZE: 4, SILVER: 5, GOLD: 6,
+  PLATINUM: 7, EMERALD: 8, DIAMOND: 9, MASTER: 10, GRANDMASTER: 11, CHALLENGER: 12,
 };
 
 function TetrisRankEmblem({ tier, compact = false }: { tier: TetrisPlayerRecord['tier']; compact?: boolean }) {
@@ -1938,7 +1940,7 @@ const displayStoredRank = (value: string) => {
 };
 
 const TIER_SHORT_LABELS: Record<TetrisPlayerRecord['tier'], string> = {
-  UNRANKED: 'P', IRON: 'I', BRONZE: 'B', SILVER: 'S', GOLD: 'G', PLATINUM: 'P',
+  UNRANKED: 'P', BUG: '벌', BEGGAR: '거', IRON: 'I', BRONZE: 'B', SILVER: 'S', GOLD: 'G', PLATINUM: 'P',
   EMERALD: 'E', DIAMOND: 'D', MASTER: 'M', GRANDMASTER: 'GM', CHALLENGER: 'C',
 };
 
@@ -1977,6 +1979,7 @@ function TetrisRecordDetails({
   const opponents = Object.entries(record?.opponents ?? {});
   const placementRequired = record?.placementRequired ?? 5;
   const placementGames = record?.placementGames ?? 0;
+  const divisionLimit = record?.tier === 'BUG' || record?.tier === 'BEGGAR' ? 50 : 100;
   const rankProgress = !record?.ranked
     ? Math.round((placementGames / placementRequired) * 100)
     : record.tier === 'CHALLENGER'
@@ -1985,7 +1988,7 @@ function TetrisRecordDetails({
         ? Math.round((Math.max(0, record.rp - 400) / 400) * 100)
         : record.tier === 'MASTER'
           ? Math.round((record.rp / 400) * 100)
-          : record.rp;
+          : Math.round((record.rp / divisionLimit) * 100);
   return (
     <>
       {showGuide && <p className="tetris-record-guide">정상 종료된 2인 이상 경기만 승패에 반영됩니다.</p>}
@@ -1995,7 +1998,7 @@ function TetrisRecordDetails({
           <small>{record?.ranked ? '현재 티어' : '배치고사'}</small>
           <strong>{rankLabel(record)}</strong>
           <div className="tetris-rank-progress"><i style={{ width: `${Math.min(100, rankProgress)}%` }} /></div>
-          <span>{record?.ranked ? (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(record.tier) ? `${record.rp} RP` : `${record.rp} RP / 100 RP`) : `${placementRequired - placementGames}경기 남음`}</span>
+          <span>{record?.ranked ? (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(record.tier) ? `${record.rp} RP` : `${record.rp} RP / ${divisionLimit} RP`) : `${placementRequired - placementGames}경기 남음`}</span>
         </div>
         {record && record.lastRankDelta !== 0 && (
           <div className={`tetris-rank-delta ${record.lastRankDelta > 0 ? 'gain' : 'loss'}`}>

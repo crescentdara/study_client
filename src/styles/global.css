@@ -1274,6 +1274,8 @@ select option { background: var(--bg-sidebar); }
 .tetris-rank-delta.loss { color: #f5a08d; }
 .tetris-rank-delta small { max-width: 105px; color: #c4cbd3; font-size: 7px; font-weight: 400; text-align: right; }
 .tetris-rank-emblem.tier-unranked { color: #6f7880; }
+.tetris-rank-emblem.tier-bug { color: #63564c; }
+.tetris-rank-emblem.tier-beggar { color: #88795d; }
 .tetris-rank-emblem.tier-iron { color: #858b8e; }
 .tetris-rank-emblem.tier-bronze { color: #b9784e; }
 .tetris-rank-emblem.tier-silver { color: #b9c9d4; }
@@ -1558,6 +1560,8 @@ select option { background: var(--bg-sidebar); }
     linear-gradient(115deg, #11161d, #202733 58%, #12161c);
   animation: tetris-promotion-enter 700ms cubic-bezier(.18,.78,.2,1) both;
 }
+.tetris-promotion.tier-bug { --rank-accent: #63564c; }
+.tetris-promotion.tier-beggar { --rank-accent: #88795d; }
 .tetris-promotion.tier-iron { --rank-accent: #858b8e; }
 .tetris-promotion.tier-bronze { --rank-accent: #b9784e; }
 .tetris-promotion.tier-silver { --rank-accent: #b9c9d4; }

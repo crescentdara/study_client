@@ -231,7 +231,7 @@ export interface TetrisPlayerRecord {
   placementGames: number;
   placementRequired: number;
   ranked: boolean;
-  tier: 'UNRANKED' | 'IRON' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'EMERALD' | 'DIAMOND' | 'MASTER' | 'GRANDMASTER' | 'CHALLENGER';
+  tier: 'UNRANKED' | 'BUG' | 'BEGGAR' | 'IRON' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'EMERALD' | 'DIAMOND' | 'MASTER' | 'GRANDMASTER' | 'CHALLENGER';
   division: '' | 'II' | 'I';
   rp: number;
   rating: number;
