@@ -388,7 +388,10 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     <div
       className="chat-root"
       onPaste={handlePaste}
-      onClick={() => setNicknameMenu(null)}
+      onClickCapture={() => {
+        setNicknameMenu(null);
+        setSelectedMessage(null);
+      }}
       style={{
         width: "100%",
         display: "flex",
