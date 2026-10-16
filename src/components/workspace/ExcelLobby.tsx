@@ -241,7 +241,7 @@ function InteractiveTaskGrid({
     rows[2].push({ text: '검토', className: 'table-header', readOnly: true });
 
     rooms.forEach((room) => {
-        const capacity = room.studyType === 'TETRIS' && room.mode !== 'SURVIVAL' ? 3 : room.maxPlayers;
+        const capacity = room.studyType === 'TETRIS' && room.mode !== 'SPRINT' ? 3 : room.maxPlayers;
         rows.push([
             { text: BUSINESS_LABELS[room.studyType] },
             { text: room.roomName, className: 'live-title' },
@@ -576,7 +576,7 @@ export default function ExcelLobby({
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
     // 테트리스를 대전으로 열지, 혼자 버티는 서바이벌로 열지
-    const [tetrisSurvival, setTetrisSurvival] = useState(false);
+    const [tetrisSprint, setTetrisSprint] = useState(false);
     const [error, setError] = useState('');
     const [createSelection, setCreateSelection] = useState('B4');
 
@@ -610,11 +610,11 @@ export default function ExcelLobby({
                 nickname: nickname.trim(),
                 sessionId,
                 maxPlayers: studyType === 'TETRIS'
-                    ? (tetrisSurvival ? Math.max(1, Math.min(3, maxPlayers)) : 3)
+                    ? (tetrisSprint ? 1 : 3)
                     : studyType === 'OMOK' ? 2 : maxPlayers,
                 digits,
                 boardSize: studyType === 'TETRIS' ? 20 : studyType === 'OMOK' ? 19 : studyType === 'ALKKAGI' || studyType === 'OLDMAID' ? 0 : boardSize,
-                mode: studyType === 'TETRIS' && tetrisSurvival ? 'SURVIVAL' : '',
+                mode: studyType === 'TETRIS' && tetrisSprint ? 'SPRINT' : '',
             };
             const response = await fetch('/api/rooms', {
                 method: 'POST',
@@ -675,7 +675,7 @@ export default function ExcelLobby({
 
                     <div className="excel-create-cell label">게임 종류</div>
                     <div className={`excel-create-cell input-cell ${createSelection === 'B5' ? 'selected' : ''}`} style={{ gridColumn: 'span 3' }}>
-                        <select value={studyType} onFocus={() => selectCreateCell('B5', BUSINESS_LABELS[studyType])} onChange={(event) => { const type = event.target.value as StudyType; configureType(type, setStudyType, setMaxPlayers, setBoardSize, setDigits); if (type !== 'TETRIS') setTetrisSurvival(false); onCellSelect('B5', BUSINESS_LABELS[type]); }}>
+                        <select value={studyType} onFocus={() => selectCreateCell('B5', BUSINESS_LABELS[studyType])} onChange={(event) => { const type = event.target.value as StudyType; configureType(type, setStudyType, setMaxPlayers, setBoardSize, setDigits); if (type !== 'TETRIS') setTetrisSprint(false); onCellSelect('B5', BUSINESS_LABELS[type]); }}>
                             {STUDY_TYPES.map((type) => <option key={type} value={type}>{BUSINESS_LABELS[type]}</option>)}
                         </select>
                     </div>
@@ -690,22 +690,22 @@ export default function ExcelLobby({
                             <div className="excel-create-cell label">진행 방식</div>
                             <div className={`excel-create-cell input-cell ${createSelection === 'B7' ? 'selected' : ''}`} style={{ gridColumn: 'span 3' }}>
                                 <select
-                                    value={tetrisSurvival ? 'SURVIVAL' : 'VERSUS'}
-                                    onFocus={() => selectCreateCell('B7', tetrisSurvival ? '단독 대응' : '대전')}
+                                    value={tetrisSprint ? 'SPRINT' : 'VERSUS'}
+                                    onFocus={() => selectCreateCell('B7', tetrisSprint ? '40줄 스프린트' : '대전')}
                                     onChange={(event) => {
-                                        const survival = event.target.value === 'SURVIVAL';
-                                        setTetrisSurvival(survival);
-                                        setMaxPlayers(survival ? 1 : 3);
-                                        onCellSelect('B7', survival ? '단독 대응' : '대전');
+                                        const sprint = event.target.value === 'SPRINT';
+                                        setTetrisSprint(sprint);
+                                        setMaxPlayers(sprint ? 1 : 3);
+                                        onCellSelect('B7', sprint ? '40줄 스프린트' : '대전');
                                     }}
                                 >
                                     <option value="VERSUS">대전 (2~3명)</option>
-                                    <option value="SURVIVAL">유입 대응 (1~3명)</option>
+                                    <option value="SPRINT">40줄 스프린트 (혼자)</option>
                                 </select>
                             </div>
                             <div className="excel-create-cell muted" style={{ gridColumn: 'span 5' }}>
-                                {tetrisSurvival
-                                    ? '유입 항목을 버티는 방식입니다. 2명 이상이면 별도 등급으로 집계됩니다.'
+                                {tetrisSprint
+                                    ? '40줄을 먼저 지운 시간을 개인 기록과 전체 순위에 저장합니다.'
                                     : '2~3명이 함께 진행하며 평가 등급에 반영됩니다.'}
                             </div>
                         </>

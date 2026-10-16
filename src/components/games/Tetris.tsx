@@ -359,7 +359,10 @@ const isTSpin = (board: Board, piece: Piece, lastMoveWasRotate: boolean) => {
 export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove, workspaceMode = 'vscode', onLeave, onRestart }: Props) {
   const data = studyState?.gameData as TetrisGameData | null;
   /** 서바이벌 방(방 만들기에서 선택)에서만 시간이 되면 쓰레기 줄이 올라온다 */
-  const survival = data?.mode === 'survival';
+  // The former survival rules are disabled; sprint is a single-player 40-line time attack.
+  const survival = false;
+  const sprint = data?.mode === 'sprint';
+  const sprintTargetLines = data?.sprintTargetLines ?? 40;
   const initialQueue = useMemo(() => createPieceQueue(NEXT_QUEUE_SIZE + 1), []);
   const [board, setBoard] = useState<Board>(() => emptyBoard());
   const [piece, setPiece] = useState<Piece>(() => initialQueue[0]);
@@ -394,6 +397,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
   const renderedViewMode: TetrisViewMode = workspaceMode === 'excel' ? 'sheet' : viewMode;
   const [resultDismissed, setResultDismissed] = useState(false);
   const [localGameInstanceId, setLocalGameInstanceId] = useState('');
+  const [sprintElapsed, setSprintElapsed] = useState(0);
   const horizontalHoldRef = useRef<number | null>(null);
   const horizontalDelayRef = useRef<number | null>(null);
   const horizontalDirectionRef = useRef<-1 | 1 | null>(null);
@@ -429,6 +433,20 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
   const active = running && !gameOver && !globalPaused && countdown <= 0 && !resolvingClear;
 
   const speed = Math.max(140, 720 - (cycle - 1) * 48);
+
+  useEffect(() => {
+    if (!sprint || typeof data?.sprintElapsedMs !== 'number') return;
+    survivalOriginRef.current = Date.now() - data.sprintElapsedMs;
+    setSprintElapsed(data.sprintElapsedMs);
+  }, [data?.sprintElapsedMs, sprint]);
+
+  useEffect(() => {
+    if (!sprint || !active || survivalOriginRef.current === 0) return undefined;
+    const timer = window.setInterval(() => {
+      setSprintElapsed(Date.now() - survivalOriginRef.current);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [active, sprint]);
 
   // 서바이벌 표시값 — 100ms마다 survivalTick이 바뀌므로 그때마다 다시 읽힌다
   void survivalTick;
@@ -816,6 +834,11 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
       setLines((prev) => {
         const total = prev + result.cleared;
         setCycle(Math.floor(total / 8) + 1);
+        if (sprint && total >= sprintTargetLines) {
+          setRunning(false);
+          setGameOver(true);
+          setFlashBadge('SPRINT COMPLETE');
+        }
         return total;
       });
       setPiece(spawned);
@@ -836,7 +859,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
     }
 
     commitLock();
-  }, [backToBack, clearCombo, clearLockDelay, piece, resolvingClear, sessionId, takeNextPiece]);
+  }, [backToBack, clearCombo, clearLockDelay, piece, resolvingClear, sessionId, sprint, sprintTargetLines, takeNextPiece]);
 
   const scheduleLock = useCallback(() => {
     if (lockDelayRef.current !== null) return;
@@ -1224,6 +1247,31 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
         />
       )}
 
+      {sprint && (
+        <div className="tetris-survival-hud">
+          <span>SPRINT <b>{Math.min(lines, sprintTargetLines)} / {sprintTargetLines} lines</b></span>
+          <span>TIME <b>{formatSurvivalClock(sprintElapsed)}</b></span>
+        </div>
+      )}
+
+      {sprint && studyState?.status === 'FINISHED' && !resultDismissed && !data?.aborted && data?.sprintResult && (
+        <div className="tetris-survival-result">
+          <div className="tetris-survival-result__box">
+            <strong>40-LINE SPRINT COMPLETE</strong>
+            <dl>
+              <div><dt>기록</dt><dd>{formatSurvivalClock(data.sprintResult.elapsedMs)}</dd></div>
+              <div><dt>개인 최고</dt><dd>{formatSurvivalClock(data.sprintResult.bestTimeMs)}</dd></div>
+              <div><dt>전체 순위</dt><dd>#{data.sprintResult.rank}</dd></div>
+            </dl>
+            <small>{data.sprintResult.personalBest ? '새 개인 최고 기록입니다!' : '개인 최고 기록에 도전해 보세요.'}</small>
+            <div className="tetris-survival-result__actions">
+              {onRestart && <button type="button" className="btn-primary" onClick={onRestart}>다시 하기</button>}
+              <button type="button" className="btn-secondary" onClick={() => setResultDismissed(true)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 서바이벌 상태 표시 — 유입되는 장애 티켓에 대응하는 것처럼 보이게 ── */}
       {survival && (
         <div className={`tetris-survival-hud${survivalDanger ? ' is-danger' : ''}`}>
@@ -1307,7 +1355,7 @@ export default function Tetris({ studyState, sessionId, myPlayerIndex, sendMove,
         </div>
       )}
 
-      {!survival && !resultDismissed && (
+      {!survival && !sprint && !resultDismissed && (
         (studyState?.status === 'FINISHED' && (data?.aborted || finalRankingNames.length > 0))
         || Boolean(data?.previousAbortReason)
       ) && (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Room, StudyType, CreateRoomRequest, AppleBoxRecord, TetrisRankRow } from '../types';
+import { Room, StudyType, CreateRoomRequest, AppleBoxRecord, TetrisRankRow, TetrisSprintRankRow } from '../types';
 import { useAppleLeaderboard, useAppleRankOpen } from '../hooks/useAppleLeaderboard';
 import { useTetrisLeaderboard, useTetrisRankOpen, tierLabel } from '../hooks/useTetrisLeaderboard';
 import LunchVote from './LunchVote';
@@ -43,7 +43,7 @@ function Lobby({
     const [boardSize, setBoardSize] = useState(5);
     const [creating, setCreating] = useState(false);
     // 테트리스 방 만들 때 대전/서바이벌 중 무엇으로 열지
-    const [tetrisSurvival, setTetrisSurvival] = useState(false);
+    const [tetrisSprint, setTetrisSprint] = useState(false);
     const appleRanking = useAppleLeaderboard(10);
     const appleRank = useAppleRankOpen();
     const tetrisRanking = useTetrisLeaderboard(10);
@@ -54,7 +54,7 @@ function Lobby({
     const defaultRoomName = (type: StudyType) => `${type} room`;
     const selectStudyType = (type: StudyType) => {
         setStudyType(type);
-        if (type !== 'TETRIS') setTetrisSurvival(false);
+        if (type !== 'TETRIS') setTetrisSprint(false);
         if (type === 'OMOK') { setMaxPlayers(2); setBoardSize(19); }
         else if (type === 'ALKKAGI') { setMaxPlayers(1); setBoardSize(0); }
         else if (type === 'TETRIS') { setMaxPlayers(3); setBoardSize(20); }
@@ -80,7 +80,7 @@ function Lobby({
                 maxPlayers:
                     // 서바이벌은 1~3명 중 고른 값을 그대로, 대전은 항상 3명
                     studyType === 'TETRIS'
-                        ? (tetrisSurvival ? Math.max(1, Math.min(3, maxPlayers)) : 3)
+                        ? (tetrisSprint ? 1 : 3)
                     : studyType === 'INCIDENT_AVOID' || studyType === 'BREAKOUT'
                         ? 3
                         : studyType === 'OMOK'
@@ -97,7 +97,7 @@ function Lobby({
                           : studyType === 'OLDMAID'
                             ? 0
                             : boardSize,
-                mode: studyType === 'TETRIS' && tetrisSurvival ? 'SURVIVAL' : '',
+                mode: studyType === 'TETRIS' && tetrisSprint ? 'SPRINT' : '',
             };
             const res = await fetch('/api/rooms', {
                 method: 'POST',
@@ -168,6 +168,20 @@ function Lobby({
                 <span className="var">record</span><span className="pct">: </span>
                 <span className="str">{`"${row.wins}승 ${row.losses}패"`}</span>
                 <span className="pct">{' },'}</span>
+            </span>,
+            1,
+        );
+    };
+
+    const sprintRankRow = (row: TetrisSprintRankRow) => {
+        const mine = row.nickname === nickname;
+        const seconds = Math.floor(row.bestTimeMs / 1000);
+        const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${String(Math.floor((row.bestTimeMs % 1000) / 10)).padStart(2, '0')}`;
+        return L(
+            <span>
+                <span className="pct">{'{ '}</span><span className="var">rank</span><span className="pct">: </span><span className="num">{row.rank}</span><span className="pct">, </span>
+                <span className="var">nickname</span><span className="pct">: </span><span className="str" style={mine ? { color: '#4ec9b0', fontWeight: 700 } : undefined}>{`"${row.nickname}"`}</span><span className="pct">, </span>
+                <span className="var">best</span><span className="pct">: </span><span className="str">{`"${time}"`}</span><span className="pct"> {'}'},</span>
             </span>,
             1,
         );
@@ -258,7 +272,7 @@ function Lobby({
                                 room.studyType === 'BASEBALL'
                                     ? `${room.digits}digit`
                                     : room.studyType === 'TETRIS'
-                                      ? (room.mode === 'SURVIVAL' ? 'survival' : '20x10')
+                                      ? (room.mode === 'SPRINT' ? '40-line sprint' : '20x10')
                                       : room.studyType === 'INCIDENT_AVOID'
                                         ? '360x520'
                                         : room.studyType === 'BREAKOUT'
@@ -310,7 +324,7 @@ function Lobby({
                                             <span className="num">{room.playerCount}</span>
                                             <span className="pct">/</span>
                                             <span className="num">
-                                                {room.studyType === 'TETRIS' && room.mode !== 'SURVIVAL' ? 3 : room.maxPlayers}
+                                                {room.studyType === 'TETRIS' && room.mode !== 'SPRINT' ? 3 : room.maxPlayers}
                                             </span>
                                             <span className="pct">{' }'}</span>
                                         </span>
@@ -468,6 +482,9 @@ function Lobby({
                                 )}
                                 {tetrisRanking.records.map(tetrisRankRow)}
                                 {L(<><span className="pct">]</span></>)}
+                                {L(<><span className="kw">const </span><span className="var">sprint40</span><span className="pct">: </span><span className="typ">SprintRecord</span><span className="pct">[] = [</span></>)}
+                                {tetrisRanking.sprint.map(sprintRankRow)}
+                                {L(<><span className="pct">]</span></>)}
                             </>
                         )}
                     </div>
@@ -595,25 +612,25 @@ function Lobby({
                                     <span className="var">mode</span>
                                     <span className="pct"> = </span>
                                     <button
-                                        className={`btn-opt ${tetrisSurvival ? '' : 'on'}`}
-                                        onClick={() => setTetrisSurvival(false)}
+                                        className={`btn-opt ${tetrisSprint ? '' : 'on'}`}
+                                        onClick={() => setTetrisSprint(false)}
                                         style={{ fontSize: '11px', padding: '3px 8px' }}
                                     >
                                         <span className="str">"versus"</span>
                                     </button>
                                     <button
-                                        className={`btn-opt ${tetrisSurvival ? 'on' : ''}`}
-                                        onClick={() => { setTetrisSurvival(true); setMaxPlayers(1); }}
+                                        className={`btn-opt ${tetrisSprint ? 'on' : ''}`}
+                                        onClick={() => { setTetrisSprint(true); setMaxPlayers(1); }}
                                         style={{ fontSize: '11px', padding: '3px 8px' }}
                                     >
-                                        <span className="str">"survival"</span>
+                                        <span className="str">"40-line sprint"</span>
                                     </button>
                                 </span>,
                                 1,
                             )}
                         {studyType === 'TETRIS' &&
                             L(
-                                tetrisSurvival
+                                tetrisSprint
                                     ? (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span className="kw">const </span>

@@ -12,7 +12,7 @@ export interface Room {
   playerNames: string[];
   digits: number;
   boardSize: number;
-  /** 테트리스 서바이벌 방이면 "SURVIVAL" */
+  /** 테트리스 40줄 스프린트 방이면 "SPRINT" */
   mode?: string;
 }
 
@@ -27,7 +27,7 @@ export interface CreateRoomRequest {
   maxPlayers: number;
   digits: number;
   boardSize: number;
-  /** 테트리스에서 "SURVIVAL"을 보내면 혼자 버티는 판이 만들어진다 */
+  /** 테트리스에서 "SPRINT"를 보내면 혼자 하는 40줄 타임어택 판이 만들어진다 */
   mode?: string;
 }
 
@@ -201,21 +201,41 @@ export interface TetrisGameData {
   previousAbortReason?: string;
   finalRanking?: number[];
   records?: Record<string, TetrisPlayerRecord>;
-  /* ── 서바이벌 (mode === 'survival') ─────────────────────────────────────
-   * 여러 명이 같은 조건에서 겨루도록 시계와 구멍 순서를 서버가 정해 내려준다. */
+  sprintTargetLines?: number;
+  sprintElapsedMs?: number;
+  sprintResult?: TetrisSprintResult;
+  /** @deprecated Survival rooms are no longer created. Retained for old in-flight room payloads. */
   survivalElapsedMs?: number;
-  /** n번째로 올라오는 쓰레기 줄이 쓸 구멍 열 */
+  /** @deprecated */
   garbageHoles?: number[];
+  /** @deprecated */
   survivalResults?: Record<string, TetrisSurvivalResult>;
 }
 
-/** 서바이벌 한 사람의 결과 — 탈락 시점에 서버가 찍는다 */
+export interface TetrisSprintResult {
+  elapsedMs: number;
+  bestTimeMs: number;
+  lastTimeMs: number;
+  attempts: number;
+  rank: number;
+  personalBest: boolean;
+  lines: number;
+}
+
+export interface TetrisSprintRankRow {
+  nickname: string;
+  bestTimeMs: number;
+  lastTimeMs: number;
+  attempts: number;
+  rank: number;
+}
+
+/** @deprecated Legacy survival payload shape. */
 export interface TetrisSurvivalResult {
   survivedMs: number;
   survivedSeconds: number;
   score: number;
   lines: number;
-  /** 합산 점수 = 생존 초 × 100 + 지운 줄 × 20 + 게임 점수 ÷ 10 */
   total: number;
 }
 

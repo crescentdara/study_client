@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TetrisRankRow } from '../types';
+import { TetrisRankRow, TetrisSprintRankRow } from '../types';
 
 const OPEN_STORAGE_KEY = 'study.tetrisRankOpen';
 
@@ -11,7 +11,7 @@ const OPEN_STORAGE_KEY = 'study.tetrisRankOpen';
  */
 export function useTetrisLeaderboard(limit = 10) {
     const [records, setRecords] = useState<TetrisRankRow[]>([]);
-    const [survival, setSurvival] = useState<TetrisRankRow[]>([]);
+    const [sprint, setSprint] = useState<TetrisSprintRankRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
     const aliveRef = useRef(true);
@@ -25,16 +25,16 @@ export function useTetrisLeaderboard(limit = 10) {
         setLoading(true);
         try {
             // 대전과 서바이벌은 서로 다른 장부라 각각 조회한다
-            const [versus, endurance] = await Promise.all([
+            const [versus, sprintResponse] = await Promise.all([
                 fetch(`/api/tetris/leaderboard?limit=${limit}`),
-                fetch(`/api/tetris/survival/leaderboard?limit=${limit}`),
+                fetch(`/api/tetris/sprint/leaderboard?limit=${limit}`),
             ]);
-            if (!versus.ok || !endurance.ok) throw new Error('tetris leaderboard request failed');
+            if (!versus.ok || !sprintResponse.ok) throw new Error('tetris leaderboard request failed');
             const versusRows: TetrisRankRow[] = await versus.json();
-            const survivalRows: TetrisRankRow[] = await endurance.json();
+            const sprintRows: TetrisSprintRankRow[] = await sprintResponse.json();
             if (!aliveRef.current) return;
             setRecords(Array.isArray(versusRows) ? versusRows : []);
-            setSurvival(Array.isArray(survivalRows) ? survivalRows : []);
+            setSprint(Array.isArray(sprintRows) ? sprintRows : []);
             setFailed(false);
         } catch {
             // 전적은 부가 정보이므로 실패해도 로비 자체는 그대로 쓸 수 있어야 한다
@@ -46,7 +46,8 @@ export function useTetrisLeaderboard(limit = 10) {
 
     useEffect(() => { void reload(); }, [reload]);
 
-    return { records, survival, loading, failed, reload };
+    // Legacy spreadsheet lobby still accepts this field; survival rooms are no longer created.
+    return { records, sprint, survival: [] as TetrisRankRow[], loading, failed, reload };
 }
 
 /** 전적 패널 펼침 상태 — 두 로비가 공유하고 새로 고침해도 유지된다 */
