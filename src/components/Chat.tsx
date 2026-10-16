@@ -68,10 +68,16 @@ const renderAvatar = (emojiId: string, size = 16) => {
   );
 };
 
-// Render text with @mention highlighted
+// Render text with @mentions highlighted and pasted URLs as safe external links.
 function renderWithMentions(text: string, myNickname: string) {
-  const parts = text.split(/(@\S+)/g);
+  const parts = text.split(/(https?:\/\/[^\s<]+|www\.[^\s<]+|@\S+)/g);
   return parts.map((part, i) => {
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      const trailing = part.match(/[),.!?]+$/)?.[0] ?? "";
+      const url = trailing ? part.slice(0, -trailing.length) : part;
+      const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      return <span key={i}><a href={href} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} style={{ color: "#4fc1ff", textDecoration: "underline" }}>{url}</a>{trailing}</span>;
+    }
     if (part.startsWith("@")) {
       const name = part.slice(1);
       const isMe = name === myNickname;
@@ -101,6 +107,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [yarVideoOpen, setYarVideoOpen] = useState(false);
   const [nicknameMenu, setNicknameMenu] = useState<{ nickname: string; x: number; y: number } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const [warningError, setWarningError] = useState("");
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
@@ -465,7 +472,8 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               myNickname={myNickname}
               myEmoji={myEmoji}
               onPreview={setPreviewImage}
-              onReply={setReplyTarget}
+              onReply={setSelectedMessage}
+              selected={selectedMessage?.id === message.id}
               warningCards={warningCards[message.nickname] ?? []}
               onNicknameClick={(nickname, event) => {
                 event.stopPropagation();
@@ -709,6 +717,13 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               >
                 ×
               </button>
+            </div>
+          )}
+          {selectedMessage && !replyTarget && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderTop: "1px solid #3e3e42", background: "#252526" }}>
+              <span style={{ color: "#858585", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{selectedMessage.nickname}: {selectedMessage.type === "IMAGE" ? "사진" : selectedMessage.text}</span>
+              <button type="button" className="btn-secondary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => { setReplyTarget(selectedMessage); setSelectedMessage(null); window.setTimeout(() => inputRef.current?.focus(), 0); }}>답글 달기</button>
+              <button type="button" style={{ background: "transparent", border: 0, color: "#858585", cursor: "pointer" }} onClick={() => setSelectedMessage(null)} aria-label="선택 취소">×</button>
             </div>
           )}
 
@@ -960,6 +975,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myEmoji,
   onPreview,
   onReply,
+  selected,
   onNicknameClick,
   warningCards,
 }: {
@@ -970,6 +986,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myEmoji: string;
   onPreview: (image: { url: string; fileName?: string }) => void;
   onReply: (message: ChatMessage) => void;
+  selected: boolean;
   onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
   warningCards: ChatWarningColor[];
 }) {
@@ -1061,7 +1078,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
             background: mentionsMe
               ? "rgba(255,158,59,0.12)"
               : isMe ? "rgba(78,201,176,0.15)" : "rgba(156,220,254,0.1)",
-            border: `1px solid ${mentionsMe ? "rgba(255,158,59,0.5)" : isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
+            border: `1px solid ${selected ? "#569cd6" : mentionsMe ? "rgba(255,158,59,0.5)" : isMe ? "rgba(78,201,176,0.25)" : "rgba(156,220,254,0.15)"}`,
             padding: "5px 10px",
             borderRadius: isMe ? "12px 2px 12px 12px" : "2px 12px 12px 12px",
             wordBreak: "break-word",
