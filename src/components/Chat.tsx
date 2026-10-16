@@ -472,7 +472,8 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               myNickname={myNickname}
               myEmoji={myEmoji}
               onPreview={setPreviewImage}
-              onReply={setSelectedMessage}
+              onReply={(selected) => setSelectedMessage((current) => current?.id === selected.id ? null : selected)}
+              onStartReply={(selected) => { setReplyTarget(selected); setSelectedMessage(null); window.setTimeout(() => inputRef.current?.focus(), 0); }}
               selected={selectedMessage?.id === message.id}
               warningCards={warningCards[message.nickname] ?? []}
               onNicknameClick={(nickname, event) => {
@@ -717,13 +718,6 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               >
                 ×
               </button>
-            </div>
-          )}
-          {selectedMessage && !replyTarget && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderTop: "1px solid #3e3e42", background: "#252526" }}>
-              <span style={{ color: "#858585", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{selectedMessage.nickname}: {selectedMessage.type === "IMAGE" ? "사진" : selectedMessage.text}</span>
-              <button type="button" className="btn-secondary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => { setReplyTarget(selectedMessage); setSelectedMessage(null); window.setTimeout(() => inputRef.current?.focus(), 0); }}>답글 달기</button>
-              <button type="button" style={{ background: "transparent", border: 0, color: "#858585", cursor: "pointer" }} onClick={() => setSelectedMessage(null)} aria-label="선택 취소">×</button>
             </div>
           )}
 
@@ -975,6 +969,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myEmoji,
   onPreview,
   onReply,
+  onStartReply,
   selected,
   onNicknameClick,
   warningCards,
@@ -986,6 +981,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   myEmoji: string;
   onPreview: (image: { url: string; fileName?: string }) => void;
   onReply: (message: ChatMessage) => void;
+  onStartReply: (message: ChatMessage) => void;
   selected: boolean;
   onNicknameClick: (nickname: string, event: ReactMouseEvent<HTMLElement>) => void;
   warningCards: ChatWarningColor[];
@@ -1156,6 +1152,41 @@ const ChatMessageItem = memo(function ChatMessageItem({
             </span>
           )}
         </div>
+
+        {selected && message.id != null && (
+          <div
+            role="menu"
+            aria-label="메시지 옵션"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              alignSelf: "center",
+              display: "flex",
+              alignItems: "center",
+              padding: "3px",
+              border: "1px solid #3e3e42",
+              borderRadius: "6px",
+              background: "#252526",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.28)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => onStartReply(message)}
+              style={{
+                border: 0,
+                borderRadius: "4px",
+                background: "transparent",
+                color: "#9cdcfe",
+                padding: "4px 7px",
+                cursor: "pointer",
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              ↩ 답글 달기
+            </button>
+          </div>
+        )}
 
           <span className={`chat-message-time${isLastInGroup ? "" : " grouped"}`} style={{ color: "#4e4e4e", fontSize: "10px", whiteSpace: "nowrap" }}>{time}</span>
       </div>
