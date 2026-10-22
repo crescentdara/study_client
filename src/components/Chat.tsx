@@ -388,9 +388,11 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
     <div
       className="chat-root"
       onPaste={handlePaste}
-      onClickCapture={() => {
+      onClickCapture={(event) => {
         setNicknameMenu(null);
-        setSelectedMessage(null);
+        // 말풍선·답글 메뉴 안의 클릭은 각자 선택 상태를 처리하므로 바깥 클릭일 때만 해제한다
+        const target = event.target as HTMLElement;
+        if (!target.closest(".chat-message-bubble, [role='menu']")) setSelectedMessage(null);
       }}
       style={{
         width: "100%",
