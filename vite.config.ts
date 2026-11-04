@@ -20,16 +20,16 @@ export default defineConfig(({ mode, command }) => {
             proxy: {
                 '/api': {
                     target: backendUrl,
-                    changeOrigin: true,
+                    changeOrigin: false,
                 },
                 '/ws': {
                     target: backendUrl,
-                    changeOrigin: true,
+                    changeOrigin: false,
                     ws: true,
                 },
                 '/uploads': {
                     target: backendUrl,
-                    changeOrigin: true,
+                    changeOrigin: false,
                 },
             },
         },

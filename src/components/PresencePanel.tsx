@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+
+type Address = { ip: string; connections: number };
+
+export function usePresence() {
+    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [connected, setConnected] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        const refresh = () => {
+            fetch('/api/presence/ips').then(response => {
+                if (!response.ok) throw new Error('Presence unavailable');
+                return response.json() as Promise<Address[]>;
+            }).then(data => { if (active) setAddresses(data); }).catch(() => {});
+        };
+        const client = new Client({
+            webSocketFactory: () => new SockJS('/ws'),
+            reconnectDelay: 5000,
+            onConnect: () => {
+                setConnected(true);
+                client.subscribe('/topic/presence/ips', message => {
+                    try { setAddresses(JSON.parse(message.body) as Address[]); } catch { refresh(); }
+                });
+                client.publish({ destination: '/app/presence/register', body: '' });
+                refresh();
+            },
+            onWebSocketClose: () => setConnected(false),
+            onStompError: () => setConnected(false),
+        });
+        client.activate();
+        const timer = window.setInterval(refresh, 5000);
+        return () => { active = false; window.clearInterval(timer); void client.deactivate(); };
+    }, []);
+
+    return { addresses, connected };
+}
+
+export default function PresencePanel({ addresses, connected }: { addresses: Address[]; connected: boolean }) {
+    const [expanded, setExpanded] = useState(false);
+    return <>
+        <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', padding: '3px 10px',
+                fontSize: 11, color: '#bbb', cursor: 'pointer', textAlign: 'left', border: 0,
+                borderTop: '1px solid #3e3e42', background: 'transparent' }}>
+            <span style={{ fontSize: 9, color: '#666', transform: expanded ? 'rotate(90deg)' : 'none' }}>?</span>
+            <span>CONNECTED IPS</span>
+            <span style={{ marginLeft: 'auto', color: connected ? '#555' : '#ce9178', fontSize: 10 }}>
+                {connected ? addresses.length : '?? ?'}
+            </span>
+        </button>
+        {expanded && <div style={{ padding: '2px 0 8px' }}>
+            {addresses.length === 0 && <div style={{ padding: '3px 14px 3px 24px', fontSize: 11, color: '#858585' }}>// ?? IP ??</div>}
+            {addresses.map(address => <div key={address.ip} style={{ padding: '3px 14px 3px 24px', fontSize: 11, color: '#9cdcfe', overflowWrap: 'anywhere' }}>
+                {address.ip}{address.connections > 1 ? ` (${address.connections})` : ''}
+            </div>)}
+        </div>}
+    </>;
+}

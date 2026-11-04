@@ -1,6 +1,7 @@
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Room, StudyType, StudyStateResponse, ChatMessage, JoinRoomRequest, ChatAttachment, ChatWarningColor, ChatWarnings } from './types';
 import Lobby from './components/Lobby';
+import PresencePanel, { usePresence } from './components/PresencePanel';
 import StudyRoom from './components/StudyRoom';
 import Sudoku from './components/games/Sudoku';
 import AppleSolo from './components/games/AppleSolo';
@@ -384,6 +385,7 @@ function App() {
     const [userExpanded, setUserExpanded] = useState(true);
     const [roomsExpanded, setRoomsExpanded] = useState(true);
     const [activePanel, setActivePanel] = useState<'explorer' | 'profile'>('explorer');
+    const presence = usePresence();
     const [excelSidebarOpen, setExcelSidebarOpen] = useState(() =>
         localStorage.getItem('study.excelSidebarOpen') === 'true',
     );
@@ -1556,6 +1558,8 @@ function App() {
                                     </div>
                                 </div>
                             )}
+
+                            {workspaceMode === 'vscode' && <PresencePanel {...presence} />}
 
                             {/* ROOMS */}
                             <div

@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-const CORRECT_PASSWORD = '2026';
-const SESSION_KEY = 'sp_auth';
 const BOOT_LINES = [
     'SeaBIOS (version study-1.6.4)',
     'Booting internal study shell from /dev/sda1...',
@@ -38,7 +36,10 @@ interface Props {
 }
 
 export default function PasswordGate({ children }: Props) {
-    const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
+    const [unlocked, setUnlocked] = useState(false);
+    const [checking, setChecking] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [serverError, setServerError] = useState(false);
     const [entering, setEntering] = useState(false);
     const [readyToEnter, setReadyToEnter] = useState(false);
     const [input, setInput] = useState('');
@@ -46,8 +47,14 @@ export default function PasswordGate({ children }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (!unlocked && !entering) inputRef.current?.focus();
-    }, [unlocked, entering]);
+        fetch('/api/auth/session').then((response) => {
+            if (response.ok) setUnlocked(true);
+        }).catch(() => setServerError(true)).finally(() => setChecking(false));
+    }, []);
+
+    useEffect(() => {
+        if (!checking && !unlocked && !entering) inputRef.current?.focus();
+    }, [checking, unlocked, entering]);
 
     useEffect(() => {
         if (!entering) return undefined;
@@ -66,24 +73,40 @@ export default function PasswordGate({ children }: Props) {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [readyToEnter]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (readyToEnter) {
             setUnlocked(true);
             return;
         }
-        if (entering) return;
-        if (input === CORRECT_PASSWORD) {
-            sessionStorage.setItem(SESSION_KEY, '1');
-            setWrong(false);
-            setEntering(true);
-        } else {
-            setWrong(true);
-            setInput('');
+        if (entering || submitting || checking) return;
+        setSubmitting(true);
+        setServerError(false);
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: input }),
+            });
+            if (response.ok) {
+                setWrong(false);
+                setInput('');
+                setEntering(true);
+            } else if (response.status === 401) {
+                setWrong(true);
+                setInput('');
+            } else {
+                setServerError(true);
+            }
+        } catch {
+            setServerError(true);
+        } finally {
+            setSubmitting(false);
             window.setTimeout(() => inputRef.current?.focus(), 0);
         }
     };
 
+    if (checking) return null;
     if (unlocked) return <>{children}</>;
 
     return (
@@ -103,6 +126,7 @@ export default function PasswordGate({ children }: Props) {
                     {wrong && (
                         <div className="persist err">auth: permission denied</div>
                     )}
+                    {serverError && <div className="persist err">auth: server unavailable</div>}
                     <div className="pw-cmd-prompt persist">
                         <span>guest@study-vm:~$</span>
                         <span>sudo join-lobby --password </span>
