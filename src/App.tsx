@@ -171,6 +171,7 @@ function loadSmokingOpacity(): SmokingDeskOpacity {
 }
 
 interface LobbyChatPanelProps {
+    presenceReady: boolean;
     nickname: string;
     emoji: string;
     sessionId: string;
@@ -180,6 +181,7 @@ interface LobbyChatPanelProps {
 }
 
 const LobbyChatPanel = memo(function LobbyChatPanel({
+    presenceReady,
     nickname,
     emoji,
     sessionId,
@@ -217,7 +219,7 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
         setMessages(previous => previous.filter(message => message.id != null && message.id > clearedThroughRef.current));
         setClearGeneration(value => value + 1);
     }, []);
-    const { sendChat, changeWarnings, clearLobbyHistory } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, onWarnings: setWarnings, onClear: handleServerClear });
+    const { sendChat, changeWarnings, clearLobbyHistory } = useLobbyChat({ enabled: presenceReady, onMessage: handleMessage, onHistory: handleHistory, onWarnings: setWarnings, onClear: handleServerClear });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback(
         (text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
@@ -2268,6 +2270,7 @@ function App() {
                     )}
 
                     <LobbyChatPanel
+                        presenceReady={presence.ready}
                         nickname={nickname}
                         emoji={emoji}
                         sessionId={sessionId}

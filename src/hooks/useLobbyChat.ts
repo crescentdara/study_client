@@ -4,13 +4,14 @@ import SockJS from 'sockjs-client';
 import { ChatAttachment, ChatMessage, ChatWarningColor, ChatWarnings } from '../types';
 
 interface UsLobbyChatOptions {
+  enabled: boolean;
   onMessage: (msg: ChatMessage) => void;
   onHistory?: (messages: ChatMessage[], clearedThrough: number) => void;
   onWarnings?: (warnings: ChatWarnings) => void;
   onClear?: (clearedThrough: number) => void;
 }
 
-export function useLobbyChat({ onMessage, onHistory, onWarnings, onClear }: UsLobbyChatOptions) {
+export function useLobbyChat({ enabled, onMessage, onHistory, onWarnings, onClear }: UsLobbyChatOptions) {
   const clientRef    = useRef<Client | null>(null);
   const onMsgRef     = useRef(onMessage);
   const onHistoryRef = useRef(onHistory);
@@ -24,6 +25,7 @@ export function useLobbyChat({ onMessage, onHistory, onWarnings, onClear }: UsLo
   useEffect(() => { onClearRef.current = onClear; }, [onClear]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     fetch('/api/chat/lobby/warnings')
       .then((res) => (res.ok ? res.json() : {}))
       .then((warnings: ChatWarnings) => onWarningsRef.current?.(warnings))
@@ -55,8 +57,8 @@ export function useLobbyChat({ onMessage, onHistory, onWarnings, onClear }: UsLo
     });
     client.activate();
     clientRef.current = client;
-    return () => { client.deactivate(); };
-  }, []);
+    return () => { clientRef.current = null; void client.deactivate(); };
+  }, [enabled]);
 
   const changeWarnings = useCallback(async (
     moderatorNickname: string, targetNickname: string, color: ChatWarningColor, action: 'add' | 'remove' | 'clear',
