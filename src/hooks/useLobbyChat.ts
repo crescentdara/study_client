@@ -5,26 +5,25 @@ import { ChatAttachment, ChatMessage, ChatWarningColor, ChatWarnings } from '../
 
 interface UsLobbyChatOptions {
   onMessage: (msg: ChatMessage) => void;
-  onHistory?: (messages: ChatMessage[]) => void;
+  onHistory?: (messages: ChatMessage[], clearedThrough: number) => void;
   onWarnings?: (warnings: ChatWarnings) => void;
+  onClear?: (clearedThrough: number) => void;
 }
 
-export function useLobbyChat({ onMessage, onHistory, onWarnings }: UsLobbyChatOptions) {
+export function useLobbyChat({ onMessage, onHistory, onWarnings, onClear }: UsLobbyChatOptions) {
   const clientRef    = useRef<Client | null>(null);
   const onMsgRef     = useRef(onMessage);
   const onHistoryRef = useRef(onHistory);
   const onWarningsRef = useRef(onWarnings);
+  const onClearRef = useRef(onClear);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => { onMsgRef.current = onMessage; }, [onMessage]);
   useEffect(() => { onHistoryRef.current = onHistory; }, [onHistory]);
   useEffect(() => { onWarningsRef.current = onWarnings; }, [onWarnings]);
+  useEffect(() => { onClearRef.current = onClear; }, [onClear]);
 
   useEffect(() => {
-    fetch('/api/chat/lobby/history')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((messages: ChatMessage[]) => onHistoryRef.current?.(messages))
-      .catch(() => onHistoryRef.current?.([]));
     fetch('/api/chat/lobby/warnings')
       .then((res) => (res.ok ? res.json() : {}))
       .then((warnings: ChatWarnings) => onWarningsRef.current?.(warnings))
@@ -41,6 +40,16 @@ export function useLobbyChat({ onMessage, onHistory, onWarnings }: UsLobbyChatOp
         client.subscribe('/topic/lobby/chat-warnings', (m: IMessage) => {
           onWarningsRef.current?.(JSON.parse(m.body));
         });
+        client.subscribe('/topic/lobby/chat-cleared', (m: IMessage) => {
+          try {
+            const event = JSON.parse(m.body) as { clearedThrough: number };
+            if (Number.isSafeInteger(event.clearedThrough)) onClearRef.current?.(event.clearedThrough);
+          } catch { console.error('[WS] Invalid chat clear event'); }
+        });
+        fetch('/api/chat/lobby/history/state')
+          .then((res) => { if (!res.ok) throw new Error('Chat history unavailable'); return res.json(); })
+          .then((state: { messages: ChatMessage[]; clearedThrough: number }) => onHistoryRef.current?.(state.messages, state.clearedThrough))
+          .catch(() => {});
       },
       onDisconnect: () => setConnected(false),
     });
@@ -60,6 +69,14 @@ export function useLobbyChat({ onMessage, onHistory, onWarnings }: UsLobbyChatOp
     if (!response.ok) throw new Error(await response.text() || 'Failed to update warning cards.');
     const warnings = await response.json() as ChatWarnings;
     onWarningsRef.current?.(warnings);
+  }, []);
+
+  const clearLobbyHistory = useCallback(async () => {
+    const response = await fetch('/api/chat/lobby/history', { method: 'DELETE' });
+    if (!response.ok) throw new Error('채팅 초기화에 실패했습니다.');
+    const event = await response.json() as { clearedThrough: number };
+    if (!Number.isSafeInteger(event.clearedThrough)) throw new Error('채팅 초기화 응답을 확인할 수 없습니다.');
+    onClearRef.current?.(event.clearedThrough);
   }, []);
 
   const sendChat = useCallback((
@@ -82,5 +99,5 @@ export function useLobbyChat({ onMessage, onHistory, onWarnings }: UsLobbyChatOp
     });
   }, []);
 
-  return { connected, sendChat, changeWarnings };
+  return { connected, sendChat, changeWarnings, clearLobbyHistory };
 }

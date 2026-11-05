@@ -2130,6 +2130,13 @@ html[data-workspace-mode='excel'] #root {
     border-top: 1px solid #d5d5d5 !important;
     background: #fafafa;
 }
+.workspace--excel .chat-clear-all {
+    border-color: #a8c5ad !important;
+    color: #185c37 !important;
+}
+.workspace--excel .chat-clear-all:hover:not(:disabled) {
+    background: #e2eee6 !important;
+}
 .workspace--excel .chat-input {
     height: 27px !important;
     border: 1px solid #bcbcbc !important;

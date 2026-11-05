@@ -189,17 +189,35 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
 }: LobbyChatPanelProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [warnings, setWarnings] = useState<ChatWarnings>({});
-    const handleHistory = useCallback((history: ChatMessage[]) => {
-        setMessages(history.slice(-MAX_CHAT_MESSAGES));
+    const [clearGeneration, setClearGeneration] = useState(0);
+    const clearedThroughRef = useRef(0);
+    const handleHistory = useCallback((history: ChatMessage[], clearedThrough: number) => {
+        if (clearedThrough > clearedThroughRef.current) {
+            clearedThroughRef.current = clearedThrough;
+            setClearGeneration(value => value + 1);
+        }
+        setMessages(previous => {
+            const merged = new Map<number, ChatMessage>();
+            [...history, ...previous].forEach(message => {
+                if (message.id != null && message.id > clearedThroughRef.current) merged.set(message.id, message);
+            });
+            return [...merged.values()].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).slice(-MAX_CHAT_MESSAGES);
+        });
     }, []);
     const handleMessage = useCallback(
         (msg: ChatMessage) => {
+            if (msg.id != null && msg.id <= clearedThroughRef.current) return;
             setMessages((prev) => [...prev, msg].slice(-MAX_CHAT_MESSAGES));
             onIncomingMessage(msg);
         },
         [onIncomingMessage],
     );
-    const { sendChat, changeWarnings } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, onWarnings: setWarnings });
+    const handleServerClear = useCallback((clearedThrough: number) => {
+        clearedThroughRef.current = Math.max(clearedThroughRef.current, clearedThrough);
+        setMessages(previous => previous.filter(message => message.id != null && message.id > clearedThroughRef.current));
+        setClearGeneration(value => value + 1);
+    }, []);
+    const { sendChat, changeWarnings, clearLobbyHistory } = useLobbyChat({ onMessage: handleMessage, onHistory: handleHistory, onWarnings: setWarnings, onClear: handleServerClear });
     const noopSend = useCallback(() => {}, []);
     const handleSend = useCallback(
         (text: string, _sid: string, attachment?: ChatAttachment, replyToId?: number) => {
@@ -217,6 +235,8 @@ const LobbyChatPanel = memo(function LobbyChatPanel({
             sessionId={sessionId}
             onSend={nickname.trim() ? handleSend : noopSend}
             onClearMessages={handleClear}
+            onClearLobbyHistory={clearLobbyHistory}
+            clearGeneration={clearGeneration}
             playerNames={playerNames}
             scrollResetKey={workspaceMode}
             warningCards={warnings}

@@ -18,6 +18,8 @@ interface ChatProps {
   sessionId: string;
   onSend: (text: string, sessionId: string, attachment?: ChatAttachment, replyToId?: number) => void;
   onClearMessages?: () => void;
+  onClearLobbyHistory?: () => Promise<void>;
+  clearGeneration?: number;
   playerNames?: string[];
   scrollResetKey?: string;
   warningCards?: ChatWarnings;
@@ -94,7 +96,7 @@ function renderWithMentions(text: string, myNickname: string) {
   });
 }
 
-function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, playerNames = [], scrollResetKey, warningCards = {}, onWarningChange }: ChatProps) {
+function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessages, onClearLobbyHistory, clearGeneration, playerNames = [], scrollResetKey, warningCards = {}, onWarningChange }: ChatProps) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(true);
   const [chatChannel, setChatChannel] = useState<1 | 2>(1);
@@ -109,6 +111,7 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const [warningError, setWarningError] = useState("");
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [chatOpacity, setChatOpacity] = useState<number>(() => {
     const raw = parseFloat(localStorage.getItem("study.chatOpacity") ?? "100");
     const value = raw <= 1 ? Math.round(raw * 100) : raw;
@@ -119,6 +122,22 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
   const [mentionAt, setMentionAt] = useState(0); // index of '@' in input
   const inputRef = useRef<HTMLInputElement>(null);
   const systemMessageTimersRef = useRef<ReturnType<typeof window.setTimeout>[]>([]);
+
+  useEffect(() => {
+    if (!clearGeneration) return;
+    setLocalMessages([]);
+    setReplyTarget(null);
+    setSelectedMessage(null);
+    setUnreadCount(0);
+  }, [clearGeneration]);
+
+  const clearAllChat = async () => {
+    if (!onClearLobbyHistory || clearingHistory || !window.confirm('로비 채팅 기록을 모든 사용자에게서 초기화할까요?')) return;
+    setClearingHistory(true);
+    try { await onClearLobbyHistory(); }
+    catch { window.alert('채팅 기록을 초기화하지 못했습니다. 잠시 후 다시 시도해 주세요.'); }
+    finally { setClearingHistory(false); }
+  };
 
   useEffect(() => {
     if (!yarVideoOpen) return undefined;
@@ -778,6 +797,13 @@ function Chat({ messages, myNickname, myEmoji, sessionId, onSend, onClearMessage
               borderTop: "1px solid #3e3e42",
             }}
           >
+            {onClearLobbyHistory && (
+              <button type="button" className="chat-clear-all" title="로비 채팅 전체 초기화" aria-label="로비 채팅 전체 초기화"
+                disabled={clearingHistory} onClick={() => void clearAllChat()}
+                style={{ flexShrink: 0, border: '1px solid #777', borderRadius: 3, background: 'transparent', color: 'inherit', cursor: clearingHistory ? 'wait' : 'pointer', padding: '2px 5px', fontSize: 10 }}>
+                초기화
+              </button>
+            )}
             <button
               className={`chat-opacity-toggle${showOpacity ? " active" : ""}`}
               onClick={() => setShowOpacity((value) => !value)}
