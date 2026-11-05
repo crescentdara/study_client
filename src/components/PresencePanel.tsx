@@ -3,21 +3,35 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 type Address = { ip: string; nickname: string; connections: number };
+type Arrival = { id: string; nickname: string };
+
+const makeId = () => typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 export function usePresence(nickname: string) {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [connected, setConnected] = useState(false);
+    const [arrivals, setArrivals] = useState<Arrival[]>([]);
     const clientRef = useRef<Client | null>(null);
     const nicknameRef = useRef(nickname);
+    const identityRef = useRef({ browserId: '', notificationId: '' });
     nicknameRef.current = nickname;
 
     useEffect(() => {
         const client = clientRef.current;
-        if (client?.connected) client.publish({ destination: '/app/presence/register', body: JSON.stringify({ nickname }) });
+        if (client?.connected) client.publish({ destination: '/app/presence/register', body: JSON.stringify({ nickname, ...identityRef.current }) });
     }, [nickname]);
 
     useEffect(() => {
         let active = true;
+        let browserId = localStorage.getItem('study.presence.browserId');
+        if (!browserId) {
+            browserId = makeId();
+            localStorage.setItem('study.presence.browserId', browserId);
+        }
+        identityRef.current = { browserId, notificationId: makeId() };
+        const register = () => client.publish({ destination: '/app/presence/register', body: JSON.stringify({ nickname: nicknameRef.current, ...identityRef.current }) });
         const refresh = () => {
             fetch('/api/presence/ips').then(response => {
                 if (!response.ok) throw new Error('Presence unavailable');
@@ -32,7 +46,13 @@ export function usePresence(nickname: string) {
                 client.subscribe('/topic/presence/ips', message => {
                     try { setAddresses(JSON.parse(message.body) as Address[]); } catch { refresh(); }
                 });
-                client.publish({ destination: '/app/presence/register', body: JSON.stringify({ nickname: nicknameRef.current }) });
+                client.subscribe(`/topic/presence/arrivals/${identityRef.current.notificationId}`, message => {
+                    try {
+                        const arrival = JSON.parse(message.body) as { nickname: string };
+                        if (active && typeof arrival.nickname === 'string') setArrivals(items => [...items, { id: makeId(), nickname: arrival.nickname }].slice(-5));
+                    } catch { /* Ignore malformed notifications. */ }
+                });
+                register();
                 refresh();
             },
             onWebSocketClose: () => setConnected(false),
@@ -42,12 +62,12 @@ export function usePresence(nickname: string) {
         client.activate();
         const timer = window.setInterval(refresh, 5000);
         const heartbeat = window.setInterval(() => {
-            if (client.connected) client.publish({ destination: '/app/presence/register', body: JSON.stringify({ nickname: nicknameRef.current }) });
+            if (client.connected) register();
         }, 30000);
         return () => { active = false; clientRef.current = null; window.clearInterval(timer); window.clearInterval(heartbeat); void client.deactivate(); };
     }, []);
 
-    return { addresses, connected };
+    return { addresses, connected, arrivals, dismissArrival: (id: string) => setArrivals(items => items.filter(item => item.id !== id)) };
 }
 
 export default function PresencePanel({ addresses, connected }: { addresses: Address[]; connected: boolean }) {

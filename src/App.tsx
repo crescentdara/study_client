@@ -752,6 +752,14 @@ function App() {
                 </div>
             )}
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            <div aria-live="polite" style={{ position: 'fixed', top: 42, left: '50%', transform: 'translateX(-50%)', zIndex: 99998, display: 'flex', flexDirection: 'column', gap: 8, width: 'min(360px, calc(100vw - 32px))', pointerEvents: 'none' }}>
+                {presence.arrivals.map(arrival => (
+                    <div key={arrival.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 6, pointerEvents: 'auto', boxShadow: '0 4px 18px rgba(0,0,0,.25)', background: workspaceMode === 'excel' ? '#f3faf3' : '#252526', color: workspaceMode === 'excel' ? '#18372a' : '#d4d4d4', border: `1px solid ${workspaceMode === 'excel' ? '#a8c5ad' : '#4ec9b0'}` }}>
+                        <span style={{ flex: 1, fontSize: 13, overflowWrap: 'anywhere' }}><strong>{arrival.nickname}</strong>님이 로비에 입장했습니다.</span>
+                        <button type="button" aria-label="입장 알림 닫기" onClick={() => presence.dismissArrival(arrival.id)} style={{ border: 0, background: 'transparent', color: 'inherit', fontSize: 20, lineHeight: 1, cursor: 'pointer' }}>×</button>
+                    </div>
+                ))}
+            </div>
             {announcementPopup && (
                 <div
                     role="status"

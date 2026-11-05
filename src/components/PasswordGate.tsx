@@ -130,12 +130,12 @@ export default function PasswordGate({ children }: Props) {
                     <div className="pw-cmd-prompt persist">
                         <span>guest@study-vm:~$</span>
                         <span>sudo join-lobby --password </span>
-                        <span className="pw-mask">{input ? '*'.repeat(input.length) : ''}</span>
+                        <span className="pw-mask">{input}</span>
                         {!entering && <span className="pw-cursor" />}
                         {!entering && (
                             <input
                                 ref={inputRef}
-                                type="password"
+                                type="text"
                                 value={input}
                                 onChange={(e) => { setInput(e.target.value); setWrong(false); }}
                                 autoComplete="off"
