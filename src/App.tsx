@@ -385,7 +385,7 @@ function App() {
     const [userExpanded, setUserExpanded] = useState(true);
     const [roomsExpanded, setRoomsExpanded] = useState(true);
     const [activePanel, setActivePanel] = useState<'explorer' | 'profile'>('explorer');
-    const presence = usePresence();
+    const presence = usePresence(nickname);
     const [excelSidebarOpen, setExcelSidebarOpen] = useState(() =>
         localStorage.getItem('study.excelSidebarOpen') === 'true',
     );
