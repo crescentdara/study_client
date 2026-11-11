@@ -21,7 +21,6 @@ import ExcelChrome from './components/workspace/ExcelChrome';
 import { WorkspaceMode } from './components/workspace/WorkspaceModeSwitch';
 import ExcelLobby from './components/workspace/ExcelLobby';
 import WeatherSearch from './components/weather/WeatherSearch';
-import imgImage from './assets/images/image.png';
 import imgSideIcon1 from './assets/images/side_icon1.png';
 import imgSideIcon2 from './assets/images/side_icon2.png';
 import imgSideIcon3 from './assets/images/side_icon3.png';
@@ -687,7 +686,7 @@ function App() {
                 : 'lobby.ts';
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
-    const [showByebye, setShowByebye] = useState(false);
+    const [showDalbitMenu, setShowDalbitMenu] = useState(false);
     const chatPlayerNames = useMemo(
         () =>
             (currentRoom ? (currentRoom.playerNames ?? []) : rooms.flatMap((r) => r.playerNames ?? [])).filter(
@@ -910,48 +909,40 @@ function App() {
                             </li>
                         ))}
                     </ul>
-                    {/* 퇴사축하 팝업 */}
                     <div style={{ position: 'relative' }}>
-                        <span
-                            style={{ color: '#888', fontSize: '12px', cursor: 'pointer' }}
-                            onClick={() => setShowByebye((v) => !v)}
+                        <button
+                            type="button"
+                            aria-expanded={showDalbitMenu}
+                            style={{ color: '#888', fontSize: '12px', cursor: 'pointer', border: 0, padding: 0, background: 'transparent' }}
+                            onClick={() => setShowDalbitMenu((v) => !v)}
                         >
                             dalbit
-                        </span>
-                        {showByebye && (
+                        </button>
+                        {showDalbitMenu && (
                             <div
                                 style={{
                                     background: '#3f3f3f',
-                                    color: '#888',
                                     fontSize: '12px',
-                                    padding: '3px 8px',
-                                    width: '500px',
-                                    borderRadius: '6px',
+                                    padding: '4px',
+                                    minWidth: '120px',
+                                    borderRadius: '4px',
                                     position: 'absolute',
-                                    left: '50%',
-                                    top: '32px',
-                                    transform: 'translateX(-50%)',
+                                    left: 0,
+                                    top: '24px',
                                     zIndex: 1000,
                                 }}
                             >
-                                <button
-                                    className="btn-primary"
-                                    style={{
-                                        fontSize: '9px',
-                                        padding: '1px 5px',
-                                        position: 'absolute',
-                                        right: '8px',
-                                        top: '3px',
-                                    }}
-                                    onClick={() => setShowByebye(false)}
+                                <a
+                                    href="http://192.168.0.109:3301/leave"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ display: 'block', padding: '6px 8px', color: '#d4d4d4', textDecoration: 'none' }}
                                 >
-                                    Close
-                                </button>
-                                <img src={imgImage} style={{ width: '100%' }} />
+                                    휴가 관리
+                                </a>
                             </div>
                         )}
                     </div>
-                    {/* 퇴사축하 팝업 */}
 
                     <span
                         style={{ cursor: 'pointer', opacity: noiseOn ? 1 : 0.4, userSelect: 'none' }}
