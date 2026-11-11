@@ -686,7 +686,6 @@ function App() {
                 : 'lobby.ts';
     const currentAvatar = PLAYER_AVATARS.find((a) => a.id === (profileEditing ? draftEmoji : emoji));
 
-    const [showDalbitMenu, setShowDalbitMenu] = useState(false);
     const chatPlayerNames = useMemo(
         () =>
             (currentRoom ? (currentRoom.playerNames ?? []) : rooms.flatMap((r) => r.playerNames ?? [])).filter(
@@ -909,40 +908,14 @@ function App() {
                             </li>
                         ))}
                     </ul>
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            type="button"
-                            aria-expanded={showDalbitMenu}
-                            style={{ color: '#888', fontSize: '12px', cursor: 'pointer', border: 0, padding: 0, background: 'transparent' }}
-                            onClick={() => setShowDalbitMenu((v) => !v)}
-                        >
-                            dalbit
-                        </button>
-                        {showDalbitMenu && (
-                            <div
-                                style={{
-                                    background: '#3f3f3f',
-                                    fontSize: '12px',
-                                    padding: '4px',
-                                    minWidth: '120px',
-                                    borderRadius: '4px',
-                                    position: 'absolute',
-                                    left: 0,
-                                    top: '24px',
-                                    zIndex: 1000,
-                                }}
-                            >
-                                <a
-                                    href="http://192.168.0.109:3301/leave"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ display: 'block', padding: '6px 8px', color: '#d4d4d4', textDecoration: 'none' }}
-                                >
-                                    휴가 관리
-                                </a>
-                            </div>
-                        )}
-                    </div>
+                    <a
+                        href="http://192.168.0.109:3301/leave"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#888', fontSize: '12px', textDecoration: 'none' }}
+                    >
+                        Leave
+                    </a>
 
                     <span
                         style={{ cursor: 'pointer', opacity: noiseOn ? 1 : 0.4, userSelect: 'none' }}
