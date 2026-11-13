@@ -916,6 +916,14 @@ function App() {
                     >
                         Leave
                     </a>
+                    <a
+                        href="https://map.naver.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#888', fontSize: '12px', textDecoration: 'none' }}
+                    >
+                        Map
+                    </a>
 
                     <span
                         style={{ cursor: 'pointer', opacity: noiseOn ? 1 : 0.4, userSelect: 'none' }}
